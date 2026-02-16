@@ -712,6 +712,12 @@ class SalesmanBilling extends Component
 
         $this->search = '';
         $this->searchResults = [];
+
+        // Dispatch event so Alpine.js can focus the qty input of the newly added item
+        $firstCartKey = $this->cart[0]['cart_key'] ?? null;
+        if ($firstCartKey) {
+            $this->dispatch('product-added-to-cart', cartKey: $firstCartKey);
+        }
     }
 
     public function updateQuantity($cartKey, $quantity)

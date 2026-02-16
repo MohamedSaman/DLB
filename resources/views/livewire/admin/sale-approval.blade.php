@@ -1,11 +1,11 @@
-<div class="container-fluid py-3">
+<div class=\"container-fluid py-3\" wire:poll.10s>
     {{-- Header --}}
-    <div class="d-flex justify-content-between align-items-center mb-4">
+    <div class=\"d-flex justify-content-between align-items-center mb-4\">
         <div>
-            <h3 class="fw-bold text-dark mb-2">
-                <i class="bi bi-clipboard-check text-primary me-2"></i> Staff Sales
+            <h3 class=\"fw-bold text-dark mb-2\">
+                <i class=\"bi bi-clipboard-check text-primary me-2\"></i> Staff Sales
             </h3>
-            <p class="text-muted mb-0">View all staff sales with filters and summary</p>
+            <p class=\"text-muted mb-0\">View all staff sales with filters and summary <small class=\"text-success\"><i class=\"bi bi-arrow-repeat me-1\"></i>Auto-refreshing</small></p>
         </div>
     </div>
 

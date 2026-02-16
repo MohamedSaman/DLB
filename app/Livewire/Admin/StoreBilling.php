@@ -2351,7 +2351,8 @@ class StoreBilling extends Component
                 $grandTotal = floatval($this->grandTotal);
 
                 // Handle Credit Sales (due amount gets added to customer's due_amount)
-                if ($dueAmount > 0) {
+                // SKIP for edits — due amount was already adjusted in the edit block above
+                if ($dueAmount > 0 && !$this->editingSaleId) {
                     // Add due amount to customer's due_amount column
                     $customer->due_amount = ($customer->due_amount ?? 0) + $dueAmount;
 

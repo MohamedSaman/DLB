@@ -1,4 +1,8 @@
-<div class="container-fluid py-3">
+<div class="container-fluid py-3"
+     x-data="billingKeyboard()"
+     x-init="initBilling()"
+     @product-added-to-cart.window="handleProductAdded($event.detail.cartKey)"
+     @keydown.window="handleGlobalKey($event)">
     {{-- Edit Mode Alert --}}
     @if($editMode && $editingSaleId)
     <div class="alert alert-warning alert-dismissible fade show mb-4">
@@ -92,17 +96,30 @@
                 <div class="card-body position-relative">
                     <div class="mb-3">
                         <input type="text" class="form-control shadow-sm"
+                            id="productSearchInput"
                             wire:model.live.debounce.300ms="search"
                             placeholder="Search products by name or code..."
-                            autocomplete="off">
+                            autocomplete="off"
+                            x-ref="searchInput"
+                            @keydown.arrow-down.prevent="moveDown()"
+                            @keydown.arrow-up.prevent="moveUp()"
+                            @keydown.enter.prevent="selectCurrent()"
+                            @keydown.escape.prevent="closeDropdown()">
                     </div>
 
                     {{-- Search Results --}}
                     @if($search && count($searchResults) > 0)
-                    <div class="search-results mt-1 position-absolute w-100 shadow-lg" style="max-height: 300px; overflow-y: auto; max-width: 96%; z-index: 1055; left: 0.5rem; right: 0.5rem;">
-                        @foreach($searchResults as $product)
-                        <div class="p-3 border-bottom d-flex justify-content-between align-items-center bg-white"
-                            style="cursor: pointer;" wire:click="addToCart({{ json_encode($product) }})">
+                    <div class="search-results mt-1 position-absolute w-100 shadow-lg"
+                         x-ref="searchResultsContainer"
+                         style="max-height: 300px; overflow-y: auto; max-width: 96%; z-index: 1055; left: 0.5rem; right: 0.5rem;">
+                        @foreach($searchResults as $idx => $product)
+                        <div class="search-result-item p-3 border-bottom d-flex justify-content-between align-items-center"
+                            :class="selectedIndex === {{ $idx }} ? 'search-item-active' : 'bg-white'"
+                            style="cursor: pointer;"
+                            data-search-index="{{ $idx }}"
+                            @mouseenter="selectedIndex = {{ $idx }}"
+                            @click="isAddingToCart = true"
+                            wire:click="addToCart({{ json_encode($product) }})">
                             <div class="flex-grow-1">
                                 <div class="fw-medium text-dark">{{ $product['display_name'] ?? $product['name'] }}</div>
                                 <small class="text-muted d-block">{{ $product['code'] }}</small>
@@ -150,8 +167,8 @@
                             <thead class="table-light">
                                 <tr>
                                     <th class="ps-4">Product</th>
-                                    <th style="width: 130px;">Price</th>
                                     <th style="width: 160px;">Quantity</th>
+                                    <th style="width: 130px;">Price</th>
                                     <th style="width: 120px;">Discount</th>
                                     <th class="text-end">Total</th>
                                     <th class="text-center" style="width: 80px;">Action</th>
@@ -173,26 +190,33 @@
                                         @endif
                                     </td>
                                     <td>
-                                        <input type="number" class="form-control form-control-sm text-primary fw-bold" 
-                                            value="{{ $item['price'] }}"
-                                            wire:change="updatePrice('{{ $item['cart_key'] }}', $event.target.value)"
-                                            wire:key="price-{{ $item['cart_key'] }}"
-                                            min="0" step="0.01"
-                                            placeholder="0.00">
-                                    </td>
-                                    <td>
                                         <div class="input-group input-group-sm">
                                             <button class="btn btn-outline-secondary" type="button"
                                                 wire:click="updateQuantity('{{ $item['cart_key'] }}', {{ $item['quantity'] - 1 }})">-</button>
-                                            <input type="number" class="form-control text-center" 
+                                            <input type="number" class="form-control text-center cart-qty-input" 
                                                 value="{{ $item['quantity'] }}"
                                                 wire:change="updateQuantity('{{ $item['cart_key'] }}', $event.target.value)"
                                                 wire:key="qty-{{ $item['cart_key'] }}"
-                                                min="1" max="{{ $item['available'] }}">
+                                                min="1" max="{{ $item['available'] }}"
+                                                data-cart-key="{{ $item['cart_key'] }}"
+                                                data-field="qty"
+                                                @keydown.enter.prevent="handleQtyEnter($event, '{{ $item['cart_key'] }}')">
                                             <button class="btn btn-outline-secondary" type="button"
                                                 wire:click="updateQuantity('{{ $item['cart_key'] }}', {{ $item['quantity'] + 1 }})">+</button>
                                         </div>
                                     </td>
+                                    <td>
+                                        <input type="number" class="form-control form-control-sm text-primary fw-bold cart-price-input" 
+                                            value="{{ $item['price'] }}"
+                                            wire:change="updatePrice('{{ $item['cart_key'] }}', $event.target.value)"
+                                            wire:key="price-{{ $item['cart_key'] }}"
+                                            min="0" step="0.01"
+                                            placeholder="0.00"
+                                            data-cart-key="{{ $item['cart_key'] }}"
+                                            data-field="price"
+                                            @keydown.enter.prevent="handlePriceEnter($event)">
+                                    </td>
+                                    
                                     <td>
                                         <input type="number" class="form-control form-control-sm text-danger" 
                                             value="{{ $item['discount'] }}"
@@ -503,6 +527,20 @@
         background-color: #f8f9fa;
     }
 
+    .search-item-active {
+        background-color: #e8f0fe !important;
+        border-left: 3px solid #0d6efd !important;
+    }
+
+    .search-result-item {
+        transition: background-color 0.15s ease;
+    }
+
+    .search-results .bg-primary.bg-opacity-10 {
+        background-color: rgba(13, 110, 253, 0.1) !important;
+        border-left: 3px solid #0d6efd !important;
+    }
+
     .table th {
         font-size: 0.875rem;
         font-weight: 600;
@@ -569,24 +607,214 @@
 
 @push('scripts')
 <script>
-    // Auto-close alerts after 5 seconds
-    document.addEventListener('livewire:initialized', () => {
-        const alerts = document.querySelectorAll('.alert');
-        alerts.forEach(alert => {
-            setTimeout(() => {
-                const bsAlert = new bootstrap.Alert(alert);
-                bsAlert.close();
-            }, 5000);
-        });
-    });
+    function billingKeyboard() {
+        return {
+            selectedIndex: -1,
+            pendingFocusCartKey: null,
+            isAddingToCart: false, // Flag to prevent search auto-focus during cart add
 
-    // Prevent form submission on enter key in search
-    document.addEventListener('keydown', function(e) {
-        if (e.target.type === 'text' && e.target.getAttribute('wire:model') && e.target.getAttribute('wire:model').includes('search')) {
-            if (e.key === 'Enter') {
-                e.preventDefault();
+            initBilling() {
+                const self = this;
+
+                // Auto-focus search input on page load
+                setTimeout(() => {
+                    const searchEl = document.getElementById('productSearchInput');
+                    if (searchEl) {
+                        searchEl.focus();
+                        console.log('Page loaded - search input focused');
+                    }
+                }, 300);
+
+                // Listen for Livewire finish event to handle pending focus
+                Livewire.hook('morph.updated', ({ el, component }) => {
+                    // Reset selectedIndex when search results disappear
+                    const items = document.querySelectorAll('.search-result-item');
+                    if (items.length === 0) {
+                        self.selectedIndex = -1;
+                    }
+                    
+                    // If we have a pending focus cart key, try to focus it after morph
+                    if (self.pendingFocusCartKey) {
+                        console.log('🎯 Morph complete, attempting to focus qty input for:', self.pendingFocusCartKey);
+                        
+                        // Give DOM a moment to fully settle
+                        setTimeout(() => {
+                            const success = self.focusCartQty(self.pendingFocusCartKey);
+                            if (success) {
+                                console.log('✅ Successfully focused qty input');
+                                self.pendingFocusCartKey = null;
+                                self.isAddingToCart = false;
+                            } else {
+                                console.warn('❌ Failed to focus qty input, retrying...');
+                                // Retry once more with longer delay
+                                setTimeout(() => {
+                                    const retrySuccess = self.focusCartQty(self.pendingFocusCartKey);
+                                    if (retrySuccess) {
+                                        console.log('✅ Retry successful - qty input focused');
+                                        self.pendingFocusCartKey = null;
+                                    }
+                                    self.isAddingToCart = false;
+                                }, 200);
+                            }
+                        }, 100);
+                    }
+                });
+
+                // Auto-close alerts after 5 seconds
+                this.autoCloseAlerts();
+                Livewire.hook('morph.updated', () => {
+                    self.autoCloseAlerts();
+                });
+            },
+
+            autoCloseAlerts() {
+                document.querySelectorAll('.alert-dismissible').forEach(alert => {
+                    if (alert.dataset.autoclose) return;
+                    alert.dataset.autoclose = '1';
+                    setTimeout(() => {
+                        try { new bootstrap.Alert(alert).close(); } catch(e) {}
+                    }, 5000);
+                });
+            },
+
+            // --- Search dropdown navigation ---
+            getSearchItems() {
+                return document.querySelectorAll('.search-result-item');
+            },
+
+            moveDown() {
+                const items = this.getSearchItems();
+                if (items.length === 0) return;
+                this.selectedIndex = (this.selectedIndex + 1) % items.length;
+                this.scrollToSelected();
+            },
+
+            moveUp() {
+                const items = this.getSearchItems();
+                if (items.length === 0) return;
+                this.selectedIndex = this.selectedIndex <= 0 ? items.length - 1 : this.selectedIndex - 1;
+                this.scrollToSelected();
+            },
+
+            scrollToSelected() {
+                this.$nextTick(() => {
+                    const item = document.querySelector(`.search-result-item[data-search-index="${this.selectedIndex}"]`);
+                    if (item && this.$refs.searchResultsContainer) {
+                        item.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+                    }
+                });
+            },
+
+            closeDropdown() {
+                this.selectedIndex = -1;
+                // Clear search to hide dropdown
+                if (this.$refs.searchInput) {
+                    this.$refs.searchInput.value = '';
+                    this.$refs.searchInput.dispatchEvent(new Event('input'));
+                }
+            },
+
+            selectCurrent() {
+                const items = this.getSearchItems();
+                if (this.selectedIndex < 0 || items.length === 0) return;
+                const item = items[this.selectedIndex];
+                if (item) {
+                    console.log('📦 Selecting item at index:', this.selectedIndex);
+                    this.selectedIndex = -1;
+                    this.isAddingToCart = true; // Set flag before clicking
+                    // Click the item to trigger wire:click (addToCart)
+                    item.click();
+                    // Focus will be handled by handleProductAdded via Livewire event
+                }
+            },
+
+            // --- Called via @product-added-to-cart.window from Livewire ---
+            handleProductAdded(cartKey) {
+                console.log('🔔 Product added event received, cart key:', cartKey);
+                this.pendingFocusCartKey = cartKey;
+                this.isAddingToCart = true;
+                // The morph.updated hook will handle the focus when DOM is ready
+            },
+
+            // --- Focus helpers ---
+            focusCartQty(cartKey) {
+                console.log('🔍 Looking for qty input with cart key:', cartKey);
+                const qtyInput = document.querySelector(`input.cart-qty-input[data-cart-key="${cartKey}"]`);
+                if (qtyInput) {
+                    console.log('✅ Found qty input - focusing and selecting');
+                    qtyInput.focus();
+                    qtyInput.select();
+                    return true;
+                } else {
+                    console.warn('⚠️ Qty input not found for cart key:', cartKey, '- trying first input');
+                    // Fallback: focus first qty input
+                    const first = document.querySelector('input.cart-qty-input');
+                    if (first) { 
+                        console.log('✅ Focused first qty input as fallback');
+                        first.focus(); 
+                        first.select();
+                        return true;
+                    }
+                    console.error('❌ No qty inputs found at all');
+                    return false;
+                }
+            },
+
+            // Qty Enter → commit change, then focus price of same row
+            handleQtyEnter(event, cartKey) {
+                console.log('⏎ Qty Enter pressed for cart key:', cartKey);
+                const el = event.target;
+                el.dispatchEvent(new Event('change', { bubbles: true }));
+                setTimeout(() => {
+                    const priceInput = document.querySelector(`input.cart-price-input[data-cart-key="${cartKey}"]`);
+                    if (priceInput) {
+                        priceInput.focus();
+                        priceInput.select();
+                        console.log('💰 Price input focused');
+                    } else {
+                        console.error('❌ Price input not found for cart key:', cartKey);
+                    }
+                }, 150);
+            },
+
+            // Price Enter → commit change, then focus search
+            handlePriceEnter(event) {
+                console.log('⏎ Price Enter pressed - focusing search');
+                const el = event.target;
+                el.dispatchEvent(new Event('change', { bubbles: true }));
+                setTimeout(() => {
+                    const searchEl = document.getElementById('productSearchInput');
+                    if (searchEl) {
+                        searchEl.focus();
+                        searchEl.value = '';
+                        console.log('🔍 Search focused and cleared');
+                    }
+                }, 150);
+            },
+
+            // --- Global keydown: focus search on any key if nothing is focused ---
+            handleGlobalKey(event) {
+                // Don't interfere if we're adding to cart
+                if (this.isAddingToCart) {
+                    console.log('🚫 Ignoring global key - adding to cart in progress');
+                    return;
+                }
+                
+                // Don't interfere with modals, textareas, or existing inputs
+                const tag = event.target.tagName.toLowerCase();
+                if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
+                if (document.querySelector('.modal.show.d-block')) return;
+
+                // Printable character → focus search box
+                if (event.key.length === 1 && !event.ctrlKey && !event.altKey && !event.metaKey) {
+                    const searchEl = document.getElementById('productSearchInput');
+                    if (searchEl) {
+                        searchEl.focus();
+                        // Let the character pass through to the input naturally
+                    }
+                }
             }
         }
-    });
+    }
 </script>
 @endpush

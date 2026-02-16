@@ -1,4 +1,4 @@
-<div class="pos-billing-terminal">
+<div class="pos-billing-terminal" wire:poll.10s>
     <!-- Load TailWind & Premium Fonts -->
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet"/>
