@@ -235,10 +235,6 @@ class DeliveryManPendingDeliveries extends Component
     {
         $sales = Sale::where('status', 'confirm')
             ->whereIn('delivery_status', ['pending', 'in_transit'])
-            ->whereNotNull('approved_by') // Only show approved sales
-            ->whereHas('user', function ($q) {
-                $q->where('staff_type', 'salesman'); // Only show sales created by salesmen
-            })
             ->when($this->search, function ($q) {
                 $q->where(function ($sq) {
                     $sq->where('sale_id', 'like', '%' . $this->search . '%')
