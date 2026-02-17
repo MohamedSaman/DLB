@@ -280,6 +280,10 @@ class PosSales extends Component
     {
         try {
             DB::transaction(function () {
+                // Store sale details before deletion
+                $saleDueAmount = $this->selectedSale->due_amount ?? 0;
+                $customerId = $this->selectedSale->customer_id;
+
                 // Get sale items to restore stock
                 $saleItems = SaleItem::where('sale_id', $this->selectedSale->id)->get();
 
@@ -328,12 +332,24 @@ class PosSales extends Component
 
                 // Delete the sale
                 $this->selectedSale->delete();
+
+                // Update customer's due amount and total due
+                if ($customerId && $saleDueAmount > 0) {
+                    $customer = Customer::find($customerId);
+                    if ($customer) {
+                        // Reduce due amount
+                        $customer->due_amount = max(0, ($customer->due_amount ?? 0) - $saleDueAmount);
+                        // Recalculate total due
+                        $customer->total_due = ($customer->opening_balance ?? 0) + $customer->due_amount;
+                        $customer->save();
+                    }
+                }
             });
 
             $this->showDeleteModal = false;
             $this->selectedSale = null;
             $this->dispatch('hideModal', 'deleteModal');
-            $this->dispatch('showToast', ['type' => 'success', 'message' => 'Sale deleted successfully!']);
+            $this->dispatch('showToast', ['type' => 'success', 'message' => 'Sale deleted successfully and customer due amount updated!']);
         } catch (\Exception $e) {
             $this->dispatch('showToast', ['type' => 'error', 'message' => 'Error deleting sale: ' . $e->getMessage()]);
         }

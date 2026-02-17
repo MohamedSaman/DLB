@@ -211,6 +211,19 @@
 
         .sidebar.collapsed {
             width: 70px;
+            overflow-y: auto !important;
+            overflow-x: hidden !important;
+            transition: all 0.3s ease;
+        }
+
+        /* Use :has to allow overflow only when hovering an item with a submenu */
+        .sidebar.collapsed:has(.nav-item:hover) {
+            overflow: visible !important;
+        }
+
+        /* Performance optimization for scrolling */
+        .sidebar.collapsed::-webkit-scrollbar {
+            width: 4px;
         }
 
         .sidebar.collapsed .sidebar-title,
@@ -219,10 +232,7 @@
         }
 
         .sidebar.collapsed .nav-link.dropdown-toggle::after {
-            display: flex !important;
-            margin-left: 0;
-            width: 100%;
-            justify-content: center;
+            display: none !important;
         }
 
         .sidebar.collapsed .nav-link i {
@@ -235,9 +245,7 @@
             padding: 10px;
         }
 
-        .sidebar.collapsed .nav-link.dropdown-toggle::after {
-            display: none;
-        }
+
 
         .sidebar-header {
             padding: 20px 20px 0;
@@ -360,7 +368,67 @@
             /* Add small space after last submenu item */
         }
 
-        /* Disabled menu item styles */
+        /* Floating submenu for collapsed sidebar */
+        @media (min-width: 768px) {
+            .sidebar.collapsed .nav-item {
+                position: relative;
+            }
+
+            /* Force hide submenus in collapsed state, even if 'show' class is present */
+            .sidebar.collapsed .nav-item > .collapse {
+                display: none !important;
+            }
+
+            .sidebar.collapsed .nav-item:hover > .collapse {
+                display: block !important;
+                position: absolute !important;
+                left: 68px; /* Slightly closer for better hover transition */
+                top: 0;
+                width: 240px;
+                background: #ffffff !important;
+                box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2) !important;
+                border-radius: 12px !important;
+                border: 1px solid var(--border) !important;
+                z-index: 9999 !important;
+                padding: 10px 0 !important;
+                height: auto !important;
+                visibility: visible !important;
+                opacity: 1 !important;
+            }
+
+            .sidebar.collapsed .nav-item:hover > .collapse .nav {
+                padding-left: 0 !important;
+                padding-top: 0 !important;
+                margin-left: 0 !important;
+            }
+
+            .sidebar.collapsed .nav-item:hover > .collapse .nav-link {
+                padding: 10px 20px !important;
+                margin: 2px 10px !important;
+                text-align: left !important;
+                display: flex !important;
+                justify-content: flex-start !important;
+                border-radius: 8px !important;
+            }
+
+            .sidebar.collapsed .nav-item:hover > .collapse .nav-link span {
+                display: inline !important;
+                font-size: 0.9rem !important;
+            }
+
+            .sidebar.collapsed .nav-item:hover > .collapse .nav-link i {
+                margin-right: 12px !important;
+                font-size: 1.1rem !important;
+                width: 24px !important;
+            }
+            
+            /* Hide the normal transition for collapse when hovered in collapsed sidebar */
+            .sidebar.collapsed .nav-item:hover > .collapse.collapsing {
+                transition: none !important;
+                height: auto !important;
+                display: block !important;
+            }
+        }
         .nav-link.disabled {
             color: rgba(255, 255, 255, 0.4) !important;
             cursor: not-allowed !important;

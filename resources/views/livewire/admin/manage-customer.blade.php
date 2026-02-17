@@ -441,118 +441,484 @@
     </div>
     @endif
 
-    {{-- View Details Modal --}}
+    {{-- View Details Modal (Tabbed) --}}
     @if($showViewModal)
     <div class="modal fade show d-block" tabindex="-1" aria-labelledby="viewDetailsModalLabel" aria-hidden="false" style="background-color: rgba(0,0,0,0.5);">
-        <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-dialog modal-dialog-centered" style="max-width: 1100px;">
             <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title fw-bold">
-                        <i class="bi bi-person-badge text-white me-2"></i> Customer Details
-                    </h5>
-                    <button type="button" class="btn-close" wire:click="closeModal"></button>
-                </div>
-                <div class="modal-body">
-                    <div class="row g-0">
-                        <div class="col-md-4 d-flex flex-column align-items-center justify-content-center p-4 border-end bg-light rounded-start">
-                            <div class="bg-primary rounded-circle d-flex align-items-center justify-content-center mb-3" 
-                                 style="width: 100px; height: 100px;">
-                                <i class="bi bi-person-fill text-white fs-1"></i>
-                            </div>
-                            <span class="fw-bold fs-5 text-dark">{{ $viewCustomerDetail['name'] ?? '-' }}</span>
-                            <span class="text-muted text-capitalize">{{ $viewCustomerDetail['type'] ?? '-' }} Customer</span>
+                <div class="modal-header" style="background: linear-gradient(135deg, #4361ee 0%, #3f37c9 100%); border-radius: 12px 12px 0 0;">
+                    <div class="d-flex align-items-center">
+                        <div class="bg-white bg-opacity-25 rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 45px; height: 45px;">
+                            <i class="bi bi-person-fill text-white fs-5"></i>
                         </div>
-                        <div class="col-md-8 p-4">
-                            <div class="mb-4 pb-3 border-bottom">
-                                <h6 class="fw-bold text-primary mb-3">
-                                    <i class="bi bi-person-lines-fill me-1"></i> Personal Information
-                                </h6>
-                                <div class="row">
-                                    <div class="col-4 text-muted fw-semibold mb-2">Contact:</div>
-                                    <div class="col-8 mb-2">{{ $viewCustomerDetail['phone'] ?? '-' }}</div>
-                                    
-                                    <div class="col-4 text-muted fw-semibold mb-2">Email:</div>
-                                    <div class="col-8 mb-2">{{ $viewCustomerDetail['email'] ?? '-' }}</div>
-                                    
-                                    <div class="col-4 text-muted fw-semibold mb-2">Business Name:</div>
-                                    <div class="col-8 mb-2">{{ $viewCustomerDetail['business_name'] ?? '-' }}</div>
-                                    
-                                    <div class="col-4 text-muted fw-semibold mb-2">Customer Type:</div>
-                                    <div class="col-8 mb-2">
-                                        @if(($viewCustomerDetail['type'] ?? '') == 'retail')
-                                            <span class="badge bg-success">Retail</span>
-                                        @elseif(($viewCustomerDetail['type'] ?? '') == 'wholesale')
-                                            <span class="badge bg-info">Wholesale</span>
-                                        @elseif(($viewCustomerDetail['type'] ?? '') == 'distributor')
-                                            <span class="badge bg-warning">Distributor</span>
-                                        @else
-                                            <span class="badge bg-secondary">N/A</span>
-                                        @endif
-                                    </div>
+                        <div>
+                            <h5 class="modal-title fw-bold text-white mb-0">{{ $viewCustomerDetail['name'] ?? '-' }}</h5>
+                            <small class="text-white-50 text-capitalize">{{ $viewCustomerDetail['type'] ?? '-' }} Customer {{ $viewCustomerDetail['business_name'] ? '| ' . $viewCustomerDetail['business_name'] : '' }}</small>
+                        </div>
+                    </div>
+                    <button type="button" class="btn-close btn-close-white" wire:click="closeModal"></button>
+                </div>
+                
+                {{-- Summary Cards --}}
+                <div class="px-4 pt-3 pb-2" style="background-color: #f8f9fc;">
+                    <div class="row g-2">
+                        <div class="col-6 col-md-3">
+                            <div class="p-2 rounded text-center" style="background-color: #e8f4fd; border: 1px solid #cce5ff;">
+                                <div class="text-muted small fw-semibold">Opening Balance</div>
+                                <div class="fw-bold text-primary">{{ number_format($viewCustomerDetail['opening_balance'] ?? 0, 2) }}</div>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <div class="p-2 rounded text-center" style="background-color: #fff3cd; border: 1px solid #ffc107;">
+                                <div class="text-muted small fw-semibold">Due Amount</div>
+                                <div class="fw-bold text-warning">{{ number_format($viewCustomerDetail['due_amount'] ?? 0, 2) }}</div>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <div class="p-2 rounded text-center" style="background-color: #d4edda; border: 1px solid #28a745;">
+                                <div class="text-muted small fw-semibold">Overpaid</div>
+                                <div class="fw-bold text-success">{{ number_format($viewCustomerDetail['overpaid_amount'] ?? 0, 2) }}</div>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <div class="p-2 rounded text-center" style="background-color: #e7d4f5; border: 1px solid #9b59b6;">
+                                <div class="text-muted small fw-semibold">Total Due</div>
+                                <div class="fw-bold" style="color: #9b59b6;">{{ number_format($viewCustomerDetail['total_due'] ?? 0, 2) }}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {{-- Tab Navigation --}}
+                <div class="px-4 pt-3" style="background-color: #f8f9fc;">
+                    <ul class="nav nav-tabs border-0" style="gap: 4px;">
+                        <li class="nav-item">
+                            <button class="nav-link customer-tab {{ $activeTab === 'overview' ? 'active' : '' }}" wire:click="setActiveTab('overview')">
+                                <i class="bi bi-person-lines-fill me-1"></i> Overview
+                            </button>
+                        </li>
+                        <li class="nav-item">
+                            <button class="nav-link customer-tab {{ $activeTab === 'sales' ? 'active' : '' }}" wire:click="setActiveTab('sales')">
+                                <i class="bi bi-cart-check me-1"></i> Sales
+                                <span class="badge bg-primary ms-1">{{ count($viewCustomerSales) }}</span>
+                            </button>
+                        </li>
+                        <li class="nav-item">
+                            <button class="nav-link customer-tab {{ $activeTab === 'payments' ? 'active' : '' }}" wire:click="setActiveTab('payments')">
+                                <i class="bi bi-credit-card me-1"></i> Payments
+                                <span class="badge bg-success ms-1">{{ count($viewCustomerPayments) }}</span>
+                            </button>
+                        </li>
+                        <li class="nav-item">
+                            <button class="nav-link customer-tab {{ $activeTab === 'dues' ? 'active' : '' }}" wire:click="setActiveTab('dues')">
+                                <i class="bi bi-exclamation-triangle me-1"></i> Dues
+                                <span class="badge bg-warning text-dark ms-1">{{ count($viewCustomerDues) }}</span>
+                            </button>
+                        </li>
+                        <li class="nav-item">
+                            <button class="nav-link customer-tab {{ $activeTab === 'ledger' ? 'active' : '' }}" wire:click="setActiveTab('ledger')">
+                                <i class="bi bi-journal-text me-1"></i> Ledger
+                            </button>
+                        </li>
+                    </ul>
+                </div>
+
+                <div class="modal-body" style="max-height: 55vh; overflow-y: auto;">
+
+                    {{-- OVERVIEW TAB --}}
+                    @if($activeTab === 'overview')
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <div class="card border-0 shadow-sm h-100">
+                                <div class="card-body">
+                                    <h6 class="fw-bold text-primary mb-3"><i class="bi bi-person-lines-fill me-1"></i> Personal Information</h6>
+                                    <table class="table table-sm table-borderless mb-0">
+                                        <tr><td class="text-muted fw-semibold" style="width: 40%;">Name</td><td>{{ $viewCustomerDetail['name'] ?? '-' }}</td></tr>
+                                        <tr><td class="text-muted fw-semibold">Contact</td><td>{{ $viewCustomerDetail['phone'] ?? '-' }}</td></tr>
+                                        <tr><td class="text-muted fw-semibold">Email</td><td>{{ $viewCustomerDetail['email'] ?? '-' }}</td></tr>
+                                        <tr><td class="text-muted fw-semibold">Business</td><td>{{ $viewCustomerDetail['business_name'] ?? '-' }}</td></tr>
+                                        <tr>
+                                            <td class="text-muted fw-semibold">Type</td>
+                                            <td>
+                                                @if(($viewCustomerDetail['type'] ?? '') == 'retail')
+                                                    <span class="badge bg-success">Retail</span>
+                                                @elseif(($viewCustomerDetail['type'] ?? '') == 'wholesale')
+                                                    <span class="badge bg-info">Wholesale</span>
+                                                @elseif(($viewCustomerDetail['type'] ?? '') == 'distributor')
+                                                    <span class="badge bg-warning">Distributor</span>
+                                                @else
+                                                    <span class="badge bg-secondary">N/A</span>
+                                                @endif
+                                            </td>
+                                        </tr>
+                                    </table>
                                 </div>
                             </div>
-                            
-                            <div class="mb-4 pb-3 border-bottom">
-                                <h6 class="fw-bold text-primary mb-3">
-                                    <i class="bi bi-geo-alt me-1"></i> Address Information
-                                </h6>
-                                <div class="row">
-                                    <div class="col-12">
-                                        <p class="mb-0">{{ $viewCustomerDetail['address'] ?? '-' }}</p>
-                                    </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card border-0 shadow-sm h-100">
+                                <div class="card-body">
+                                    <h6 class="fw-bold text-primary mb-3"><i class="bi bi-geo-alt me-1"></i> Address & Dates</h6>
+                                    <table class="table table-sm table-borderless mb-0">
+                                        <tr><td class="text-muted fw-semibold" style="width: 40%;">Address</td><td>{{ $viewCustomerDetail['address'] ?? '-' }}</td></tr>
+                                        <tr><td class="text-muted fw-semibold">Created</td><td>{{ $viewCustomerDetail['created_at'] ? \Carbon\Carbon::parse($viewCustomerDetail['created_at'])->format('M d, Y h:i A') : '-' }}</td></tr>
+                                        <tr><td class="text-muted fw-semibold">Updated</td><td>{{ $viewCustomerDetail['updated_at'] ? \Carbon\Carbon::parse($viewCustomerDetail['updated_at'])->format('M d, Y h:i A') : '-' }}</td></tr>
+                                    </table>
                                 </div>
                             </div>
-                            
-                            <div class="mb-4 pb-3 border-bottom">
-                                <h6 class="fw-bold text-primary mb-3">
-                                    <i class="bi bi-wallet2 me-1"></i> Balance Information
-                                </h6>
-                                <div class="row">
-                                    <div class="col-6 mb-3">
-                                        <div class="p-3 rounded" style="background-color: #f0f0f0;">
-                                            <div class="text-muted small fw-semibold mb-1">Opening Balance</div>
-                                            <div class="fw-bold fs-6">{{ number_format($viewCustomerDetail['opening_balance'] ?? 0, 2) }}</div>
+                        </div>
+                        <div class="col-12">
+                            <div class="card border-0 shadow-sm">
+                                <div class="card-body">
+                                    <h6 class="fw-bold text-primary mb-3"><i class="bi bi-bar-chart me-1"></i> Quick Summary</h6>
+                                    <div class="row text-center">
+                                        <div class="col-md-3 col-6 mb-2">
+                                            <div class="p-2 rounded" style="background: #eef2ff;">
+                                                <div class="fw-bold fs-5 text-primary">{{ count($viewCustomerSales) }}</div>
+                                                <div class="text-muted small">Total Sales</div>
+                                            </div>
                                         </div>
-                                    </div>
-                                    <div class="col-6 mb-3">
-                                        <div class="p-3 rounded" style="background-color: #fff3cd;">
-                                            <div class="text-muted small fw-semibold mb-1">Due Amount</div>
-                                            <div class="fw-bold fs-6">{{ number_format($viewCustomerDetail['due_amount'] ?? 0, 2) }}</div>
+                                        <div class="col-md-3 col-6 mb-2">
+                                            <div class="p-2 rounded" style="background: #ecfdf5;">
+                                                <div class="fw-bold fs-5 text-success">{{ count($viewCustomerPayments) }}</div>
+                                                <div class="text-muted small">Total Payments</div>
+                                            </div>
                                         </div>
-                                    </div>
-                                    <div class="col-6">
-                                        <div class="p-3 rounded" style="background-color: #d4edda;">
-                                            <div class="text-muted small fw-semibold mb-1">Overpaid Amount</div>
-                                            <div class="fw-bold fs-6">{{ number_format($viewCustomerDetail['overpaid_amount'] ?? 0, 2) }}</div>
+                                        <div class="col-md-3 col-6 mb-2">
+                                            <div class="p-2 rounded" style="background: #fffbeb;">
+                                                <div class="fw-bold fs-5 text-warning">{{ count($viewCustomerDues) }}</div>
+                                                <div class="text-muted small">Pending Dues</div>
+                                            </div>
                                         </div>
-                                    </div>
-                                    <div class="col-6">
-                                        <div class="p-3 rounded" style="background-color: #e7d4f5;">
-                                            <div class="text-muted small fw-semibold mb-1">Total Due</div>
-                                            <div class="fw-bold fs-6">{{ number_format($viewCustomerDetail['total_due'] ?? 0, 2) }}</div>
+                                        <div class="col-md-3 col-6 mb-2">
+                                            <div class="p-2 rounded" style="background: #fef2f2;">
+                                                <div class="fw-bold fs-5 text-danger">{{ number_format(collect($viewCustomerSales)->sum('total_amount'), 2) }}</div>
+                                                <div class="text-muted small">Total Sales Amount</div>
+                                            </div>
                                         </div>
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <div class="mb-3">
-                                <h6 class="fw-bold text-primary mb-3">
-                                    <i class="bi bi-clock-history me-1"></i> Account Information
-                                </h6>
-                                <div class="row">
-                                    <div class="col-4 text-muted fw-semibold mb-2">Created:</div>
-                                    <div class="col-8 mb-2">
-                                        {{ $viewCustomerDetail['created_at'] ? \Carbon\Carbon::parse($viewCustomerDetail['created_at'])->format('M d, Y h:i A') : '-' }}
-                                    </div>
-                                    
-                                    <div class="col-4 text-muted fw-semibold mb-2">Last Updated:</div>
-                                    <div class="col-8 mb-2">
-                                        {{ $viewCustomerDetail['updated_at'] ? \Carbon\Carbon::parse($viewCustomerDetail['updated_at'])->format('M d, Y h:i A') : '-' }}
                                     </div>
                                 </div>
                             </div>
                         </div>
                     </div>
+                    @endif
+
+                    {{-- SALES TAB --}}
+                    @if($activeTab === 'sales')
+                    <div class="table-responsive">
+                        <table class="table table-hover table-sm mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>#</th>
+                                    <th>Invoice</th>
+                                    <th>Date</th>
+                                    <th>Items</th>
+                                    <th class="text-end">Total</th>
+                                    <th class="text-end">Paid</th>
+                                    <th class="text-end">Due</th>
+                                    <th class="text-center">Payment</th>
+                                    <th class="text-center">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @forelse($viewCustomerSales as $index => $sale)
+                                <tr>
+                                    <td>{{ $index + 1 }}</td>
+                                    <td><span class="fw-semibold text-primary">{{ $sale['invoice_number'] ?? $sale['sale_id'] }}</span></td>
+                                    <td class="small">{{ $sale['created_at'] }}</td>
+                                    <td><span class="badge bg-light text-dark">{{ $sale['items_count'] }} items</span></td>
+                                    <td class="text-end fw-semibold">{{ number_format($sale['total_amount'], 2) }}</td>
+                                    <td class="text-end text-success">{{ number_format($sale['paid_amount'], 2) }}</td>
+                                    <td class="text-end">
+                                        @if($sale['due_amount'] > 0)
+                                            <span class="text-danger fw-semibold">{{ number_format($sale['due_amount'], 2) }}</span>
+                                        @else
+                                            <span class="text-success">0.00</span>
+                                        @endif
+                                    </td>
+                                    <td class="text-center">
+                                        @if($sale['payment_status'] == 'paid')
+                                            <span class="badge bg-success">Paid</span>
+                                        @elseif($sale['payment_status'] == 'partial')
+                                            <span class="badge bg-warning text-dark">Partial</span>
+                                        @elseif($sale['payment_status'] == 'due')
+                                            <span class="badge bg-danger">Due</span>
+                                        @else
+                                            <span class="badge bg-secondary">{{ ucfirst($sale['payment_status'] ?? 'N/A') }}</span>
+                                        @endif
+                                    </td>
+                                    <td class="text-center">
+                                        @if($sale['status'] == 'confirm' || $sale['status'] == 'confirmed')
+                                            <span class="badge bg-success">Confirmed</span>
+                                        @elseif($sale['status'] == 'pending')
+                                            <span class="badge bg-warning text-dark">Pending</span>
+                                        @elseif($sale['status'] == 'rejected')
+                                            <span class="badge bg-danger">Rejected</span>
+                                        @else
+                                            <span class="badge bg-secondary">{{ ucfirst($sale['status'] ?? 'N/A') }}</span>
+                                        @endif
+                                    </td>
+                                </tr>
+                                @empty
+                                <tr>
+                                    <td colspan="9" class="text-center text-muted py-4">
+                                        <i class="bi bi-cart-x fs-3 d-block mb-2"></i>
+                                        No sales found for this customer
+                                    </td>
+                                </tr>
+                                @endforelse
+                            </tbody>
+                            @if(count($viewCustomerSales) > 0)
+                            <tfoot class="table-light">
+                                <tr class="fw-bold">
+                                    <td colspan="4" class="text-end">Totals:</td>
+                                    <td class="text-end">{{ number_format(collect($viewCustomerSales)->sum('total_amount'), 2) }}</td>
+                                    <td class="text-end text-success">{{ number_format(collect($viewCustomerSales)->sum('paid_amount'), 2) }}</td>
+                                    <td class="text-end text-danger">{{ number_format(collect($viewCustomerSales)->sum('due_amount'), 2) }}</td>
+                                    <td colspan="2"></td>
+                                </tr>
+                            </tfoot>
+                            @endif
+                        </table>
+                    </div>
+                    @endif
+
+                    {{-- PAYMENTS TAB --}}
+                    @if($activeTab === 'payments')
+                    <div class="table-responsive">
+                        <table class="table table-hover table-sm mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>#</th>
+                                    <th>Date</th>
+                                    <th>Invoice</th>
+                                    <th>Method</th>
+                                    <th>Reference</th>
+                                    <th class="text-end">Amount</th>
+                                    <th class="text-center">Status</th>
+                                    <th>Notes</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @forelse($viewCustomerPayments as $index => $payment)
+                                <tr>
+                                    <td>{{ $index + 1 }}</td>
+                                    <td class="small">{{ $payment['payment_date'] }}</td>
+                                    <td><span class="fw-semibold text-primary">{{ $payment['invoice_number'] }}</span></td>
+                                    <td>
+                                        @if($payment['payment_method'] == 'cash')
+                                            <span class="badge bg-success"><i class="bi bi-cash me-1"></i>Cash</span>
+                                        @elseif($payment['payment_method'] == 'card')
+                                            <span class="badge bg-info"><i class="bi bi-credit-card me-1"></i>Card</span>
+                                        @elseif($payment['payment_method'] == 'bank_transfer' || $payment['payment_method'] == 'bank')
+                                            <span class="badge bg-primary"><i class="bi bi-bank me-1"></i>Bank</span>
+                                        @elseif($payment['payment_method'] == 'cheque')
+                                            <span class="badge bg-warning text-dark"><i class="bi bi-file-text me-1"></i>Cheque</span>
+                                        @else
+                                            <span class="badge bg-secondary">{{ ucfirst($payment['payment_method'] ?? 'N/A') }}</span>
+                                        @endif
+                                    </td>
+                                    <td class="small">{{ $payment['payment_reference'] ?? '-' }}</td>
+                                    <td class="text-end fw-semibold text-success">{{ number_format($payment['amount'], 2) }}</td>
+                                    <td class="text-center">
+                                        @if($payment['status'] == 'approved' || $payment['status'] == 'paid')
+                                            <span class="badge bg-success">Approved</span>
+                                        @elseif($payment['status'] == 'pending')
+                                            <span class="badge bg-warning text-dark">Pending</span>
+                                        @elseif($payment['status'] == 'rejected')
+                                            <span class="badge bg-danger">Rejected</span>
+                                        @else
+                                            <span class="badge bg-secondary">{{ ucfirst($payment['status'] ?? 'N/A') }}</span>
+                                        @endif
+                                    </td>
+                                    <td class="small text-muted">{{ \Illuminate\Support\Str::limit($payment['notes'] ?? '-', 30) }}</td>
+                                </tr>
+                                @empty
+                                <tr>
+                                    <td colspan="8" class="text-center text-muted py-4">
+                                        <i class="bi bi-credit-card fs-3 d-block mb-2"></i>
+                                        No payments found for this customer
+                                    </td>
+                                </tr>
+                                @endforelse
+                            </tbody>
+                            @if(count($viewCustomerPayments) > 0)
+                            <tfoot class="table-light">
+                                <tr class="fw-bold">
+                                    <td colspan="5" class="text-end">Total Payments:</td>
+                                    <td class="text-end text-success">{{ number_format(collect($viewCustomerPayments)->sum('amount'), 2) }}</td>
+                                    <td colspan="2"></td>
+                                </tr>
+                            </tfoot>
+                            @endif
+                        </table>
+                    </div>
+                    @endif
+
+                    {{-- DUES TAB --}}
+                    @if($activeTab === 'dues')
+                    <div class="table-responsive">
+                        <table class="table table-hover table-sm mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>#</th>
+                                    <th>Invoice</th>
+                                    <th>Date</th>
+                                    <th class="text-end">Total Amount</th>
+                                    <th class="text-end">Paid</th>
+                                    <th class="text-end">Due Amount</th>
+                                    <th class="text-center">Payment Status</th>
+                                    <th class="text-center">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @forelse($viewCustomerDues as $index => $due)
+                                <tr>
+                                    <td>{{ $index + 1 }}</td>
+                                    <td><span class="fw-semibold text-primary">{{ $due['invoice_number'] }}</span></td>
+                                    <td class="small">{{ $due['created_at'] }}</td>
+                                    <td class="text-end fw-semibold">{{ number_format($due['total_amount'], 2) }}</td>
+                                    <td class="text-end text-success">{{ number_format($due['paid_amount'], 2) }}</td>
+                                    <td class="text-end">
+                                        <span class="text-danger fw-bold">{{ number_format($due['due_amount'], 2) }}</span>
+                                    </td>
+                                    <td class="text-center">
+                                        @if($due['payment_status'] == 'partial')
+                                            <span class="badge bg-warning text-dark">Partial</span>
+                                        @elseif($due['payment_status'] == 'due')
+                                            <span class="badge bg-danger">Unpaid</span>
+                                        @else
+                                            <span class="badge bg-secondary">{{ ucfirst($due['payment_status'] ?? 'N/A') }}</span>
+                                        @endif
+                                    </td>
+                                    <td class="text-center">
+                                        @if($due['status'] == 'confirm' || $due['status'] == 'confirmed')
+                                            <span class="badge bg-success">Confirmed</span>
+                                        @elseif($due['status'] == 'pending')
+                                            <span class="badge bg-warning text-dark">Pending</span>
+                                        @else
+                                            <span class="badge bg-secondary">{{ ucfirst($due['status'] ?? 'N/A') }}</span>
+                                        @endif
+                                    </td>
+                                </tr>
+                                @empty
+                                <tr>
+                                    <td colspan="8" class="text-center text-muted py-4">
+                                        <i class="bi bi-check-circle fs-3 d-block mb-2 text-success"></i>
+                                        No outstanding dues for this customer
+                                    </td>
+                                </tr>
+                                @endforelse
+                            </tbody>
+                            @if(count($viewCustomerDues) > 0)
+                            <tfoot class="table-light">
+                                <tr class="fw-bold">
+                                    <td colspan="3" class="text-end">Totals:</td>
+                                    <td class="text-end">{{ number_format(collect($viewCustomerDues)->sum('total_amount'), 2) }}</td>
+                                    <td class="text-end text-success">{{ number_format(collect($viewCustomerDues)->sum('paid_amount'), 2) }}</td>
+                                    <td class="text-end text-danger">{{ number_format(collect($viewCustomerDues)->sum('due_amount'), 2) }}</td>
+                                    <td colspan="2"></td>
+                                </tr>
+                            </tfoot>
+                            @endif
+                        </table>
+
+                        @if(($viewCustomerDetail['opening_balance'] ?? 0) > 0)
+                        <div class="alert alert-info mt-3 mb-0">
+                            <i class="bi bi-info-circle me-2"></i>
+                            <strong>Note:</strong> Customer opening balance of <strong>{{ number_format($viewCustomerDetail['opening_balance'], 2) }}</strong> is also included in the total due calculation.
+                        </div>
+                        @endif
+                    </div>
+                    @endif
+
+                    {{-- LEDGER TAB --}}
+                    @if($activeTab === 'ledger')
+                    <div class="table-responsive">
+                        <table class="table table-hover table-sm mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>#</th>
+                                    <th>Date</th>
+                                    <th>Description</th>
+                                    <th>Reference</th>
+                                    <th class="text-end">Debit</th>
+                                    <th class="text-end">Credit</th>
+                                    <th class="text-end">Balance</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @php $runningBalance = 0; @endphp
+                                @forelse($viewCustomerLedger as $index => $entry)
+                                @php 
+                                    $runningBalance += ($entry['debit'] - $entry['credit']); 
+                                @endphp
+                                <tr>
+                                    <td>{{ $index + 1 }}</td>
+                                    <td class="small">{{ $entry['date'] }}</td>
+                                    <td>
+                                        @if($entry['type'] === 'opening')
+                                            <span class="text-info"><i class="bi bi-arrow-right-circle me-1"></i>{{ $entry['description'] }}</span>
+                                        @elseif($entry['type'] === 'sale')
+                                            <span class="text-danger"><i class="bi bi-cart me-1"></i>{{ $entry['description'] }}</span>
+                                        @elseif($entry['type'] === 'payment')
+                                            <span class="text-success"><i class="bi bi-cash-coin me-1"></i>{{ $entry['description'] }}</span>
+                                        @else
+                                            {{ $entry['description'] }}
+                                        @endif
+                                    </td>
+                                    <td class="small">{{ $entry['reference'] }}</td>
+                                    <td class="text-end">
+                                        @if($entry['debit'] > 0)
+                                            <span class="text-danger fw-semibold">{{ number_format($entry['debit'], 2) }}</span>
+                                        @else
+                                            <span class="text-muted">-</span>
+                                        @endif
+                                    </td>
+                                    <td class="text-end">
+                                        @if($entry['credit'] > 0)
+                                            <span class="text-success fw-semibold">{{ number_format($entry['credit'], 2) }}</span>
+                                        @else
+                                            <span class="text-muted">-</span>
+                                        @endif
+                                    </td>
+                                    <td class="text-end fw-bold {{ $runningBalance > 0 ? 'text-danger' : 'text-success' }}">
+                                        {{ number_format(abs($runningBalance), 2) }}
+                                        @if($runningBalance > 0) <small>Dr</small> @elseif($runningBalance < 0) <small>Cr</small> @endif
+                                    </td>
+                                </tr>
+                                @empty
+                                <tr>
+                                    <td colspan="7" class="text-center text-muted py-4">
+                                        <i class="bi bi-journal-text fs-3 d-block mb-2"></i>
+                                        No ledger entries found
+                                    </td>
+                                </tr>
+                                @endforelse
+                            </tbody>
+                            @if(count($viewCustomerLedger) > 0)
+                            <tfoot class="table-light">
+                                <tr class="fw-bold">
+                                    <td colspan="4" class="text-end">Totals:</td>
+                                    <td class="text-end text-danger">{{ number_format(collect($viewCustomerLedger)->sum('debit'), 2) }}</td>
+                                    <td class="text-end text-success">{{ number_format(collect($viewCustomerLedger)->sum('credit'), 2) }}</td>
+                                    <td class="text-end {{ $runningBalance > 0 ? 'text-danger' : 'text-success' }}">
+                                        {{ number_format(abs($runningBalance), 2) }}
+                                        @if($runningBalance > 0) <small>Dr</small> @elseif($runningBalance < 0) <small>Cr</small> @endif
+                                    </td>
+                                </tr>
+                            </tfoot>
+                            @endif
+                        </table>
+                    </div>
+                    @endif
+
+                </div>
+
+                <div class="modal-footer bg-light">
+                    <button type="button" class="btn btn-secondary" wire:click="closeModal">
+                        <i class="bi bi-x-lg me-1"></i> Close
+                    </button>
                 </div>
             </div>
         </div>
@@ -780,6 +1146,34 @@
 
     .mb-4 {
         margin-bottom: 1.5rem !important;
+    }
+
+    /* Customer Detail Tab Styles */
+    .customer-tab {
+        border: none !important;
+        background: transparent;
+        color: #6c757d;
+        font-weight: 500;
+        padding: 0.6rem 1rem;
+        border-radius: 8px 8px 0 0 !important;
+        transition: all 0.2s ease;
+        font-size: 0.875rem;
+    }
+
+    .customer-tab:hover {
+        color: #4361ee;
+        background: rgba(67, 97, 238, 0.08);
+    }
+
+    .customer-tab.active {
+        color: #4361ee !important;
+        background: white !important;
+        border-bottom: 3px solid #4361ee !important;
+        font-weight: 600;
+    }
+
+    .nav-tabs {
+        border-bottom: 2px solid #e9ecef;
     }
 </style>
 @endpush

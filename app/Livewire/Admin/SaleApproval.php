@@ -4,6 +4,9 @@ namespace App\Livewire\Admin;
 
 use App\Models\Sale;
 use App\Models\User;
+use App\Models\Customer;
+use App\Models\Payment;
+use App\Models\SaleItem;
 use App\Models\ProductStock;
 use App\Services\FIFOStockService;
 use Livewire\Component;
@@ -30,6 +33,7 @@ class SaleApproval extends Component
     public $showDetailsModal = false;
     public $showRejectModal = false;
     public $showApproveModal = false;
+    public $showDeleteModal = false;
     public $rejectionReason = '';
     public $perPage = 10;
     public $isProcessing = false;
@@ -301,6 +305,132 @@ class SaleApproval extends Component
                 'trace' => $e->getTraceAsString()
             ]);
             $this->showToast('error', 'Error rejecting sale: ' . $e->getMessage());
+        }
+    }
+
+    public function openDeleteModal($saleId)
+    {
+        $this->selectedSaleId = $saleId;
+        $this->showDeleteModal = true;
+    }
+
+    public function closeDeleteModal()
+    {
+        $this->showDeleteModal = false;
+        $this->selectedSaleId = null;
+    }
+
+    /**
+     * Delete a sale and restore stock, reduce customer due amount
+     */
+    public function deleteSale()
+    {
+        if (!$this->selectedSaleId) {
+            $this->showToast('error', 'No sale selected.');
+            return;
+        }
+
+        if ($this->isProcessing) {
+            $this->showToast('warning', 'Request is already being processed. Please wait.');
+            return;
+        }
+
+        $this->isProcessing = true;
+
+        try {
+            DB::beginTransaction();
+
+            $sale = Sale::with(['items', 'customer'])->find($this->selectedSaleId);
+
+            if (!$sale) {
+                DB::rollBack();
+                $this->isProcessing = false;
+                $this->showToast('error', 'Sale not found.');
+                return;
+            }
+
+            // Store sale details before deletion
+            $saleDueAmount = $sale->due_amount ?? 0;
+            $customerId = $sale->customer_id;
+
+            // Restore stock for each item
+            foreach ($sale->items as $item) {
+                $productStock = null;
+
+                if ($item->variant_id || $item->variant_value) {
+                    // Variant product: find specific variant stock
+                    $stockQuery = ProductStock::where('product_id', $item->product_id);
+                    if ($item->variant_id) {
+                        $stockQuery->where('variant_id', $item->variant_id);
+                    }
+                    if ($item->variant_value) {
+                        $stockQuery->where('variant_value', $item->variant_value);
+                    }
+                    $productStock = $stockQuery->first();
+                } else {
+                    // Non-variant: find stock with no variant
+                    $productStock = ProductStock::where('product_id', $item->product_id)
+                        ->where(function ($q) {
+                            $q->whereNull('variant_value')
+                                ->orWhere('variant_value', '')
+                                ->orWhere('variant_value', 'null');
+                        })
+                        ->whereNull('variant_id')
+                        ->first();
+
+                    if (!$productStock) {
+                        $productStock = ProductStock::where('product_id', $item->product_id)->first();
+                    }
+                }
+
+                if ($productStock) {
+                    $productStock->available_stock += $item->quantity;
+                    if ($productStock->sold_count >= $item->quantity) {
+                        $productStock->sold_count -= $item->quantity;
+                    }
+                    $productStock->updateTotals();
+                }
+            }
+
+            // Delete related records
+            Payment::where('sale_id', $sale->id)->delete();
+            SaleItem::where('sale_id', $sale->id)->delete();
+
+            // Delete the sale
+            $sale->delete();
+
+            // Update customer's due amount and total due
+            if ($customerId && $saleDueAmount > 0) {
+                $customer = Customer::find($customerId);
+                if ($customer) {
+                    // Reduce due amount
+                    $customer->due_amount = max(0, ($customer->due_amount ?? 0) - $saleDueAmount);
+                    // Recalculate total due
+                    $customer->total_due = ($customer->opening_balance ?? 0) + $customer->due_amount;
+                    $customer->save();
+                }
+            }
+
+            DB::commit();
+
+            $this->isProcessing = false;
+            $this->closeDeleteModal();
+            $this->closeDetailsModal();
+            $this->selectedSaleId = null;
+
+            $this->showToast('success', 'Sale deleted successfully! Stock restored and customer due amount updated.');
+        } catch (\Exception $e) {
+            if (DB::transactionLevel() > 0) {
+                DB::rollBack();
+            }
+            $this->isProcessing = false;
+
+            Log::error('Sale deletion error for sale ID: ' . $this->selectedSaleId, [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            $this->showToast('error', 'Error deleting sale: ' . $e->getMessage());
         }
     }
 

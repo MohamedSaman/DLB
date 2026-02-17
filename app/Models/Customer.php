@@ -38,6 +38,16 @@ class Customer extends Model
         return $this->hasMany(Sale::class);
     }
 
+    public function payments()
+    {
+        return $this->hasMany(Payment::class);
+    }
+
+    public function cheques()
+    {
+        return $this->hasMany(Cheque::class);
+    }
+
     public function creator()
     {
         return $this->belongsTo(User::class, 'created_by');

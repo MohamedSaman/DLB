@@ -3,6 +3,9 @@
 namespace App\Livewire\Admin;
 
 use App\Models\Customer;
+use App\Models\Sale;
+use App\Models\Payment;
+use App\Models\Cheque;
 use Livewire\Component;
 use Exception;
 use Livewire\Attributes\Layout;
@@ -48,6 +51,12 @@ class ManageCustomer extends Component
     public $showDeleteModal = false;
     public $showViewModal = false;
     public $viewCustomerDetail = [];
+    public $viewCustomerSales = [];
+    public $viewCustomerPayments = [];
+    public $viewCustomerDues = [];
+    public $viewCustomerCheques = [];
+    public $viewCustomerLedger = [];
+    public $activeTab = 'overview';
     public $perPage = 10;
     public $search = '';
     public $showImportModal = false;
@@ -130,7 +139,11 @@ class ManageCustomer extends Component
             return;
         }
 
+        $this->activeTab = 'overview';
+
+        // Basic info
         $this->viewCustomerDetail = [
+            'id' => $customer->id,
             'name' => $customer->name,
             'business_name' => $customer->business_name,
             'phone' => $customer->phone,
@@ -145,7 +158,137 @@ class ManageCustomer extends Component
             'updated_at' => $customer->updated_at,
         ];
 
+        // Sales
+        $sales = Sale::where('customer_id', $customer->id)
+            ->with(['items', 'payments'])
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        $this->viewCustomerSales = $sales->map(function ($sale) {
+            // Calculate paid amount using total minus due
+            $paidAmount = ($sale->total_amount ?? 0) - ($sale->due_amount ?? 0);
+            
+            return [
+                'id' => $sale->id,
+                'invoice_number' => $sale->invoice_number,
+                'sale_id' => $sale->sale_id,
+                'total_amount' => $sale->total_amount ?? 0,
+                'due_amount' => $sale->due_amount ?? 0,
+                'payment_status' => $sale->payment_status,
+                'status' => $sale->status,
+                'payment_type' => $sale->payment_type,
+                'created_at' => $sale->created_at ? $sale->created_at->format('M d, Y h:i A') : '-',
+                'items_count' => $sale->items->count(),
+                'paid_amount' => $paidAmount,
+            ];
+        })->toArray();
+
+        // Payments
+        $payments = Payment::where('customer_id', $customer->id)
+            ->with(['sale'])
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        $this->viewCustomerPayments = $payments->map(function ($payment) {
+            return [
+                'id' => $payment->id,
+                'amount' => $payment->amount ?? 0,
+                'payment_method' => $payment->payment_method,
+                'payment_reference' => $payment->payment_reference,
+                'payment_date' => $payment->payment_date ? $payment->payment_date->format('M d, Y') : '-',
+                'status' => $payment->status,
+                'invoice_number' => $payment->sale ? $payment->sale->invoice_number : '-',
+                'notes' => $payment->notes,
+                'created_at' => $payment->created_at ? $payment->created_at->format('M d, Y h:i A') : '-',
+            ];
+        })->toArray();
+
+        // Dues (sales with pending payment)
+        $this->viewCustomerDues = $sales->filter(function ($sale) {
+            return ($sale->due_amount ?? 0) > 0;
+        })->map(function ($sale) {
+            // Calculate paid amount using total minus due
+            $paidAmount = ($sale->total_amount ?? 0) - ($sale->due_amount ?? 0);
+            
+            return [
+                'id' => $sale->id,
+                'invoice_number' => $sale->invoice_number,
+                'total_amount' => $sale->total_amount ?? 0,
+                'due_amount' => $sale->due_amount ?? 0,
+                'paid_amount' => $paidAmount,
+                'status' => $sale->status,
+                'payment_status' => $sale->payment_status,
+                'created_at' => $sale->created_at ? $sale->created_at->format('M d, Y h:i A') : '-',
+            ];
+        })->values()->toArray();
+
+        // Cheques
+        $cheques = Cheque::where('customer_id', $customer->id)
+            ->with(['payment'])
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        $this->viewCustomerCheques = $cheques->map(function ($cheque) {
+            return [
+                'id' => $cheque->id,
+                'cheque_number' => $cheque->cheque_number,
+                'cheque_date' => $cheque->cheque_date,
+                'bank_name' => $cheque->bank_name,
+                'cheque_amount' => $cheque->cheque_amount ?? 0,
+                'status' => $cheque->status,
+            ];
+        })->toArray();
+
+        // Ledger - combine all transactions chronologically
+        $ledgerEntries = collect();
+
+        // Add opening balance as first entry
+        if (($customer->opening_balance ?? 0) > 0) {
+            $ledgerEntries->push([
+                'date' => $customer->created_at ? $customer->created_at->format('M d, Y h:i A') : '-',
+                'description' => 'Opening Balance',
+                'reference' => '-',
+                'debit' => $customer->opening_balance,
+                'credit' => 0,
+                'type' => 'opening',
+            ]);
+        }
+
+        // Add sales as debit entries
+        foreach ($sales as $sale) {
+            $ledgerEntries->push([
+                'date' => $sale->created_at ? $sale->created_at->format('M d, Y h:i A') : '-',
+                'description' => 'Sale Invoice',
+                'reference' => $sale->invoice_number ?? $sale->sale_id,
+                'debit' => $sale->total_amount ?? 0,
+                'credit' => 0,
+                'type' => 'sale',
+            ]);
+        }
+
+        // Add payments as credit entries
+        foreach ($payments as $payment) {
+            // Only include non-rejected and non-pending payments in ledger
+            if ($payment->status === 'rejected' || $payment->status === 'pending') continue;
+            $ledgerEntries->push([
+                'date' => $payment->payment_date ? $payment->payment_date->format('M d, Y h:i A') : ($payment->created_at ? $payment->created_at->format('M d, Y h:i A') : '-'),
+                'description' => 'Payment Received (' . ucfirst($payment->payment_method ?? 'N/A') . ')',
+                'reference' => $payment->payment_reference ?? ($payment->sale ? $payment->sale->invoice_number : '-'),
+                'debit' => 0,
+                'credit' => $payment->amount ?? 0,
+                'type' => 'payment',
+            ]);
+        }
+
+        // Sort by date
+        $this->viewCustomerLedger = $ledgerEntries->sortBy('date')->values()->toArray();
+
         $this->showViewModal = true;
+    }
+
+    public function setActiveTab($tab)
+    {
+        $this->activeTab = $tab;
     }
 
     public function saveCustomer()

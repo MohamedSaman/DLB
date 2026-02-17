@@ -114,17 +114,6 @@
                              if (qtyInput) { qtyInput.focus(); qtyInput.select(); }
                          })
                      "
-                     x-on:qty-updated.window="
-                         $nextTick(() => {
-                             const priceInput = document.getElementById('cart-price-' + $event.detail.index);
-                             if (priceInput) { priceInput.focus(); priceInput.select(); }
-                         })
-                     "
-                     x-on:price-updated.window="
-                         $nextTick(() => {
-                             if ($refs.searchInput) { $refs.searchInput.focus(); }
-                         })
-                     "
                      x-init="$nextTick(() => { if ($refs.searchInput) $refs.searchInput.focus(); })"
                 >
                     <div class="relative">
@@ -230,7 +219,16 @@
                                             id="cart-qty-{{ $index }}"
                                             wire:change="updateQuantity({{ $index }}, $event.target.value)" 
                                             wire:key="qty-{{ $cartKey }}" 
-                                            @keydown.enter.prevent="$wire.updateQuantity({{ $index }}, $event.target.value)"
+                                            @keydown.enter.prevent="
+                                                $wire.updateQuantity({{ $index }}, $event.target.value);
+                                                $nextTick(() => {
+                                                    const searchInput = document.querySelector('[x-ref=searchInput]');
+                                                    if (searchInput) { 
+                                                        searchInput.focus(); 
+                                                        searchInput.select();
+                                                    }
+                                                });
+                                            "
                                             class="w-28 text-center text-[11px] font-black bg-slate-50 border border-slate-200 rounded px-3 py-2" />
 
                                         <button class="w-9 h-9 flex items-center justify-center hover:bg-white rounded text-[12px] font-bold transition-all bg-slate-100 border border-slate-200" wire:click="incrementQuantity({{ $index }})">+</button>

@@ -159,6 +159,9 @@
                                         <i class="bi bi-x-lg"></i>
                                     </button>
                                     @endif
+                                    <button wire:click="openDeleteModal({{ $sale->id }})" class="btn btn-sm btn-outline-danger" title="Delete Sale">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
                                 </div>
                             </td>
                         </tr>
@@ -444,6 +447,50 @@
                         <span wire:loading wire:target="approveSale">
                             <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
                             Processing...
+                        </span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    @endif
+
+    {{-- Delete Confirmation Modal --}}
+    @if($showDeleteModal && $this->selectedSale)
+    <div class="modal fade show d-block" tabindex="-1" style="background: rgba(0,0,0,0.5);">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title"><i class="bi bi-trash me-2"></i>Delete Sale</h5>
+                    <button type="button" class="btn-close btn-close-white" wire:click="closeDeleteModal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-danger">
+                        <i class="bi bi-exclamation-triangle me-2"></i>
+                        <strong>Warning!</strong> Deleting this sale will:
+                        <ul class="mb-0 mt-2">
+                            <li>Restore all sale items back to stock</li>
+                            <li>Delete all payment records</li>
+                            <li>Reduce customer's due amount</li>
+                        </ul>
+                    </div>
+                    <p>You are about to delete sale <strong>{{ $this->selectedSale->invoice_number }}</strong>.</p>
+                    <div class="bg-light rounded p-3">
+                        <p class="mb-1"><strong>Customer:</strong> {{ $this->selectedSale->customer->name ?? 'N/A' }}</p>
+                        <p class="mb-1"><strong>Total Amount:</strong> <span class="text-danger fw-bold">Rs. {{ number_format($this->selectedSale->total_amount, 2) }}</span></p>
+                        <p class="mb-1"><strong>Due Amount:</strong> <span class="text-warning fw-bold">Rs. {{ number_format($this->selectedSale->due_amount ?? 0, 2) }}</span></p>
+                        <p class="mb-0"><strong>Items:</strong> {{ $this->selectedSale->items->count() }} products</p>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" wire:click="closeDeleteModal" wire:loading.attr="disabled" wire:target="deleteSale">Cancel</button>
+                    <button type="button" wire:click="deleteSale" class="btn btn-danger" wire:loading.attr="disabled" wire:target="deleteSale" wire:loading.class="opacity-50">
+                        <span wire:loading.remove wire:target="deleteSale">
+                            <i class="bi bi-trash me-2"></i>Delete Sale
+                        </span>
+                        <span wire:loading wire:target="deleteSale">
+                            <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                            Deleting...
                         </span>
                     </button>
                 </div>

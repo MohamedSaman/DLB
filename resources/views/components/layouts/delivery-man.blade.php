@@ -94,6 +94,42 @@
             border-radius: 3px;
         }
 
+        .sidebar.collapsed {
+            width: 70px;
+            overflow-y: auto !important;
+            overflow-x: hidden !important;
+            transition: all 0.3s ease;
+        }
+
+        /* Use :has to allow overflow only when hovering an item with a submenu */
+        .sidebar.collapsed:has(.nav-item:hover) {
+            overflow: visible !important;
+        }
+
+        .sidebar.collapsed::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        .sidebar.collapsed .sidebar-title,
+        .sidebar.collapsed .nav-link span {
+            display: none;
+        }
+
+        .sidebar.collapsed .nav-link i {
+            margin-right: 0;
+            font-size: 1.25rem;
+        }
+
+        .sidebar.collapsed .nav-link {
+            text-align: center;
+            padding: 10px;
+            justify-content: center;
+        }
+
+        .sidebar.collapsed .nav-link.dropdown-toggle::after {
+            display: none !important;
+        }
+
         .sidebar .nav {
             padding-bottom: 50px;
         }
@@ -164,6 +200,69 @@
             margin-bottom: 5px;
         }
 
+        /* Floating submenu for collapsed sidebar */
+        @media (min-width: 768px) {
+            .sidebar.collapsed .nav-item {
+                position: relative;
+            }
+
+            /* Force hide submenus in collapsed state, even if 'show' class is present */
+            .sidebar.collapsed .nav-item > .collapse {
+                display: none !important;
+            }
+
+            .sidebar.collapsed .nav-item:hover > .collapse {
+                display: block !important;
+                position: absolute !important;
+                left: 68px;
+                top: 0;
+                width: 240px;
+                background: #bf9038 !important; /* Matches delivery theme gradient end */
+                box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2) !important;
+                border-radius: 12px !important;
+                border: 1px solid rgba(255, 255, 255, 0.1) !important;
+                z-index: 9999 !important;
+                padding: 10px 0 !important;
+                height: auto !important;
+                visibility: visible !important;
+                opacity: 1 !important;
+            }
+
+            .sidebar.collapsed .nav-item:hover > .collapse .nav {
+                padding-left: 0 !important;
+                padding-top: 0 !important;
+                margin-left: 0 !important;
+            }
+
+            .sidebar.collapsed .nav-item:hover > .collapse .nav-link {
+                padding: 10px 20px !important;
+                margin: 2px 10px !important;
+                text-align: left !important;
+                display: flex !important;
+                justify-content: flex-start !important;
+                border-radius: 8px !important;
+                color: #ffffff !important;
+            }
+
+            .sidebar.collapsed .nav-item:hover > .collapse .nav-link span {
+                display: inline !important;
+                font-size: 0.9rem !important;
+            }
+
+            .sidebar.collapsed .nav-item:hover > .collapse .nav-link i {
+                margin-right: 12px !important;
+                font-size: 1.1rem !important;
+                width: 24px !important;
+            }
+            
+            /* Hide the normal transition for collapse when hovered in collapsed sidebar */
+            .sidebar.collapsed .nav-item:hover > .collapse.collapsing {
+                transition: none !important;
+                height: auto !important;
+                display: block !important;
+            }
+        }
+
         /* Top bar styles */
         .top-bar {
             height: 72px;
@@ -179,6 +278,10 @@
             align-items: center;
             transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
             border-bottom: 1px solid var(--border);
+        }
+
+        .top-bar.collapsed {
+            left: 80px;
         }
 
         .top-bar .title {
@@ -262,6 +365,11 @@
             min-height: calc(100vh - 70px);
             width: calc(100% - 270px);
             transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .main-content.collapsed {
+            margin-left: 80px;
+            width: calc(100% - 80px);
         }
 
         /* Responsive styles */
@@ -463,7 +571,24 @@
 
         // Sidebar toggle
         document.getElementById('sidebarToggler').addEventListener('click', function() {
-            document.querySelector('.sidebar').classList.toggle('show');
+            const sidebar = document.querySelector('.sidebar');
+            const topBar = document.querySelector('.top-bar');
+            const mainContent = document.querySelector('.main-content');
+            const togglerIcon = document.getElementById('togglerIcon');
+
+            if (window.innerWidth < 768) {
+                sidebar.classList.toggle('show');
+            } else {
+                sidebar.classList.toggle('collapsed');
+                topBar.classList.toggle('collapsed');
+                mainContent.classList.toggle('collapsed');
+                
+                if (sidebar.classList.contains('collapsed')) {
+                    togglerIcon?.classList.replace('bi-text-indent-left', 'bi-text-indent-right');
+                } else {
+                    togglerIcon?.classList.replace('bi-text-indent-right', 'bi-text-indent-left');
+                }
+            }
         });
     </script>
 </body>

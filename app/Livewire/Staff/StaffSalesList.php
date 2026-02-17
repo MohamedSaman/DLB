@@ -8,6 +8,7 @@ use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use App\Models\Sale;
 use App\Models\Customer;
+use App\Models\Payment;
 use App\Models\SaleItem;
 use App\Models\ProductStock;
 use App\Models\ReturnsProduct;
@@ -306,6 +307,10 @@ class StaffSalesList extends Component
         try {
             DB::transaction(function () {
                 if ($this->selectedSale) {
+                    // Store sale details before deletion
+                    $saleDueAmount = $this->selectedSale->due_amount ?? 0;
+                    $customerId = $this->selectedSale->customer_id;
+
                     // Restore stock for all items
                     foreach ($this->selectedSale->items as $item) {
                         $productStock = ProductStock::where('product_id', $item->product_id)->first();
@@ -320,12 +325,27 @@ class StaffSalesList extends Component
                     // Delete returns if any
                     $this->selectedSale->returns()->delete();
 
+                    // Delete payments
+                    Payment::where('sale_id', $this->selectedSale->id)->delete();
+
                     // Delete sale
                     $this->selectedSale->delete();
 
+                    // Update customer's due amount and total due
+                    if ($customerId && $saleDueAmount > 0) {
+                        $customer = \App\Models\Customer::find($customerId);
+                        if ($customer) {
+                            // Reduce due amount
+                            $customer->due_amount = max(0, ($customer->due_amount ?? 0) - $saleDueAmount);
+                            // Recalculate total due
+                            $customer->total_due = ($customer->opening_balance ?? 0) + $customer->due_amount;
+                            $customer->save();
+                        }
+                    }
+
                     $this->showDeleteModal = false;
                     $this->dispatch('closeModal', 'deleteModal');
-                    $this->dispatch('showToast', ['type' => 'success', 'message' => 'Sale deleted successfully!']);
+                    $this->dispatch('showToast', ['type' => 'success', 'message' => 'Sale deleted successfully and customer due amount updated!']);
                 }
             });
         } catch (\Exception $e) {
