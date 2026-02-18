@@ -981,10 +981,10 @@ class SalesmanBilling extends Component
                 $discountToStoreEdit = 0;
                 if ($this->additionalDiscountType === 'percentage') {
                     // Store the percentage value
-                    $discountToStoreEdit = $this->additionalDiscount;
+                    $discountToStoreEdit = max(0, (float) ($this->additionalDiscount ?? 0));
                 } else {
                     // Store the rupee amount
-                    $discountToStoreEdit = $this->additionalDiscountAmount;
+                    $discountToStoreEdit = max(0, (float) ($this->additionalDiscountAmount ?? 0));
                 }
 
                 $newDueAmount = $this->grandTotal;
@@ -1070,10 +1070,10 @@ class SalesmanBilling extends Component
                 $discountToStore = 0;
                 if ($this->additionalDiscountType === 'percentage') {
                     // Store the percentage value
-                    $discountToStore = $this->additionalDiscount;
+                    $discountToStore = max(0, (float) ($this->additionalDiscount ?? 0));
                 } else {
                     // Store the rupee amount
-                    $discountToStore = $this->additionalDiscountAmount;
+                    $discountToStore = max(0, (float) ($this->additionalDiscountAmount ?? 0));
                 }
 
                 $sale = Sale::create([
@@ -1171,27 +1171,28 @@ class SalesmanBilling extends Component
     // Computed Properties
     public function getSubtotalProperty()
     {
-        return collect($this->cart)->sum('total');
+        return (float) collect($this->cart)->sum('total');
     }
 
     public function getTotalDiscountProperty()
     {
-        return collect($this->cart)->sum(function ($item) {
+        return (float) collect($this->cart)->sum(function ($item) {
             return $item['discount'] * $item['quantity'];
         });
     }
 
     public function getAdditionalDiscountAmountProperty()
     {
+        $discount = (float) $this->additionalDiscount;
         if ($this->additionalDiscountType === 'percentage') {
-            return ($this->subtotal * $this->additionalDiscount) / 100;
+            return ($this->subtotal * $discount) / 100;
         }
-        return min($this->additionalDiscount, $this->subtotal);
+        return min($discount, $this->subtotal);
     }
 
     public function getGrandTotalProperty()
     {
-        return max(0, $this->subtotal - $this->additionalDiscountAmount);
+        return (float) max(0, $this->subtotal - $this->additionalDiscountAmount);
     }
 
     public function render()
