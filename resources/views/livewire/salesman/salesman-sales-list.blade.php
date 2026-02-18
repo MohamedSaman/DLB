@@ -122,7 +122,7 @@
                                     <button wire:click="viewDetails({{ $sale->id }})" class="btn btn-sm btn-outline-primary" title="View Details">
                                         <i class="bi bi-eye"></i>
                                     </button>
-                                    @if($sale->status === 'pending')
+                                    @if(in_array($sale->status, ['pending', 'confirm']))
                                     <a href="{{ route('salesman.billing.edit', $sale->id) }}" class="btn btn-sm btn-outline-warning" title="Edit Sale">
                                         <i class="bi bi-pencil"></i>
                                     </a>

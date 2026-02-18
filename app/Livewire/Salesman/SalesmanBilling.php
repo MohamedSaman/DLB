@@ -96,9 +96,9 @@ class SalesmanBilling extends Component
                 return;
             }
 
-            // Only allow editing pending or draft sales
-            if (!in_array($sale->status, ['pending', 'draft'])) {
-                session()->flash('error', 'Only pending sales can be edited');
+            // Allow editing of pending and approved sales
+            if (!in_array($sale->status, ['pending', 'confirm'])) {
+                session()->flash('error', 'Delivered or rejected sales cannot be edited. Only pending and approved sales can be modified.');
                 return;
             }
 

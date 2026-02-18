@@ -86,9 +86,9 @@ class SalesmanSalesList extends Component
             return;
         }
 
-        // Only allow editing of pending sales
-        if ($sale->status !== 'pending') {
-            $this->showToast('error', 'Only pending sales can be edited.');
+        // Allow editing of pending and approved sales
+        if (!in_array($sale->status, ['pending', 'confirm'])) {
+            $this->showToast('error', 'Delivered or rejected sales cannot be edited. Only pending and approved sales can be modified.');
             return;
         }
 
