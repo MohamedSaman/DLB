@@ -260,25 +260,35 @@
                                     wire:model.live="totalPaymentAmount" 
                                     class="form-control" 
                                     min="0" 
-                                    max="{{ $totalDueAmount }}" 
                                     step="0.01" 
                                     placeholder="0.00">
                             </div>
-                            <small class="text-muted">Maximum: Rs. {{ number_format($totalDueAmount, 2) }}</small>
+                            <small class="text-muted">Total Due: Rs. {{ number_format($totalDueAmount, 2) }}</small>
                         </div>
 
                         @if($totalPaymentAmount > 0)
-                        <div class="alert alert-{{ $remainingAmount > 0 ? 'warning' : 'success' }} mb-3">
-                            <small class="text-muted d-block">Remaining Due After Payment:</small>
-                            <span class="fw-bold">Rs. {{ number_format($remainingAmount, 2) }}</span>
-                        </div>
+                            @if($overpaidAmount > 0)
+                            <div class="alert alert-info mb-3">
+                                <small class="text-muted d-block">Overpaid Amount:</small>
+                                <span class="fw-bold text-primary">Rs. {{ number_format($overpaidAmount, 2) }}</span>
+                                <small class="text-muted d-block mt-1">
+                                    <i class="bi bi-info-circle me-1"></i>
+                                    This amount will be added to customer's overpaid balance.
+                                </small>
+                            </div>
+                            @else
+                            <div class="alert alert-{{ $remainingAmount > 0 ? 'warning' : 'success' }} mb-3">
+                                <small class="text-muted d-block">Remaining Due After Payment:</small>
+                                <span class="fw-bold">Rs. {{ number_format($remainingAmount, 2) }}</span>
+                            </div>
+                            @endif
                         @endif
 
                         <div class="d-grid mt-3">
                             <button 
                                 class="btn btn-success btn-lg"
                                 wire:click="openCollectModal"
-                                @if($totalPaymentAmount <= 0 || $totalPaymentAmount > $totalDueAmount) disabled @endif>
+                                @if($totalPaymentAmount <= 0) disabled @endif>
                                 <i class="bi bi-check-circle me-2"></i>Proceed to Collect
                             </button>
                         </div>
@@ -465,6 +475,13 @@
                         <i class="bi bi-check-circle me-2"></i>
                         This payment will be processed immediately and due amounts will be reduced.
                     </div>
+
+                    @if($overpaidAmount > 0)
+                    <div class="alert alert-info mt-2">
+                        <i class="bi bi-wallet2 me-2"></i>
+                        <strong>Overpayment: Rs. {{ number_format($overpaidAmount, 2) }}</strong> will be added to customer's overpaid balance.
+                    </div>
+                    @endif
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" wire:click="closeCollectModal">Cancel</button>

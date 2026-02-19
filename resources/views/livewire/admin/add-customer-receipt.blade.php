@@ -318,26 +318,45 @@
                                 <input
                                     type="number"
                                     min="0.01"
-                                    max="{{ $totalDueAmount }}"
                                     step="0.01"
                                     class="form-control"
                                     wire:model.live="totalPaymentAmount"
                                     placeholder="0.00">
                             </div>
-                            <small class="text-muted">Maximum: Rs.{{ number_format($totalDueAmount, 2) }}</small>
+                            <small class="text-muted">Total Due: Rs.{{ number_format($totalDueAmount, 2) }}</small>
                             @error('totalPaymentAmount')
                             <div class="text-danger small mt-1">{{ $message }}</div>
                             @enderror
                         </div>
 
-                        {{-- Remaining Amount Display --}}
+                        {{-- Remaining / Overpaid Amount Display --}}
                         @if($totalPaymentAmount > 0)
-                        <div class="alert alert-{{ $remainingAmount > 0 ? 'warning' : 'success' }} mb-3">
-                            <div class="d-flex justify-content-between align-items-center">
-                                <span class="fw-semibold">Remaining Due:</span>
-                                <span class="fw-bold">Rs.{{ number_format($remainingAmount, 2) }}</span>
+                            @if($overpaidAmount > 0)
+                            <div class="alert alert-info mb-3">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <span class="fw-semibold">Overpaid Amount:</span>
+                                    <span class="fw-bold text-primary">Rs.{{ number_format($overpaidAmount, 2) }}</span>
+                                </div>
+                                <small class="text-muted d-block mt-1">
+                                    <i class="bi bi-info-circle me-1"></i>
+                                    This amount will be added to customer's overpaid balance.
+                                </small>
                             </div>
-                        </div>
+                            @elseif($remainingAmount > 0)
+                            <div class="alert alert-warning mb-3">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <span class="fw-semibold">Remaining Due:</span>
+                                    <span class="fw-bold">Rs.{{ number_format($remainingAmount, 2) }}</span>
+                                </div>
+                            </div>
+                            @else
+                            <div class="alert alert-success mb-3">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <span class="fw-semibold">Remaining Due:</span>
+                                    <span class="fw-bold">Rs.{{ number_format($remainingAmount, 2) }}</span>
+                                </div>
+                            </div>
+                            @endif
                         @endif
 
                         {{-- Process Payment Button --}}
@@ -347,7 +366,7 @@
                                 wire:click="openPaymentModal"
                                 wire:loading.attr="disabled"
                                 wire:loading.class="disabled"
-                                @if($totalPaymentAmount <= 0 || $totalPaymentAmount > $totalDueAmount) disabled @endif>
+                                @if($totalPaymentAmount <= 0) disabled @endif>
                                 <span wire:loading.remove wire:target="openPaymentModal">
                                     <i class="bi bi-cash-coin me-2"></i>
                                     Process Payment
@@ -741,6 +760,13 @@
                             </tbody>
                         </table>
                     </div>
+
+                    @if($overpaidAmount > 0)
+                    <div class="alert alert-info mt-3">
+                        <i class="bi bi-wallet2 me-2"></i>
+                        <strong>Overpayment: Rs.{{ number_format($overpaidAmount, 2) }}</strong> will be added to customer's overpaid balance.
+                    </div>
+                    @endif
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" wire:click="closePaymentModal">Cancel</button>

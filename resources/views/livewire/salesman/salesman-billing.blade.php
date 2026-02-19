@@ -74,6 +74,15 @@
                                             <small class="text-muted d-block">Address:</small>
                                             <span>{{ $selectedCustomer->address ?? 'No address' }}</span>
                                         </div>
+                                        @if(($selectedCustomer->overpaid_amount ?? 0) > 0)
+                                        <div class="col-12 mt-2">
+                                            <div class="alert alert-info py-2 px-3 mb-0 d-flex justify-content-between align-items-center">
+                                                <span><i class="bi bi-wallet2 me-1"></i> <strong>Overpaid Balance:</strong></span>
+                                                <span class="fw-bold text-primary">Rs.{{ number_format($selectedCustomer->overpaid_amount, 2) }}</span>
+                                            </div>
+                                            <small class="text-muted"><i class="bi bi-info-circle me-1"></i>This amount will be auto-applied to reduce the due on the next sale.</small>
+                                        </div>
+                                        @endif
                                     </div>
                                 </div>
                             @else

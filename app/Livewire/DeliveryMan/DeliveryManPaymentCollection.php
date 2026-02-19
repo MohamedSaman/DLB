@@ -52,6 +52,7 @@ class DeliveryManPaymentCollection extends Component
     public $totalDueAmount = 0;
     public $totalPaymentAmount = 0;
     public $remainingAmount = 0;
+    public $overpaidAmount = 0;
 
     protected $rules = [
         'paymentData.payment_date' => 'required|date',
@@ -85,10 +86,6 @@ class DeliveryManPaymentCollection extends Component
 
     public function updatedTotalPaymentAmount()
     {
-        if ($this->totalPaymentAmount > $this->totalDueAmount) {
-            $this->totalPaymentAmount = $this->totalDueAmount;
-        }
-
         if ($this->totalPaymentAmount < 0) {
             $this->totalPaymentAmount = 0;
         }
@@ -257,6 +254,9 @@ class DeliveryManPaymentCollection extends Component
     private function calculateRemainingAmount()
     {
         $this->remainingAmount = $this->totalDueAmount - $this->totalPaymentAmount;
+        $this->overpaidAmount = $this->totalPaymentAmount > $this->totalDueAmount
+            ? $this->totalPaymentAmount - $this->totalDueAmount
+            : 0;
     }
 
     private function initializeAllocations()
@@ -310,11 +310,6 @@ class DeliveryManPaymentCollection extends Component
 
         if (!$this->totalPaymentAmount || $this->totalPaymentAmount <= 0) {
             $this->dispatch('show-toast', type: 'error', message: 'Please enter a payment amount.');
-            return;
-        }
-
-        if ($this->totalPaymentAmount > $this->totalDueAmount) {
-            $this->dispatch('show-toast', type: 'error', message: 'Payment amount cannot exceed total due.');
             return;
         }
 
@@ -469,6 +464,25 @@ class DeliveryManPaymentCollection extends Component
                 $customer->update([
                     'due_amount' => $newCustomerDueAmount,
                 ]);
+            }
+
+            // Handle overpayment - add to customer's overpaid_amount
+            $overpaidAmount = $this->totalPaymentAmount > $this->totalDueAmount
+                ? $this->totalPaymentAmount - $this->totalDueAmount
+                : 0;
+
+            if ($overpaidAmount > 0) {
+                $customer = Customer::find($this->selectedCustomer->id);
+                if ($customer) {
+                    $customer->overpaid_amount = ($customer->overpaid_amount ?? 0) + $overpaidAmount;
+                    $customer->save();
+
+                    Log::info('Overpayment recorded', [
+                        'customer_id' => $customer->id,
+                        'overpaid_amount' => $overpaidAmount,
+                        'total_overpaid' => $customer->overpaid_amount
+                    ]);
+                }
             }
 
             DB::commit();

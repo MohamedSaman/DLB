@@ -131,10 +131,17 @@ class SalesmanBilling extends Component
                     $item->variant_value ?? null
                 );
 
-                // Build display name with variant if exists
+                // Use product_name as stored — it already contains the full display name
+                // (e.g., "Screw (Size: 5")") set when the product was first added to cart.
+                // Strip any duplicate trailing " (variant_value)" suffixes that may have been
+                // appended in a previous buggy edit cycle, to repair already-corrupted records.
                 $displayName = $item->product_name;
                 if ($item->variant_value && $item->variant_value !== '' && $item->variant_value !== 'null') {
-                    $displayName .= ' (' . $item->variant_value . ')';
+                    $variantSuffix = ' (' . $item->variant_value . ')';
+                    // Remove all duplicate trailing suffixes caused by previous edit cycles
+                    while (str_ends_with($displayName, $variantSuffix)) {
+                        $displayName = substr($displayName, 0, -strlen($variantSuffix));
+                    }
                 }
 
                 $this->cart[] = [
@@ -996,6 +1003,22 @@ class SalesmanBilling extends Component
                     if ($oldDueAmount > 0) {
                         $customer->due_amount = max(0, ($customer->due_amount ?? 0) - $oldDueAmount);
                     }
+
+                    // Apply customer's overpaid amount to reduce the new due
+                    $overpaidUsed = 0;
+                    if ($newDueAmount > 0 && ($customer->overpaid_amount ?? 0) > 0) {
+                        $overpaidUsed = min($customer->overpaid_amount, $newDueAmount);
+                        $newDueAmount = $newDueAmount - $overpaidUsed;
+                        $customer->overpaid_amount = max(0, $customer->overpaid_amount - $overpaidUsed);
+
+                        Log::info('Overpaid amount applied on edit', [
+                            'customer_id' => $customer->id,
+                            'overpaid_used' => $overpaidUsed,
+                            'remaining_due' => $newDueAmount,
+                            'remaining_overpaid' => $customer->overpaid_amount,
+                        ]);
+                    }
+
                     // Only add new due if it exists (>0)
                     if ($newDueAmount > 0) {
                         $customer->due_amount = ($customer->due_amount ?? 0) + $newDueAmount;
@@ -1011,6 +1034,7 @@ class SalesmanBilling extends Component
                     'discount_type' => $this->additionalDiscountType,
                     'total_amount' => $this->grandTotal,
                     'due_amount' => $newDueAmount,
+                    'payment_status' => $newDueAmount <= 0 ? 'paid' : ($overpaidUsed > 0 ? 'partial' : 'pending'),
                     'customer_type' => $this->selectedCustomer->type ?? 'distributor',
                     'notes' => $this->notes,
                 ]);
@@ -1130,18 +1154,48 @@ class SalesmanBilling extends Component
                     }
                 }
 
-                // Update customer due_amount (sale is credit - full amount is due)
+                // Apply customer's overpaid amount to reduce the due
                 $customer = Customer::find($this->customerId);
-                if ($customer && $this->grandTotal > 0) {
-                    $customer->due_amount = ($customer->due_amount ?? 0) + $this->grandTotal;
+                $saleDueAmount = $this->grandTotal;
+                $overpaidUsed = 0;
+
+                if ($customer && $saleDueAmount > 0 && ($customer->overpaid_amount ?? 0) > 0) {
+                    $overpaidUsed = min($customer->overpaid_amount, $saleDueAmount);
+                    $saleDueAmount = $saleDueAmount - $overpaidUsed;
+                    $customer->overpaid_amount = max(0, $customer->overpaid_amount - $overpaidUsed);
+
+                    // Update sale with reduced due amount
+                    $sale->due_amount = $saleDueAmount;
+                    $sale->payment_status = $saleDueAmount <= 0 ? 'paid' : 'partial';
+                    $sale->save();
+
+                    Log::info('Overpaid amount applied on new sale', [
+                        'customer_id' => $customer->id,
+                        'sale_id' => $sale->id,
+                        'overpaid_used' => $overpaidUsed,
+                        'remaining_due' => $saleDueAmount,
+                        'remaining_overpaid' => $customer->overpaid_amount,
+                    ]);
+                }
+
+                // Update customer due_amount (only add the remaining due after overpaid deduction)
+                if ($customer && $saleDueAmount > 0) {
+                    $customer->due_amount = ($customer->due_amount ?? 0) + $saleDueAmount;
                     $customer->total_due = ($customer->opening_balance ?? 0) + $customer->due_amount;
+                }
+                if ($customer) {
                     $customer->save();
                 }
 
                 DB::commit();
                 $this->createdSale = $sale->load(['customer', 'items.product']);
                 $this->showSaleModal = true;
-                session()->flash('success', 'Sale created successfully! Stock has been updated.');
+
+                $successMsg = 'Sale created successfully! Stock has been updated.';
+                if ($overpaidUsed > 0) {
+                    $successMsg .= ' Rs.' . number_format($overpaidUsed, 2) . ' applied from customer overpaid balance.';
+                }
+                session()->flash('success', $successMsg);
             }
         } catch (\Exception $e) {
             DB::rollback();

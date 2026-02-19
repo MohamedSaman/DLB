@@ -2395,6 +2395,34 @@ class StoreBilling extends Component
                     $customer->total_due = ($customer->opening_balance ?? 0) + ($customer->due_amount ?? 0);
                 }
 
+                // Apply existing overpaid_amount to reduce any remaining due on this sale
+                $currentSaleDue = floatval($sale->due_amount ?? 0);
+                if ($currentSaleDue > 0 && ($customer->overpaid_amount ?? 0) > 0) {
+                    $overpaidToUse = min($customer->overpaid_amount, $currentSaleDue);
+                    $newSaleDue = $currentSaleDue - $overpaidToUse;
+
+                    // Update the sale's due and payment status
+                    $sale->due_amount = $newSaleDue;
+                    $sale->payment_status = $newSaleDue <= 0 ? 'paid' : 'partial';
+                    $sale->payment_type = $newSaleDue <= 0 ? 'full' : 'partial';
+                    $sale->save();
+
+                    // Reduce customer's overpaid_amount
+                    $customer->overpaid_amount = max(0, $customer->overpaid_amount - $overpaidToUse);
+
+                    // Also reduce customer's due_amount by the overpaid portion used
+                    $customer->due_amount = max(0, ($customer->due_amount ?? 0) - $overpaidToUse);
+                    $customer->total_due = ($customer->opening_balance ?? 0) + ($customer->due_amount ?? 0);
+
+                    Log::info('Existing overpaid balance applied to sale', [
+                        'customer_id' => $customer->id,
+                        'sale_id' => $sale->id,
+                        'overpaid_used' => $overpaidToUse,
+                        'remaining_sale_due' => $newSaleDue,
+                        'remaining_overpaid' => $customer->overpaid_amount,
+                    ]);
+                }
+
                 // Save updated customer balance
                 $customer->save();
             }

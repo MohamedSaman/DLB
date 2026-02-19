@@ -55,6 +55,7 @@ class AddCustomerReceipt extends Component
     public $totalDueAmount = 0;
     public $totalPaymentAmount = 0;
     public $remainingAmount = 0;
+    public $overpaidAmount = 0;
     public $showPaymentModal = false;
     public $showViewModal = false;
     public $showReceiptModal = false;
@@ -115,10 +116,6 @@ class AddCustomerReceipt extends Component
 
     public function updatedTotalPaymentAmount()
     {
-        if ($this->totalPaymentAmount > $this->totalDueAmount) {
-            $this->totalPaymentAmount = $this->totalDueAmount;
-        }
-
         if ($this->totalPaymentAmount < 0) {
             $this->totalPaymentAmount = 0;
         }
@@ -294,6 +291,9 @@ class AddCustomerReceipt extends Component
     private function calculateRemainingAmount()
     {
         $this->remainingAmount = $this->totalDueAmount - $this->totalPaymentAmount;
+        $this->overpaidAmount = $this->totalPaymentAmount > $this->totalDueAmount
+            ? $this->totalPaymentAmount - $this->totalDueAmount
+            : 0;
     }
 
     private function initializeAllocations()
@@ -357,14 +357,6 @@ class AddCustomerReceipt extends Component
             $this->dispatch('show-toast', [
                 'type' => 'error',
                 'message' => 'Please enter a payment amount greater than zero.'
-            ]);
-            return;
-        }
-
-        if ($this->totalPaymentAmount > $this->totalDueAmount) {
-            $this->dispatch('show-toast', [
-                'type' => 'error',
-                'message' => 'Payment amount cannot exceed total due amount.'
             ]);
             return;
         }
@@ -485,14 +477,10 @@ class AddCustomerReceipt extends Component
             return;
         }
 
-        // Check payment amount
-        if ($this->totalPaymentAmount > $this->totalDueAmount) {
-            $this->dispatch('show-toast', [
-                'type' => 'error',
-                'message' => 'Payment amount cannot exceed total due amount.'
-            ]);
-            return;
-        }
+        // Calculate overpaid amount
+        $overpaidAmount = $this->totalPaymentAmount > $this->totalDueAmount
+            ? $this->totalPaymentAmount - $this->totalDueAmount
+            : 0;
 
         // Additional validation: Check for duplicate cheque numbers in database
         if ($this->paymentData['payment_method'] === 'cheque') {
@@ -622,12 +610,25 @@ class AddCustomerReceipt extends Component
                 $processedInvoices[] = $sale['invoice_number'];
             }
 
+            // Handle overpayment - add to customer's overpaid_amount
+            if ($overpaidAmount > 0) {
+                $this->selectedCustomer->overpaid_amount = ($this->selectedCustomer->overpaid_amount ?? 0) + $overpaidAmount;
+                $this->selectedCustomer->save();
+
+                Log::info('Overpayment recorded', [
+                    'customer_id' => $this->selectedCustomer->id,
+                    'overpaid_amount' => $overpaidAmount,
+                    'total_overpaid' => $this->selectedCustomer->overpaid_amount
+                ]);
+            }
+
             DB::commit();
 
             Log::info('Payment processed successfully', [
                 'total_processed' => $totalProcessed,
                 'invoices' => $processedInvoices,
-                'payment_id' => $payment->id
+                'payment_id' => $payment->id,
+                'overpaid_amount' => $overpaidAmount
             ]);
 
             $this->paymentSuccess = true;
