@@ -592,13 +592,13 @@ class PurchaseOrderList extends Component
         $this->editOrderItems = [];
         foreach ($order->items as $item) {
             $this->editOrderItems[] = [
-                'item_id' => $item->id,
+                'item_id'    => $item->id,
                 'product_id' => $item->product_id,
-                'code' => $item->product->code ?? 'N/A',
-                'name' => $this->formatProductName($item->product ?? null, $item->unit_price ?? null),
-                'quantity' => $item->quantity,
+                'code'       => $item->product->code ?? 'N/A',
+                'name'       => $this->formatOrderItemName($item),
+                'quantity'   => $item->quantity,
                 'unit_price' => $item->unit_price,
-                'discount' => $item->discount ?? 0,
+                'discount'   => $item->discount ?? 0,
             ];
         }
 
@@ -1566,7 +1566,7 @@ class PurchaseOrderList extends Component
 
     public function convertToGRN($orderId)
     {
-        $this->selectedPO = PurchaseOrder::with(['supplier', 'items.product.detail'])->find($orderId);
+        $this->selectedPO = PurchaseOrder::with(['supplier', 'items.product.detail', 'items.product.variant'])->find($orderId);
 
         if (!$this->selectedPO) {
             $this->dispatch('showToast', ['type' => 'error', 'message' => 'Order not found!']);
@@ -1610,21 +1610,21 @@ class PurchaseOrderList extends Component
             $discountType = $item->discount_type ?? 'percent';
 
             $this->grnItems[] = [
-                'id' => $item->id,
-                'product_id' => $item->product_id,
-                'variant_id' => $item->variant_id ?? null,
-                'variant_value' => $item->variant_value ?? null,
-                'code' => $item->product->code ?? 'N/A',
-                'name' => $this->formatProductName($item->product ?? null, $item->unit_price ?? null),
-                'ordered_qty' => $item->quantity,
+                'id'                => $item->id,
+                'product_id'        => $item->product_id,
+                'variant_id'        => $item->variant_id ?? null,
+                'variant_value'     => $item->variant_value ?? null,
+                'code'              => $item->product->code ?? 'N/A',
+                'name'              => $this->formatOrderItemName($item),
+                'ordered_qty'       => $item->quantity,
                 'received_quantity' => $item->quantity,
-                'unit_price' => $item->unit_price,
-                'discount' => $item->discount ?? 0,
-                'discount_type' => $discountType,
-                'wholesale_price' => $currentWholesalePrice,
-                'retail_price' => $currentRetailPrice,
+                'unit_price'        => $item->unit_price,
+                'discount'          => $item->discount ?? 0,
+                'discount_type'     => $discountType,
+                'wholesale_price'   => $currentWholesalePrice,
+                'retail_price'      => $currentRetailPrice,
                 'distributor_price' => $currentDistributorPrice,
-                'status' => 'received'
+                'status'            => 'received'
             ];
         }
 
@@ -1634,7 +1634,7 @@ class PurchaseOrderList extends Component
 
     public function reProcessGRN($orderId)
     {
-        $this->selectedPO = PurchaseOrder::with(['supplier', 'items.product.detail'])->find($orderId);
+        $this->selectedPO = PurchaseOrder::with(['supplier', 'items.product.detail', 'items.product.variant'])->find($orderId);
 
         if (!$this->selectedPO) {
             $this->dispatch('showToast', ['type' => 'error', 'message' => 'Order not found!']);
@@ -1683,22 +1683,22 @@ class PurchaseOrderList extends Component
                 $discountType = $item->discount_type ?? 'percent';
 
                 $this->grnItems[] = [
-                    'id' => $item->id,
-                    'product_id' => $item->product_id,
-                    'variant_id' => $item->variant_id ?? null,
-                    'variant_value' => $item->variant_value ?? null,
-                    'code' => $item->product->code ?? 'N/A',
-                    'name' => $this->formatProductName($item->product ?? null, $item->unit_price ?? null),
-                    'ordered_qty' => $item->quantity,
+                    'id'                => $item->id,
+                    'product_id'        => $item->product_id,
+                    'variant_id'        => $item->variant_id ?? null,
+                    'variant_value'     => $item->variant_value ?? null,
+                    'code'              => $item->product->code ?? 'N/A',
+                    'name'              => $this->formatOrderItemName($item),
+                    'ordered_qty'       => $item->quantity,
                     'received_quantity' => $item->quantity,
-                    'unit_price' => $item->unit_price,
-                    'discount' => $item->discount ?? 0,
-                    'discount_type' => $discountType,
-                    'selling_price' => $currentSellingPrice,
-                    'wholesale_price' => $currentWholesalePrice,
-                    'retail_price' => $currentRetailPrice,
+                    'unit_price'        => $item->unit_price,
+                    'discount'          => $item->discount ?? 0,
+                    'discount_type'     => $discountType,
+                    'selling_price'     => $currentSellingPrice,
+                    'wholesale_price'   => $currentWholesalePrice,
+                    'retail_price'      => $currentRetailPrice,
                     'distributor_price' => $currentDistributorPrice,
-                    'status' => 'received'
+                    'status'            => 'received'
                 ];
             }
         }
@@ -1896,13 +1896,27 @@ class PurchaseOrderList extends Component
     }
 
     /**
-     * Return a formatted display name for an order item (includes variant if available)
+     * Return a formatted display name for an order item using stored variant_id/variant_value.
      */
     private function formatOrderItemName($orderItem)
     {
         $product = $orderItem->product ?? null;
-        $unitPrice = isset($orderItem->unit_price) ? floatval($orderItem->unit_price) : null;
-        return $this->formatProductName($product, $unitPrice);
+        if (!$product) return 'N/A';
+
+        $name = trim($product->name ?? '');
+        $variantValue = $orderItem->variant_value ?? null;
+        $variantId    = $orderItem->variant_id    ?? null;
+
+        if (!empty($variantId) && !empty($variantValue)) {
+            $variantName = $product->variant->variant_name ?? null;
+            if (!empty($variantName)) {
+                return rtrim(trim($name . ' - ' . $variantName . ': ' . $variantValue));
+            }
+            return rtrim(trim($name . ' - ' . $variantValue), ' -:');
+        }
+
+        // No variant info stored – fall back to plain name
+        return rtrim($name, ' -:');
     }
 
     /**
