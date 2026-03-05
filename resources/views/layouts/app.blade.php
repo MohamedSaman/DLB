@@ -54,6 +54,30 @@
     @stack('modals')
 
     @livewireScripts
+    <script>
+        // Handle Livewire session/CSRF expiry (HTTP 419) - prevents buttons getting permanently stuck disabled
+        document.addEventListener('livewire:init', () => {
+            Livewire.hook('request', ({ fail }) => {
+                fail(({ status, preventDefault }) => {
+                    if (status === 419) {
+                        preventDefault();
+                        Swal.fire({
+                            icon: 'warning',
+                            title: 'Session Expired',
+                            text: 'Your session has expired. The page will reload automatically.',
+                            confirmButtonText: 'Reload Now',
+                            confirmButtonColor: '#2a83df',
+                            timer: 4000,
+                            timerProgressBar: true,
+                            allowOutsideClick: false
+                        }).then(() => {
+                            window.location.reload();
+                        });
+                    }
+                });
+            });
+        });
+    </script>
 
     <!-- Bootstrap JS Bundle -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
