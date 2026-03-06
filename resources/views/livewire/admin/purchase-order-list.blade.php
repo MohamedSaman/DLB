@@ -497,6 +497,7 @@
                     <table class="table table-bordered table-hover mb-0" style="min-width: 1400px; width: 100%;">
                         <thead class="table-light">
                             <tr class="align-middle text-uppercase small fw-bold">
+                                <th style="min-width: 70px;">No</th>
                                 <th style="min-width: 90px;">Code</th>
                                 <th style="min-width: 250px;">Product</th>
                                 <th class="text-center" style="width: 80px;">Ord Qty</th>
@@ -528,6 +529,7 @@
                             }
                             @endphp
                             <tr wire:key="item-{{ $index }}" class="{{ $statusClass }}">
+                                <td>{{ $loop->iteration }}</td>
                                 <td class="align-middle">
                                     @if($item['is_new'] ?? false)
                                     <input type="text"
@@ -708,6 +710,7 @@
                 <table class="table table-sm overflow-auto">
                     <thead>
                         <tr>
+                            <th>No</th>
                             <th>Code</th>
                             <th>Product</th>
                             <th>Status</th>
@@ -731,6 +734,7 @@
                             $totalPrice = $netUnitPrice * $qty;
                         @endphp
                         <tr>
+                            <td>{{ $loop->iteration }}</td>
                             <td>{{ $item->product->code ?? 'N/A' }}</td>
                             <td title="{{ $item->display_name ?? ($item->product->name ?? 'N/A') }}">{{ $item->display_name ?? ($item->product->name ?? 'N/A') }}</td>
                             <td>
