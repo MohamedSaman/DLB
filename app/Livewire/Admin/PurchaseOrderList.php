@@ -1415,6 +1415,8 @@ class PurchaseOrderList extends Component
 
             // Remove the item completely from GRN items array
             unset($this->grnItems[$index]);
+            // Re-index array to prevent sparse array issues with Livewire
+            $this->grnItems = array_values($this->grnItems);
         }
     }
 
@@ -1473,8 +1475,6 @@ class PurchaseOrderList extends Component
         // Total = cost per unit × quantity
         $total = $costPerUnit * $receivedQty;
 
-        Log::info("GRN Total Calc: Qty={$receivedQty}, UnitPrice={$unitPrice}, Discount={$discount}%, CostPerUnit={$costPerUnit}, Total={$total}");
-
         // Ensure total is not negative
         return floatval(max(0, $total));
     }
@@ -1491,13 +1491,8 @@ class PurchaseOrderList extends Component
                 $this->searchGRNProducts($value, $itemIndex);
             }
 
-            // Log discount updates for debugging
-            if ($field === 'discount' || $field === 'discount_type') {
-                Log::info("Discount updated for item {$itemIndex}: Field={$field}, Value={$value}, Type={$this->grnItems[$itemIndex]['discount_type']}, Discount={$this->grnItems[$itemIndex]['discount']}");
-            }
-
             // Calculate GRN total when numeric fields change
-            if (in_array($field, ['received_quantity', 'unit_price', 'discount', 'selling_price'])) {
+            if (in_array($field, ['received_quantity', 'unit_price', 'discount'])) {
                 $this->calculateGRNTotal($itemIndex);
             }
         }

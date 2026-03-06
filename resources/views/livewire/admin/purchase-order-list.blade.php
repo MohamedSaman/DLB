@@ -475,7 +475,13 @@
                 </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            <div class="modal-body">
+            <div class="modal-body position-relative">
+                {{-- Loading overlay to prevent interaction during server requests --}}
+                <div wire:loading.flex class="position-absolute top-0 start-0 w-100 h-100 justify-content-center align-items-center" style="background: rgba(255,255,255,0.7); z-index: 10;">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Processing...</span>
+                    </div>
+                </div>
                 @if($selectedPO)
                 <p><strong>Supplier:</strong> {{ $selectedPO->supplier->name }}</p>
 
@@ -534,7 +540,7 @@
                                     @if($item['is_new'] ?? false)
                                     <input type="text"
                                         class="form-control form-control-sm"
-                                        wire:model.live="grnItems.{{ $index }}.code"
+                                        wire:model.blur="grnItems.{{ $index }}.code"
                                         placeholder="Product Code">
                                     @else
                                     <span class="fw-medium text-dark">{{ $item['code'] ?? '' }}</span>
@@ -544,7 +550,7 @@
                                     @if($item['is_new'] ?? false)
                                     <input type="text"
                                         class="form-control form-control-sm"
-                                        wire:model.live="grnItems.{{ $index }}.name"
+                                        wire:model.live.debounce.500ms="grnItems.{{ $index }}.name"
                                         placeholder="New Product Name"
                                         title="{{ $item['name'] ?? '' }}"
                                         style="min-width:260px;">
@@ -584,14 +590,13 @@
                                 <td class="align-middle">
                                     <input type="number"
                                         class="form-control form-control-sm text-center fw-bold"
-                                        wire:model.live="grnItems.{{ $index }}.received_quantity"
-                                        min="0"
-                                        wire:change="calculateGRNTotal({{ $index }})">
+                                        wire:model.blur="grnItems.{{ $index }}.received_quantity"
+                                        min="0">
                                 </td>
                                 <td class="align-middle">
                                     <input type="number"
                                         class="form-control form-control-sm text-end supplier-price-input fw-semibold"
-                                        wire:model.live.debounce.300ms="grnItems.{{ $index }}.unit_price"
+                                        wire:model.blur="grnItems.{{ $index }}.unit_price"
                                         data-index="{{ $index }}"
                                         step="0.01"
                                         min="0"
@@ -602,7 +607,7 @@
                                         <div class="input-group input-group-sm">
                                             <input type="number"
                                                 class="form-control discount-input text-center"
-                                                wire:model.live.debounce.300ms="grnItems.{{ $index }}.discount"
+                                                wire:model.blur="grnItems.{{ $index }}.discount"
                                                 data-index="{{ $index }}"
                                                 placeholder="0"
                                                 min="0"
@@ -615,7 +620,7 @@
                                 <td class="align-middle">
                                     <input type="number"
                                         class="form-control form-control-sm text-end fw-semibold"
-                                        wire:model.live="grnItems.{{ $index }}.wholesale_price"
+                                        wire:model.blur="grnItems.{{ $index }}.wholesale_price"
                                         step="0.01"
                                         min="0"
                                         placeholder="0.00">
@@ -623,7 +628,7 @@
                                 <td class="align-middle">
                                     <input type="number"
                                         class="form-control form-control-sm text-end fw-semibold"
-                                        wire:model.live="grnItems.{{ $index }}.distributor_price"
+                                        wire:model.blur="grnItems.{{ $index }}.distributor_price"
                                         step="0.01"
                                         min="0"
                                         placeholder="0.00">
@@ -631,7 +636,7 @@
                                 <td class="align-middle">
                                     <input type="number"
                                         class="form-control form-control-sm text-end fw-semibold"
-                                        wire:model.live="grnItems.{{ $index }}.retail_price"
+                                        wire:model.blur="grnItems.{{ $index }}.retail_price"
                                         step="0.01"
                                         min="0"
                                         placeholder="0.00">
@@ -683,7 +688,10 @@
             </div>
             <div class="modal-footer">
                 <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button class="btn btn-primary" wire:click="saveGRN">Save GRN</button>
+                <button class="btn btn-primary" wire:click="saveGRN" wire:loading.attr="disabled">
+                    <span wire:loading wire:target="saveGRN" class="spinner-border spinner-border-sm me-1"></span>
+                    Save GRN
+                </button>
             </div>
             @endif
         </div>
@@ -1047,31 +1055,6 @@
 
 @push('scripts')
 <script>
-    // Handle discount input - no auto-calculation of selling price
-    document.addEventListener('DOMContentLoaded', function() {
-        // Use event delegation for dynamically added inputs
-        document.addEventListener('change', function(e) {
-            if (e.target.classList.contains('discount-input')) {
-                const input = e.target;
-                const index = input.dataset.index;
-
-                // Calculate GRN total when discount changes
-                setTimeout(() => {
-                    @this.call('calculateGRNTotal', index);
-                }, 150);
-            }
-            
-            if (e.target.classList.contains('supplier-price-input')) {
-                const input = e.target;
-                const index = input.dataset.index;
-
-                // Calculate GRN total when supplier price changes
-                setTimeout(() => {
-                    @this.call('calculateGRNTotal', index);
-                }, 150);
-            }
-        });
-    });
     
     // Auto-focus search input when modals open
     document.addEventListener('DOMContentLoaded', function() {
