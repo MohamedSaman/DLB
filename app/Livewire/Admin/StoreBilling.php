@@ -429,7 +429,7 @@ class StoreBilling extends Component
 
         $items = [];
 
-        $products = $query->take(50)->get(); // fetch more to allow expansion into variants
+        $products = $query->get(); // fetch all to allow expansion into variants
 
         foreach ($products as $product) {
             // If product has variant stocks/values, expand each variant as its own product entry
@@ -660,8 +660,7 @@ class StoreBilling extends Component
             }
         }
 
-        // Limit to 20 items to keep UI performant
-        $this->products = array_values(array_slice($finalItems, 0, 20));
+        $this->products = array_values($finalItems);
     }
 
     /**
@@ -1282,7 +1281,6 @@ class StoreBilling extends Component
                     });
                 })
                 ->with(['stock', 'price', 'category', 'stocks', 'prices'])
-                ->limit(20)
                 ->get();
 
             // Build expanded results: show each variant as its own result when available
