@@ -313,7 +313,7 @@ class SalesmanBilling extends Component
             foreach ($products as $product) {
                 if ($product->hasVariants() && $product->variant) {
                     // Product has variants - show each variant as a separate item
-                    $variantPrices = $product->prices()->where('pricing_mode', 'variant')->get();
+                    $variantPrices = $product->prices()->whereNotNull('variant_value')->get();
                     $variantStocks = $product->stocks()->whereNotNull('variant_value')->get();
 
                     foreach ($product->variant->variant_values as $variantValue) {

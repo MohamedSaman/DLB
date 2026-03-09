@@ -1127,21 +1127,23 @@ class PurchaseOrderList extends Component
             $variantPrice = $variantPriceQuery->first();
 
             if ($variantPrice) {
-                // ONLY update if no existing stock (FIFO principle)
+                // Always update wholesale, distributor, and retail prices to new GRN prices
+                $variantPrice->wholesale_price = $wholesalePrice;
+                $variantPrice->retail_price = $retailPrice;
+                $variantPrice->distributor_price = $distributorPrice ?? ($variantPrice->distributor_price ?? 0);
+                $variantPrice->selling_price = 0;
+                // Only update cost price (supplier_price) when old stock is empty
                 if (!$hasExistingStock) {
                     $variantPrice->supplier_price = $supplierPrice;
-                    $variantPrice->selling_price = 0;
-                    $variantPrice->wholesale_price = $wholesalePrice;
-                    $variantPrice->retail_price = $retailPrice;
-                    $variantPrice->distributor_price = $distributorPrice ?? ($variantPrice->distributor_price ?? 0);
-                    $variantPrice->save();
                 }
+                $variantPrice->save();
             } else {
                 // Create variant price if it doesn't exist
                 ProductPrice::create([
                     'product_id' => $productId,
                     'variant_id' => $variantId,
                     'variant_value' => $variantValue,
+                    'pricing_mode' => 'variant',
                     'supplier_price' => $supplierPrice,
                     'selling_price' => 0,
                     'wholesale_price' => $wholesalePrice,
@@ -1152,25 +1154,27 @@ class PurchaseOrderList extends Component
             }
         } else {
             // Update base product price
-            if (!$hasExistingStock) {
-                if ($productPrice) {
+            if ($productPrice) {
+                // Always update wholesale, distributor, and retail prices to new GRN prices
+                $productPrice->wholesale_price = $wholesalePrice;
+                $productPrice->retail_price = $retailPrice;
+                $productPrice->distributor_price = $distributorPrice ?? ($productPrice->distributor_price ?? 0);
+                $productPrice->selling_price = 0;
+                // Only update cost price (supplier_price) when old stock is empty
+                if (!$hasExistingStock) {
                     $productPrice->supplier_price = $supplierPrice;
-                    $productPrice->selling_price = 0;
-                    $productPrice->wholesale_price = $wholesalePrice;
-                    $productPrice->retail_price = $retailPrice;
-                    $productPrice->distributor_price = $distributorPrice ?? ($productPrice->distributor_price ?? 0);
-                    $productPrice->save();
-                } else {
-                    ProductPrice::create([
-                        'product_id' => $productId,
-                        'supplier_price' => $supplierPrice,
-                        'selling_price' => 0,
-                        'wholesale_price' => $wholesalePrice,
-                        'retail_price' => $retailPrice,
-                        'distributor_price' => $distributorPrice ?? 0,
-                        'discount_price' => 0,
-                    ]);
                 }
+                $productPrice->save();
+            } else {
+                ProductPrice::create([
+                    'product_id' => $productId,
+                    'supplier_price' => $supplierPrice,
+                    'selling_price' => 0,
+                    'wholesale_price' => $wholesalePrice,
+                    'retail_price' => $retailPrice,
+                    'distributor_price' => $distributorPrice ?? 0,
+                    'discount_price' => 0,
+                ]);
             }
         }
     }

@@ -1208,7 +1208,7 @@ class Products extends Component
                 'stock',
                 'variant',
                 'prices' => function ($q) {
-                    $q->where('pricing_mode', 'variant')->orderBy('variant_value');
+                    $q->whereNotNull('variant_value')->orderBy('variant_value');
                 },
                 'stocks' => function ($q) {
                     $q->orderBy('variant_value');
@@ -1241,7 +1241,7 @@ class Products extends Component
                 'stock',
                 'variant',
                 'prices' => function ($q) {
-                    $q->where('pricing_mode', 'variant')->orderBy('variant_value');
+                    $q->whereNotNull('variant_value')->orderBy('variant_value');
                 },
                 'stocks' => function ($q) {
                     $q->orderBy('variant_value');
