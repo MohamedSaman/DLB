@@ -623,98 +623,58 @@ class SalesmanBilling extends Component
         $variantId = $product['variant_id'] ?? null;
         $variantValue = $product['variant_value'] ?? null;
 
-        // Get batch price breakdown for distributor price
+        // Always use the price from the product_prices table (passed via $product['price'])
+        // Batches are used only for FIFO stock deduction, not for determining the selling price.
+        $priceToUse = $product['price'];
+
+        // Get the first active batch number for tracking purposes only
         $priceBreakdown = FIFOStockService::getBatchPriceBreakdown(
             $productId,
-            1, // Check for 1 unit to see if we need to split
+            1,
             'distributor_price',
             $variantId,
             $variantValue
         );
+        $batchNumber = !empty($priceBreakdown) ? $priceBreakdown[0]['batch_number'] : null;
 
-        // If multiple batches with different prices exist, we'll handle quantity increase carefully
-        // For now, just add 1 unit from the first available batch
-        if (!empty($priceBreakdown)) {
-            $firstBatch = $priceBreakdown[0];
-            $priceToUse = $firstBatch['price'];
-            $batchNumber = $firstBatch['batch_number'];
+        $cartKey = $product['id'] .
+            ($product['is_variant'] ? '_' . $product['variant_value'] : '') .
+            ($batchNumber ? '_batch_' . $batchNumber : '');
 
-            // Create cart key with batch number for multi-batch products
-            $cartKey = $product['id'] .
-                ($product['is_variant'] ? '_' . $product['variant_value'] : '') .
-                '_batch_' . $batchNumber;
-
-            // Check if this specific batch item already exists in cart
-            $existingIndex = null;
-            foreach ($this->cart as $index => $item) {
-                if ($item['cart_key'] === $cartKey) {
-                    $existingIndex = $index;
-                    break;
-                }
+        // Check if this item already exists in cart
+        $existingIndex = null;
+        foreach ($this->cart as $index => $item) {
+            if ($item['cart_key'] === $cartKey) {
+                $existingIndex = $index;
+                break;
             }
+        }
 
-            if ($existingIndex !== null) {
-                // Update existing item quantity
-                if (($this->cart[$existingIndex]['quantity'] + 1) > $product['available']) {
-                    session()->flash('error', 'Not enough available stock!');
-                    return;
-                }
-
-                $this->cart[$existingIndex]['quantity'] += 1;
-                $this->cart[$existingIndex]['total'] = ($this->cart[$existingIndex]['price'] - $this->cart[$existingIndex]['discount']) * $this->cart[$existingIndex]['quantity'];
-            } else {
-                // Add new item to TOP of cart array (newest first)
-                array_unshift($this->cart, [
-                    'cart_key' => $cartKey,
-                    'id' => $productId,
-                    'variant_id' => $variantId,
-                    'variant_value' => $variantValue,
-                    'name' => $product['display_name'], // Use display name which includes variant info
-                    'code' => $product['code'] ?? '',
-                    'price' => $priceToUse,
-                    'distributor_price' => $priceToUse,
-                    'quantity' => 1,
-                    'discount' => 0,
-                    'total' => $priceToUse,
-                    'available' => $product['available'],
-                    'image' => $product['image'] ?? '',
-                    'is_variant' => $product['is_variant'] ?? false,
-                    'batch_number' => $batchNumber,
-                ]);
+        if ($existingIndex !== null) {
+            if (($this->cart[$existingIndex]['quantity'] + 1) > $product['available']) {
+                session()->flash('error', 'Not enough available stock!');
+                return;
             }
+            $this->cart[$existingIndex]['quantity'] += 1;
+            $this->cart[$existingIndex]['total'] = ($this->cart[$existingIndex]['price'] - $this->cart[$existingIndex]['discount']) * $this->cart[$existingIndex]['quantity'];
         } else {
-            // Fallback: No batch info available, use product price
-            $cartKey = $product['id'] . ($product['is_variant'] ? '_' . $product['variant_value'] : '');
-
-            $existingIndex = null;
-            foreach ($this->cart as $index => $item) {
-                if ($item['cart_key'] === $cartKey) {
-                    $existingIndex = $index;
-                    break;
-                }
-            }
-
-            if ($existingIndex !== null) {
-                $this->cart[$existingIndex]['quantity'] += 1;
-                $this->cart[$existingIndex]['total'] = ($this->cart[$existingIndex]['price'] - $this->cart[$existingIndex]['discount']) * $this->cart[$existingIndex]['quantity'];
-            } else {
-                array_unshift($this->cart, [
-                    'cart_key' => $cartKey,
-                    'id' => $productId,
-                    'variant_id' => $variantId,
-                    'variant_value' => $variantValue,
-                    'name' => $product['display_name'],
-                    'code' => $product['code'] ?? '',
-                    'price' => $product['price'],
-                    'distributor_price' => $product['distributor_price'] ?? 0,
-                    'quantity' => 1,
-                    'discount' => 0,
-                    'total' => $product['price'],
-                    'available' => $product['available'],
-                    'image' => $product['image'] ?? '',
-                    'is_variant' => $product['is_variant'] ?? false,
-                ]);
-            }
+            array_unshift($this->cart, [
+                'cart_key' => $cartKey,
+                'id' => $productId,
+                'variant_id' => $variantId,
+                'variant_value' => $variantValue,
+                'name' => $product['display_name'],
+                'code' => $product['code'] ?? '',
+                'price' => $priceToUse,
+                'distributor_price' => $priceToUse,
+                'quantity' => 1,
+                'discount' => 0,
+                'total' => $priceToUse,
+                'available' => $product['available'],
+                'image' => $product['image'] ?? '',
+                'is_variant' => $product['is_variant'] ?? false,
+                'batch_number' => $batchNumber,
+            ]);
         }
 
         $this->search = '';

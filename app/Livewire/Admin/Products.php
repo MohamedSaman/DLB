@@ -1012,6 +1012,17 @@ class Products extends Component
                     ]
                 );
 
+                // Sync all active batches with the new prices
+                ProductBatch::where('product_id', $product->id)
+                    ->whereNull('variant_id')
+                    ->where('status', 'active')
+                    ->update([
+                        'supplier_price' => $this->editSupplierPrice ?? 0,
+                        'wholesale_price' => $this->editWholesalePrice ?? 0,
+                        'retail_price' => $this->editRetailPrice ?? 0,
+                        'distributor_price' => 0,
+                    ]);
+
                 // Update or create single stock (preserve existing available_stock)
                 ProductStock::updateOrCreate(
                     [
@@ -1075,6 +1086,18 @@ class Products extends Component
                             'discount_price' => 0,
                         ]
                     );
+
+                    // Sync all active batches for this variant with the new prices
+                    ProductBatch::where('product_id', $product->id)
+                        ->where('variant_id', $this->variant_id)
+                        ->where('variant_value', $variantValue)
+                        ->where('status', 'active')
+                        ->update([
+                            'supplier_price' => $vals['supplier_price'] ?? 0,
+                            'wholesale_price' => $vals['wholesale_price'] ?? 0,
+                            'retail_price' => $vals['retail_price'] ?? 0,
+                            'distributor_price' => $vals['distributor_price'] ?? 0,
+                        ]);
 
                     // Update or create variant stock
                     ProductStock::updateOrCreate(
