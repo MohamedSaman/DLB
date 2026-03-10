@@ -118,6 +118,10 @@ class StoreBilling extends Component
     // View Type Selection
     public $productViewType = 'grid'; // 'grid' or 'list'
 
+    // Pagination
+    public $currentPage = 1;
+    public $perPage = 20;
+
     // Modals
     public $showSaleModal = false;
     public $showCustomerModal = false;
@@ -661,6 +665,38 @@ class StoreBilling extends Component
         }
 
         $this->products = array_values($finalItems);
+        $this->currentPage = 1;
+    }
+
+    // Pagination computed properties
+    public function getPagedProductsProperty()
+    {
+        $offset = ($this->currentPage - 1) * $this->perPage;
+        return array_slice($this->products, $offset, $this->perPage);
+    }
+
+    public function getTotalPagesProperty()
+    {
+        return max(1, (int) ceil(count($this->products) / $this->perPage));
+    }
+
+    public function nextPage()
+    {
+        if ($this->currentPage < $this->totalPages) {
+            $this->currentPage++;
+        }
+    }
+
+    public function prevPage()
+    {
+        if ($this->currentPage > 1) {
+            $this->currentPage--;
+        }
+    }
+
+    public function goToPage($page)
+    {
+        $this->currentPage = max(1, min($page, $this->totalPages));
     }
 
     /**

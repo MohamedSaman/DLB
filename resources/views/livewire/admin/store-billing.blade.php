@@ -443,8 +443,8 @@
 
                 {{-- Product Grid Area --}}
                 <div class="flex-1 overflow-y-auto custom-scrollbar pr-1">
-                    <div class="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 pb-4">
-                        @forelse($products as $product)
+                    <div class="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 pb-2">
+                        @forelse($this->pagedProducts as $product)
                         @php
                             $isLow = ($product['stock'] ?? 0) <= 5 && ($product['stock'] ?? 0) > 0;
                             $isOut = ($product['stock'] ?? 0) <= 0;
@@ -501,6 +501,46 @@
                         </div>
                         @endforelse
                     </div>
+
+                    {{-- Pagination --}}
+                    @if($this->totalPages > 1)
+                    <div class="flex items-center justify-between px-1 py-2.5 border-t border-slate-100 mt-1">
+                        <span class="text-[10px] text-slate-400 font-bold">
+                            {{ ($currentPage - 1) * $perPage + 1 }}–{{ min($currentPage * $perPage, count($products)) }} of {{ count($products) }}
+                        </span>
+                        <div class="flex items-center gap-1">
+                            {{-- Prev --}}
+                            <button wire:click="prevPage"
+                                class="w-6 h-6 flex items-center justify-center rounded border text-[10px] font-black transition-all
+                                    {{ $currentPage <= 1 ? 'border-slate-200 text-slate-300 cursor-not-allowed' : 'border-slate-300 text-slate-600 hover:bg-[#e67e22] hover:text-white hover:border-[#e67e22]' }}"
+                                {{ $currentPage <= 1 ? 'disabled' : '' }}>
+                                <span class="material-symbols-outlined text-xs">chevron_left</span>
+                            </button>
+
+                            {{-- Page numbers --}}
+                            @php
+                                $start = max(1, $currentPage - 2);
+                                $end   = min($this->totalPages, $start + 4);
+                                $start = max(1, $end - 4);
+                            @endphp
+                            @for($p = $start; $p <= $end; $p++)
+                                <button wire:click="goToPage({{ $p }})"
+                                    class="w-6 h-6 flex items-center justify-center rounded border text-[10px] font-black transition-all
+                                        {{ $p == $currentPage ? 'bg-[#e67e22] text-white border-[#e67e22]' : 'border-slate-300 text-slate-600 hover:bg-[#e67e22] hover:text-white hover:border-[#e67e22]' }}">
+                                    {{ $p }}
+                                </button>
+                            @endfor
+
+                            {{-- Next --}}
+                            <button wire:click="nextPage"
+                                class="w-6 h-6 flex items-center justify-center rounded border text-[10px] font-black transition-all
+                                    {{ $currentPage >= $this->totalPages ? 'border-slate-200 text-slate-300 cursor-not-allowed' : 'border-slate-300 text-slate-600 hover:bg-[#e67e22] hover:text-white hover:border-[#e67e22]' }}"
+                                {{ $currentPage >= $this->totalPages ? 'disabled' : '' }}>
+                                <span class="material-symbols-outlined text-xs">chevron_right</span>
+                            </button>
+                        </div>
+                    </div>
+                    @endif
                 </div>
             </section>
         </main>
