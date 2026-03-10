@@ -1316,8 +1316,47 @@ class StoreBilling extends Component
                         $sq->where('available_stock', '>', 0);
                     });
                 })
-                ->with(['stock', 'price', 'category', 'stocks', 'prices'])
+                ->with(['stock', 'price', 'category', 'variant', 'stocks', 'prices'])
                 ->get();
+
+            // -- Bulk-fetch pending quantities in one query (fixes N+1) --
+            $matchedProductIds = $matches->pluck('id')->toArray();
+
+            $pendingRows = SaleItem::whereIn('product_id', $matchedProductIds)
+                ->whereHas('sale', function ($q) {
+                    $q->where('status', 'pending');
+                })
+                ->select('product_id', 'variant_value', DB::raw('SUM(quantity) as qty'))
+                ->groupBy('product_id', 'variant_value')
+                ->get();
+            $pendingMap = [];
+            foreach ($pendingRows as $row) {
+                $pendingMap[$row->product_id][$row->variant_value ?? ''] = (int) $row->qty;
+            }
+
+            // -- Bulk-fetch batch details for non-variant products in one query (fixes N+1) --
+            $nonVariantProductIds = $matches->filter(fn($p) => !$p->variant_id)->pluck('id')->toArray();
+            $batchMap = [];
+            if (!empty($nonVariantProductIds)) {
+                $allBatches = ProductBatch::whereIn('product_id', $nonVariantProductIds)
+                    ->where('status', 'active')
+                    ->where('remaining_quantity', '>', 0)
+                    ->where(function ($q) {
+                        $q->whereNull('variant_id')->orWhere('variant_id', 0);
+                    })
+                    ->orderBy('received_date', 'asc')
+                    ->orderBy('id', 'asc')
+                    ->get();
+                foreach ($allBatches as $batch) {
+                    $batchMap[$batch->product_id][] = [
+                        'batch_number'       => $batch->batch_number,
+                        'remaining_quantity'  => $batch->remaining_quantity,
+                        'retail_price'        => $batch->retail_price ?? 0,
+                        'wholesale_price'     => $batch->wholesale_price ?? 0,
+                        'distributor_price'   => $batch->distributor_price ?? 0,
+                    ];
+                }
+            }
 
             // Build expanded results: show each variant as its own result when available
             $results = [];
@@ -1366,14 +1405,7 @@ class StoreBilling extends Component
                             $priceRecord = $p->prices->firstWhere('variant_value', $stock->variant_value) ?? $p->price;
                             $priceValue = $this->getPriceValue($priceRecord);
 
-                            // Calculate pending quantity for this variant
-                            $pendingQty = SaleItem::whereHas('sale', function ($q) {
-                                $q->where('status', 'pending');
-                            })
-                                ->where('product_id', $p->id)
-                                ->where('variant_value', $stock->variant_value)
-                                ->sum('quantity');
-
+                            $pendingQty = $pendingMap[$p->id][$stock->variant_value] ?? 0;
                             $availableStock = max(0, ($stock->available_stock ?? 0) - $pendingQty);
 
                             $results[] = [
@@ -1396,14 +1428,7 @@ class StoreBilling extends Component
                             $priceRecord = $p->prices->firstWhere('variant_value', $stock->variant_value) ?? $p->price;
                             $priceValue = $this->getPriceValue($priceRecord);
 
-                            // Calculate pending quantity for this variant
-                            $pendingQty = SaleItem::whereHas('sale', function ($q) {
-                                $q->where('status', 'pending');
-                            })
-                                ->where('product_id', $p->id)
-                                ->where('variant_value', $stock->variant_value)
-                                ->sum('quantity');
-
+                            $pendingQty = $pendingMap[$p->id][$stock->variant_value] ?? 0;
                             $availableStock = max(0, ($stock->available_stock ?? 0) - $pendingQty);
 
                             $results[] = [
@@ -1426,13 +1451,7 @@ class StoreBilling extends Component
                             $priceRecord = $p->prices->firstWhere('variant_value', $stock->variant_value) ?? $p->price;
                             $priceValue = $this->getPriceValue($priceRecord);
 
-                            // Calculate pending quantity for this variant
-                            $pendingQty = SaleItem::whereHas('sale', function ($q) {
-                                $q->where('status', 'pending');
-                            })
-                                ->where('product_id', $p->id)
-                                ->where('variant_value', $stock->variant_value)
-                                ->sum('quantity');
+                            $pendingQty = $pendingMap[$p->id][$stock->variant_value] ?? 0;
 
                             $availableStock = max(0, ($stock->available_stock ?? 0) - $pendingQty);
 
@@ -1451,8 +1470,8 @@ class StoreBilling extends Component
                         }
                     }
                 } else {
-                    // Check for multiple batches with different prices
-                    $batches = FIFOStockService::getBatchDetails($p->id, null, null);
+                    // Check for multiple batches with different prices (use pre-fetched map)
+                    $batches = collect($batchMap[$p->id] ?? []);
 
                     // Determine which price field to use based on priceType
                     $priceField = match ($this->priceType) {
@@ -1476,13 +1495,7 @@ class StoreBilling extends Component
                         $batchesByPrice[$price]['batch_numbers'][] = $batch['batch_number'];
                     }
 
-                    // Calculate pending quantity for non-variant products
-                    $pendingQty = SaleItem::whereHas('sale', function ($q) {
-                        $q->where('status', 'pending');
-                    })
-                        ->where('product_id', $p->id)
-                        ->sum('quantity');
-
+                    $pendingQty = $pendingMap[$p->id][''] ?? 0;
                     $availableStock = max(0, ($p->stock->available_stock ?? 0) - $pendingQty);
 
                     // If multiple different prices exist, split into separate items
@@ -1540,14 +1553,16 @@ class StoreBilling extends Component
                     ->limit(6)
                     ->get();
 
-                $this->relatedProducts = $related->map(function ($p) {
-                    // Calculate pending quantity for related product
-                    $pendingQty = SaleItem::whereHas('sale', function ($q) {
+                $relatedPendingMap = SaleItem::whereIn('product_id', $related->pluck('id'))
+                    ->whereHas('sale', function ($q) {
                         $q->where('status', 'pending');
                     })
-                        ->where('product_id', $p->id)
-                        ->sum('quantity');
+                    ->select('product_id', DB::raw('SUM(quantity) as qty'))
+                    ->groupBy('product_id')
+                    ->pluck('qty', 'product_id');
 
+                $this->relatedProducts = $related->map(function ($p) use ($relatedPendingMap) {
+                    $pendingQty = (int) ($relatedPendingMap[$p->id] ?? 0);
                     $stockQty = $p->stock->available_stock ?? 0;
                     $availableStock = max(0, $stockQty - $pendingQty);
 
@@ -1567,7 +1582,7 @@ class StoreBilling extends Component
         } else {
             $this->searchResults = [];
             $this->relatedProducts = [];
-            $this->loadProducts();
+            // No need to reload products — $this->products is already loaded and unaffected by search
         }
     }
 

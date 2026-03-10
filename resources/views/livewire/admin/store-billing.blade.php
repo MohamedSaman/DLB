@@ -120,7 +120,7 @@
                         <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-lg">search</span>
                         <input class="w-full pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-md focus:ring-2 focus:ring-[#e67e22]/20 focus:border-[#e67e22] outline-none text-sm transition-all" 
                             x-ref="searchInput"
-                            wire:model.live.debounce.300ms="search"
+                            wire:model.live.debounce.500ms="search"
                             placeholder="Scan barcode or type product name..." type="text"
                             x-on:keydown.arrow-down.prevent="
                                 let items = document.querySelectorAll('[data-search-result]');
