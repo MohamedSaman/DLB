@@ -81,6 +81,8 @@ class Products extends Component
     // History fields
     public $historyProductId, $historyProductName, $historyTab = 'sales';
     public $salesHistory = [], $purchasesHistory = [], $returnsHistory = [], $quotationsHistory = [];
+    public $historyHasVariants = false, $historyVariantName = '';
+    public $historyVariantValues = [], $historyVariantFilter = '';
 
     // Default IDs for brand, category, and supplier
     public $defaultBrandId, $defaultCategoryId, $defaultSupplierId;
@@ -1549,10 +1551,12 @@ class Products extends Component
     public function openProductHistory($id)
     {
         try {
-            $product = ProductDetail::findOrFail($id);
+            $product = ProductDetail::with('variant')->findOrFail($id);
 
             $this->historyProductId = $product->id;
             $this->historyProductName = $product->name;
+            $this->historyVariantName = $product->variant ? $product->variant->variant_name : 'Variant';
+            $this->historyVariantFilter = '';
 
             // Set default tab
             $this->historyTab = 'sales';
@@ -1563,22 +1567,49 @@ class Products extends Component
             $this->loadReturnsHistory();
             $this->loadQuotationsHistory();
 
+            // Detect variant values from the ACTUAL history records (most reliable approach)
+            $allVariantValues = collect()
+                ->merge(array_column($this->salesHistory, 'variant_value'))
+                ->merge(array_column($this->purchasesHistory, 'variant_value'))
+                ->merge(array_column($this->returnsHistory, 'variant_value'))
+                ->merge(array_column($this->quotationsHistory, 'variant_value'))
+                ->filter(fn($v) => $v !== null && $v !== '')
+                ->unique()
+                ->sort()
+                ->values()
+                ->toArray();
+
+            // Also include values from the product variant config (covers values with no history yet)
+            if ($product->variant && is_array($product->variant->variant_values)) {
+                $allVariantValues = collect($allVariantValues)
+                    ->merge($product->variant->variant_values)
+                    ->unique()
+                    ->sort()
+                    ->values()
+                    ->toArray();
+
+                if (empty($this->historyVariantName) || $this->historyVariantName === 'Variant') {
+                    $this->historyVariantName = $product->variant->variant_name;
+                }
+            }
+
+            $this->historyHasVariants = count($allVariantValues) > 0;
+            $this->historyVariantValues = $allVariantValues;
+
             // Log for debugging
             Log::info('Product History Loaded', [
                 'product_id' => $this->historyProductId,
+                'has_variants' => $this->historyHasVariants,
+                'variant_values' => $this->historyVariantValues,
+                'variant_name' => $this->historyVariantName,
                 'sales' => count($this->salesHistory),
                 'purchases' => count($this->purchasesHistory),
                 'returns' => count($this->returnsHistory),
                 'quotations' => count($this->quotationsHistory)
             ]);
 
-            // Show modal using Bootstrap JavaScript
-            $this->js("
-                setTimeout(() => {
-                    const modal = new bootstrap.Modal(document.getElementById('productHistoryModal'));
-                    modal.show();
-                }, 100);
-            ");
+            // Dispatch event to show modal - this ensures Livewire has finished updating
+            $this->dispatch('show-product-history-modal');
         } catch (\Exception $e) {
             $this->js("Swal.fire('Error!', 'Failed to load product history: " . addslashes($e->getMessage()) . "', 'error')");
         }
@@ -1650,7 +1681,8 @@ class Products extends Component
                     'sale_date' => $sale->sale_date,
                     'customer_name' => $sale->sale && $sale->sale->customer ? $sale->sale->customer->name : 'Walk-in Customer',
                     'customer_phone' => $sale->sale && $sale->sale->customer ? $sale->sale->customer->phone : 'N/A',
-                    'user_name' => $sale->sale && $sale->sale->user ? $sale->sale->user->name : 'N/A'
+                    'user_name' => $sale->sale && $sale->sale->user ? $sale->sale->user->name : 'N/A',
+                    'variant_value' => $sale->variant_value ?? null,
                 ];
             })->toArray();
         } catch (\Exception $e) {
@@ -1695,7 +1727,8 @@ class Products extends Component
                     'total' => $total,
                     'order_status' => $purchase->order_status ?? 'pending',
                     'supplier_name' => $purchase->order && $purchase->order->supplier ? $purchase->order->supplier->name : 'N/A',
-                    'supplier_phone' => $purchase->order && $purchase->order->supplier ? $purchase->order->supplier->phone : 'N/A'
+                    'supplier_phone' => $purchase->order && $purchase->order->supplier ? $purchase->order->supplier->phone : 'N/A',
+                    'variant_value' => $purchase->variant_value ?? null,
                 ];
             })->toArray();
         } catch (\Exception $e) {
@@ -1729,7 +1762,8 @@ class Products extends Component
                     'notes' => $return->notes ?? 'No notes provided',
                     'return_date' => $return->created_at,
                     'customer_name' => $return->sale && $return->sale->customer ? $return->sale->customer->name : 'Walk-in Customer',
-                    'customer_phone' => $return->sale && $return->sale->customer ? $return->sale->customer->phone : 'N/A'
+                    'customer_phone' => $return->sale && $return->sale->customer ? $return->sale->customer->phone : 'N/A',
+                    'variant_value' => $return->variant_value ?? null,
                 ];
             })->toArray();
         } catch (\Exception $e) {
@@ -1772,7 +1806,8 @@ class Products extends Component
                                 'total' => $item['total'] ?? 0,
                                 'product_name' => $item['product_name'] ?? 'N/A',
                                 'product_code' => $item['product_code'] ?? 'N/A',
-                                'created_by_name' => $quotation->creator->name ?? 'N/A'
+                                'created_by_name' => $quotation->creator->name ?? 'N/A',
+                                'variant_value' => $item['variant_value'] ?? null,
                             ];
                         }
                     }

@@ -1,5 +1,22 @@
 <!-- Quotations History Partial -->
-@if(count($quotationsHistory ?? []) > 0)
+@php
+    $historyHasVariants = $historyHasVariants ?? false;
+    $historyVariantName = $historyVariantName ?? '';
+    $historyVariantFilter = $historyVariantFilter ?? '';
+    $filteredQuotations = collect($quotationsHistory ?? []);
+    if ($historyVariantFilter !== '') {
+        $filteredQuotations = $filteredQuotations->where('variant_value', $historyVariantFilter);
+    }
+@endphp
+
+@if($filteredQuotations->count() > 0)
+@if($historyHasVariants && $historyVariantFilter !== '')
+<div class="bg-light border rounded px-3 py-2 mb-3 d-flex align-items-center">
+    <i class="bi bi-tag-fill text-info me-2"></i>
+    <strong>{{ $historyVariantName }}: {{ $historyVariantFilter }}</strong>
+    <span class="badge bg-info ms-2">{{ $filteredQuotations->count() }} record(s)</span>
+</div>
+@endif
 <div class="table-responsive">
     <table class="table table-hover table-bordered align-middle">
         <thead class="table-info">
@@ -18,7 +35,7 @@
             </tr>
         </thead>
         <tbody>
-            @foreach($quotationsHistory as $index => $quotation)
+            @foreach($filteredQuotations as $index => $quotation)
             <tr>
                 <td class="text-center">{{ $index + 1 }}</td>
                 <td>
@@ -81,19 +98,24 @@
         <tfoot class="table-light">
             <tr>
                 <td colspan="6" class="text-end fw-bold">Total:</td>
-                <td class="text-center fw-bold">{{ array_sum(array_column($quotationsHistory, 'quantity')) }}</td>
+                <td class="text-center fw-bold">{{ $filteredQuotations->sum('quantity') }}</td>
                 <td colspan="2"></td>
                 <td class="text-end fw-bold text-success">
-                    Rs. {{ number_format(array_sum(array_column($quotationsHistory, 'total')), 2) }}
+                    Rs. {{ number_format($filteredQuotations->sum('total'), 2) }}
                 </td>
                 <td></td>
             </tr>
         </tfoot>
     </table>
 </div>
+
 @else
 <div class="text-center py-5">
     <i class="bi bi-inbox text-muted" style="font-size: 3rem;"></i>
+    @if($historyVariantFilter !== '')
+    <p class="text-muted mt-3 fs-5">No quotation history found for variant "{{ $historyVariantFilter }}".</p>
+    @else
     <p class="text-muted mt-3 fs-5">No quotation history found for this product.</p>
+    @endif
 </div>
 @endif

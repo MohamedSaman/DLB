@@ -1,5 +1,22 @@
 <!-- Sales History Partial -->
-@if(count($salesHistory ?? []) > 0)
+@php
+    $historyHasVariants = $historyHasVariants ?? false;
+    $historyVariantName = $historyVariantName ?? '';
+    $historyVariantFilter = $historyVariantFilter ?? '';
+    $filteredSales = collect($salesHistory ?? []);
+    if ($historyVariantFilter !== '') {
+        $filteredSales = $filteredSales->where('variant_value', $historyVariantFilter);
+    }
+@endphp
+
+@if($filteredSales->count() > 0)
+@if($historyHasVariants && $historyVariantFilter !== '')
+<div class="bg-light border rounded px-3 py-2 mb-3 d-flex align-items-center">
+    <i class="bi bi-tag-fill text-primary me-2"></i>
+    <strong>{{ $historyVariantName }}: {{ $historyVariantFilter }}</strong>
+    <span class="badge bg-primary ms-2">{{ $filteredSales->count() }} record(s)</span>
+</div>
+@endif
 <div class="table-responsive">
     <table class="table table-hover table-bordered align-middle">
         <thead class="table-primary">
@@ -17,7 +34,7 @@
             </tr>
         </thead>
         <tbody>
-            @foreach($salesHistory as $index => $sale)
+            @foreach($filteredSales as $index => $sale)
             <tr>
                 <td class="text-center">{{ $index + 1 }}</td>
                 <td>
@@ -103,19 +120,24 @@
         <tfoot class="table-light">
             <tr>
                 <td colspan="5" class="text-end fw-bold">Total:</td>
-                <td class="text-center fw-bold">{{ array_sum(array_column($salesHistory, 'quantity')) }}</td>
+                <td class="text-center fw-bold">{{ $filteredSales->sum('quantity') }}</td>
                 <td colspan="1"></td>
                 <td class="text-end fw-bold text-success">
-                    Rs. {{ number_format(array_sum(array_column($salesHistory, 'total')), 2) }}
+                    Rs. {{ number_format($filteredSales->sum('total'), 2) }}
                 </td>
                 <td colspan="2"></td>
             </tr>
         </tfoot>
     </table>
 </div>
+
 @else
 <div class="text-center py-5">
     <i class="bi bi-inbox text-muted" style="font-size: 3rem;"></i>
+    @if($historyVariantFilter !== '')
+    <p class="text-muted mt-3 fs-5">No sales history found for variant "{{ $historyVariantFilter }}".</p>
+    @else
     <p class="text-muted mt-3 fs-5">No sales history found for this product.</p>
+    @endif
 </div>
 @endif

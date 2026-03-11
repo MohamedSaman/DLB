@@ -676,7 +676,7 @@
                                                         <!-- History Button -->
                                                         <li>
                                                             <a class="dropdown-item"
-                                                                href="{{ route('test.product-history', $product->id) }}"
+                                                                href="{{ route('product-history', $product->id) }}"
                                                                 target="_blank">
                                                                 <i class="bi bi-clock-history text-info me-2"></i>
                                                                 View History
@@ -2307,8 +2307,8 @@
             </div>
         </div>
 
-        <!-- ✅ Product History Modal (single copy only) -->
-        <div wire:ignore.self class="modal fade" id="productHistoryModal" tabindex="-1"
+        <!-- ✅ Product History Modal -->
+        <div class="modal fade" id="productHistoryModal" tabindex="-1"
             aria-labelledby="productHistoryModalLabel" aria-hidden="true">
             <div class="modal-dialog modal-xl modal-dialog-scrollable">
                 <div class="modal-content border-0 shadow-lg">
@@ -2327,38 +2327,71 @@
                     <div class="modal-body p-0">
                         @if($historyProductId)
 
+                        <!-- Variant Filter Dropdown - Always show when variants exist -->
+                        @if($historyHasVariants && count($historyVariantValues ?? []) > 0)
+                        <div class="bg-primary bg-opacity-10 border-bottom px-3 py-2">
+                            <div class="d-flex flex-wrap align-items-center justify-content-between">
+                                <div class="d-flex align-items-center gap-2">
+                                    <i class="bi bi-funnel-fill text-primary"></i>
+                                    <label class="fw-bold text-dark mb-0">Filter by {{ $historyVariantName ?: 'Variant' }}:</label>
+                                    <select class="form-select form-select-sm border-primary" style="min-width: 180px; max-width: 250px;"
+                                        wire:model.live="historyVariantFilter">
+                                        <option value="">-- All Variants ({{ count($historyVariantValues) }}) --</option>
+                                        @foreach($historyVariantValues as $val)
+                                            <option value="{{ $val }}">{{ $val }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                                @if($historyVariantFilter !== '')
+                                <button type="button" class="btn btn-sm btn-outline-secondary" wire:click="$set('historyVariantFilter', '')">
+                                    <i class="bi bi-x-circle me-1"></i> Clear Filter
+                                </button>
+                                @endif
+                            </div>
+                        </div>
+                        @endif
+
                         <!-- Tabs -->
                         <div class="border-bottom bg-light">
-                            <ul class="nav nav-tabs border-0 px-3" role="tablist">
-                                <li class="nav-item">
-                                    <button class="nav-link {{ $historyTab === 'sales' ? 'active' : '' }}"
-                                        wire:click="switchHistoryTab('sales')" type="button">
-                                        Sales <span class="badge bg-primary ms-1">{{ count($salesHistory ?? []) }}</span>
-                                    </button>
-                                </li>
-                                <li class="nav-item">
-                                    <button class="nav-link {{ $historyTab === 'purchases' ? 'active' : '' }}"
-                                        wire:click="switchHistoryTab('purchases')" type="button">
-                                        Purchases <span class="badge bg-success ms-1">{{ count($purchasesHistory ?? []) }}</span>
-                                    </button>
-                                </li>
-                                <li class="nav-item">
-                                    <button class="nav-link {{ $historyTab === 'returns' ? 'active' : '' }}"
-                                        wire:click="switchHistoryTab('returns')" type="button">
-                                        Returns <span class="badge bg-warning ms-1">{{ count($returnsHistory ?? []) }}</span>
-                                    </button>
-                                </li>
-                                <li class="nav-item">
-                                    <button class="nav-link {{ $historyTab === 'quotations' ? 'active' : '' }}"
-                                        wire:click="switchHistoryTab('quotations')" type="button">
-                                        Quotations <span class="badge bg-info ms-1">{{ count($quotationsHistory ?? []) }}</span>
-                                    </button>
-                                </li>
-                            </ul>
+                            @php
+                                $vf = $historyVariantFilter ?? '';
+                                $salesCount = $vf !== '' ? collect($salesHistory ?? [])->where('variant_value', $vf)->count() : count($salesHistory ?? []);
+                                $purchasesCount = $vf !== '' ? collect($purchasesHistory ?? [])->where('variant_value', $vf)->count() : count($purchasesHistory ?? []);
+                                $returnsCount = $vf !== '' ? collect($returnsHistory ?? [])->where('variant_value', $vf)->count() : count($returnsHistory ?? []);
+                                $quotationsCount = $vf !== '' ? collect($quotationsHistory ?? [])->where('variant_value', $vf)->count() : count($quotationsHistory ?? []);
+                            @endphp
+                            <div class="d-flex flex-wrap justify-content-between align-items-center px-3">
+                                <ul class="nav nav-tabs border-0" role="tablist">
+                                    <li class="nav-item">
+                                        <button class="nav-link {{ $historyTab === 'sales' ? 'active' : '' }}"
+                                            wire:click="switchHistoryTab('sales')" type="button">
+                                            Sales <span class="badge bg-primary ms-1">{{ $salesCount }}</span>
+                                        </button>
+                                    </li>
+                                    <li class="nav-item">
+                                        <button class="nav-link {{ $historyTab === 'purchases' ? 'active' : '' }}"
+                                            wire:click="switchHistoryTab('purchases')" type="button">
+                                            Purchases <span class="badge bg-success ms-1">{{ $purchasesCount }}</span>
+                                        </button>
+                                    </li>
+                                    <li class="nav-item">
+                                        <button class="nav-link {{ $historyTab === 'returns' ? 'active' : '' }}"
+                                            wire:click="switchHistoryTab('returns')" type="button">
+                                            Returns <span class="badge bg-warning ms-1">{{ $returnsCount }}</span>
+                                        </button>
+                                    </li>
+                                    <li class="nav-item">
+                                        <button class="nav-link {{ $historyTab === 'quotations' ? 'active' : '' }}"
+                                            wire:click="switchHistoryTab('quotations')" type="button">
+                                            Quotations <span class="badge bg-info ms-1">{{ $quotationsCount }}</span>
+                                        </button>
+                                    </li>
+                                </ul>
+                            </div>
                         </div>
 
                         <!-- Tab Content -->
-                        <div class="tab-content p-4" wire:key="tab-{{ $historyTab }}" style="max-height: 500px; overflow-y: auto;">
+                        <div class="tab-content p-4" wire:key="tab-{{ $historyTab }}-{{ $historyVariantFilter }}" style="max-height: 500px; overflow-y: auto;">
                             @if($historyTab === 'sales')
                             @include('livewire.admin.partials.sales-history')
                             @elseif($historyTab === 'purchases')
@@ -2451,19 +2484,25 @@
             });
 
             // Show history modal when event is dispatched
-            Livewire.on('show-history-modal', () => {
+            Livewire.on('show-product-history-modal', () => {
                 console.log('📂 Opening product history modal...');
-                const historyModalEl = document.getElementById('productHistoryModal');
-                if (historyModalEl) {
-                    const historyModal = new bootstrap.Modal(historyModalEl, {
-                        backdrop: 'static',
-                        keyboard: false
-                    });
-                    historyModal.show();
-                    console.log('✅ Modal opened successfully');
-                } else {
-                    console.error('❌ Product History Modal element not found!');
-                }
+                setTimeout(() => {
+                    const historyModalEl = document.getElementById('productHistoryModal');
+                    if (historyModalEl) {
+                        // Check if modal already has an instance
+                        let historyModal = bootstrap.Modal.getInstance(historyModalEl);
+                        if (!historyModal) {
+                            historyModal = new bootstrap.Modal(historyModalEl, {
+                                backdrop: 'static',
+                                keyboard: false
+                            });
+                        }
+                        historyModal.show();
+                        console.log('✅ Modal opened successfully');
+                    } else {
+                        console.error('❌ Product History Modal element not found!');
+                    }
+                }, 100); // Small delay to ensure Livewire DOM update is complete
             });
 
             // Error handler for Livewire

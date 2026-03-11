@@ -1,5 +1,22 @@
 <!-- Returns History Partial -->
-@if(count($returnsHistory ?? []) > 0)
+@php
+    $historyHasVariants = $historyHasVariants ?? false;
+    $historyVariantName = $historyVariantName ?? '';
+    $historyVariantFilter = $historyVariantFilter ?? '';
+    $filteredReturns = collect($returnsHistory ?? []);
+    if ($historyVariantFilter !== '') {
+        $filteredReturns = $filteredReturns->where('variant_value', $historyVariantFilter);
+    }
+@endphp
+
+@if($filteredReturns->count() > 0)
+@if($historyHasVariants && $historyVariantFilter !== '')
+<div class="bg-light border rounded px-3 py-2 mb-3 d-flex align-items-center">
+    <i class="bi bi-tag-fill text-warning me-2"></i>
+    <strong>{{ $historyVariantName }}: {{ $historyVariantFilter }}</strong>
+    <span class="badge bg-warning ms-2">{{ $filteredReturns->count() }} record(s)</span>
+</div>
+@endif
 <div class="table-responsive">
     <table class="table table-hover table-bordered align-middle">
         <thead class="table-warning">
@@ -15,7 +32,7 @@
             </tr>
         </thead>
         <tbody>
-            @foreach($returnsHistory as $index => $return)
+            @foreach($filteredReturns as $index => $return)
             <tr>
                 <td class="text-center">{{ $index + 1 }}</td>
                 <td>
@@ -46,19 +63,24 @@
         <tfoot class="table-light">
             <tr>
                 <td colspan="4" class="text-end fw-bold">Total:</td>
-                <td class="text-center fw-bold">{{ array_sum(array_column($returnsHistory, 'return_quantity')) }}</td>
+                <td class="text-center fw-bold">{{ $filteredReturns->sum('return_quantity') }}</td>
                 <td colspan="1"></td>
                 <td class="text-end fw-bold text-danger">
-                    Rs. {{ number_format(array_sum(array_column($returnsHistory, 'total_amount')), 2) }}
+                    Rs. {{ number_format($filteredReturns->sum('total_amount'), 2) }}
                 </td>
                 <td></td>
             </tr>
         </tfoot>
     </table>
 </div>
+
 @else
 <div class="text-center py-5">
     <i class="bi bi-inbox text-muted" style="font-size: 3rem;"></i>
+    @if($historyVariantFilter !== '')
+    <p class="text-muted mt-3 fs-5">No return history found for variant "{{ $historyVariantFilter }}".</p>
+    @else
     <p class="text-muted mt-3 fs-5">No return history found for this product.</p>
+    @endif
 </div>
 @endif
