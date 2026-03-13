@@ -21,6 +21,21 @@ class FIFOStockService
         $deductions = [];
         $totalCost = 0;
 
+        // Load ProductStock once so batch/manual paths use the same source record.
+        $stockQuery = ProductStock::where('product_id', $productId);
+        if ($variantId) {
+            $stockQuery->where('variant_id', $variantId);
+            if ($variantValue) {
+                $stockQuery->where('variant_value', $variantValue);
+            }
+        } else {
+            $stockQuery->where(function ($q) {
+                $q->whereNull('variant_id')->orWhere('variant_id', 0);
+            });
+        }
+        $stock = $stockQuery->first();
+        $stockAvailable = $stock ? (int) $stock->available_stock : 0;
+
         // Get active batches in FIFO order (oldest first) filtered by variant
         $batchQuery = ProductBatch::where('product_id', $productId)
             ->where('status', 'active')
@@ -43,20 +58,6 @@ class FIFOStockService
 
         // Handle manually added stock without batches
         if ($batches->isEmpty()) {
-            // Check if product stock exists and has available quantity
-            $stockQuery = ProductStock::where('product_id', $productId);
-            if ($variantId) {
-                $stockQuery->where('variant_id', $variantId);
-                if ($variantValue) {
-                    $stockQuery->where('variant_value', $variantValue);
-                }
-            } else {
-                $stockQuery->where(function ($q) {
-                    $q->whereNull('variant_id')->orWhere('variant_id', 0);
-                });
-            }
-            $stock = $stockQuery->first();
-
             if (!$stock || $stock->available_stock < $quantity) {
                 $available = $stock ? $stock->available_stock : 0;
                 throw new \Exception("Insufficient stock. Required: {$quantity}, Available: {$available}");
@@ -90,9 +91,32 @@ class FIFOStockService
             }
         }
 
-        // Check if we have enough total stock in batches
+        // Check batch availability and allow mixed deduction using ProductStock when needed.
         $totalAvailable = $batches->sum('remaining_quantity');
+        if ($stockAvailable < $quantity) {
+            $available = max($stockAvailable, $totalAvailable);
+            throw new \Exception("Insufficient stock. Required: {$quantity}, Available: {$available}");
+        }
+
+        $manualDeductionQty = 0;
         if ($totalAvailable < $quantity) {
+            $manualDeductionQty = $quantity - $totalAvailable;
+            $remainingQty = $totalAvailable;
+
+            Log::warning('Mixed stock deduction used (batch + manual stock)', [
+                'product_id' => $productId,
+                'variant_id' => $variantId,
+                'variant_value' => $variantValue,
+                'required_quantity' => $quantity,
+                'batch_available' => $totalAvailable,
+                'manual_quantity_used' => $manualDeductionQty,
+                'product_stock_available' => $stockAvailable,
+            ]);
+        } else {
+            $remainingQty = $quantity;
+        }
+
+        if ($totalAvailable <= 0 && $manualDeductionQty <= 0) {
             throw new \Exception("Insufficient stock. Required: {$quantity}, Available: {$totalAvailable}");
         }
 
@@ -129,19 +153,16 @@ class FIFOStockService
                 $remainingQty -= $deductQty;
             }
 
-            // Update product stock totals (with variant consideration)
-            $stockQuery = ProductStock::where('product_id', $productId);
-            if ($variantId) {
-                $stockQuery->where('variant_id', $variantId);
-                if ($variantValue) {
-                    $stockQuery->where('variant_value', $variantValue);
-                }
-            } else {
-                $stockQuery->where(function ($q) {
-                    $q->whereNull('variant_id')->orWhere('variant_id', 0);
-                });
+            if ($manualDeductionQty > 0) {
+                $deductions[] = [
+                    'batch_id' => null,
+                    'batch_number' => 'Manual Stock',
+                    'quantity' => $manualDeductionQty,
+                    'supplier_price' => 0,
+                    'selling_price' => 0,
+                    'cost' => 0,
+                ];
             }
-            $stock = $stockQuery->first();
 
             if ($stock) {
                 $stock->available_stock -= $quantity;
