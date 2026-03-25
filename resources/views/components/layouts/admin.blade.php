@@ -1012,6 +1012,11 @@
                                     <i class="bi bi-layers"></i> <span>Product Variant</span>
                                 </a>
                             </li>
+                            <li class="nav-item">
+                                <a class="nav-link py-2" href="{{ route('admin.update-price') }}">
+                                    <i class="bi bi-currency-dollar"></i> <span>Update Price</span>
+                                </a>
+                            </li>
                         </ul>
                     </div>
                 </li>
