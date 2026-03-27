@@ -22,6 +22,7 @@ class SalesmanSalesList extends Component
     use WithPagination;
 
     public $search = '';
+    public $selectedMonth = '';
     public $statusFilter = '';
     public $deliveryFilter = '';
     public $selectedSale = null;
@@ -42,6 +43,11 @@ class SalesmanSalesList extends Component
     public $saleReturns = [];
 
     public function updatedSearch()
+    {
+        $this->resetPage();
+    }
+
+    public function updatedSelectedMonth()
     {
         $this->resetPage();
     }
@@ -465,7 +471,17 @@ class SalesmanSalesList extends Component
 
     public function render()
     {
+        $baseQuery = Sale::where('user_id', Auth::id())
+            ->when($this->selectedMonth, function ($q) {
+                $q->whereYear('created_at', substr($this->selectedMonth, 0, 4))
+                    ->whereMonth('created_at', substr($this->selectedMonth, 5, 2));
+            });
+
         $query = Sale::where('user_id', Auth::id())
+            ->when($this->selectedMonth, function ($q) {
+                $q->whereYear('created_at', substr($this->selectedMonth, 0, 4))
+                    ->whereMonth('created_at', substr($this->selectedMonth, 5, 2));
+            })
             ->when($this->search, function ($q) {
                 $q->where(function ($sq) {
                     $sq->where('sale_id', 'like', '%' . $this->search . '%')
@@ -484,11 +500,18 @@ class SalesmanSalesList extends Component
             ->with(['customer'])
             ->orderBy('created_at', 'desc');
 
+        $monthOptions = Sale::where('user_id', Auth::id())
+            ->selectRaw("DATE_FORMAT(created_at, '%Y-%m') as month_key")
+            ->selectRaw("DATE_FORMAT(created_at, '%b %Y') as month_label")
+            ->groupBy('month_key', 'month_label')
+            ->orderByDesc('month_key')
+            ->get();
+
         return view('livewire.salesman.salesman-sales-list', [
-            'sales' => $query->paginate(15),
-            'pendingCount' => Sale::where('user_id', Auth::id())->where('status', 'pending')->count(),
-            'approvedCount' => Sale::where('user_id', Auth::id())->where('status', 'confirm')->count(),
-            'rejectedCount' => Sale::where('user_id', Auth::id())->where('status', 'rejected')->count(),
+            'sales' => $query->paginate(10),
+            'totalSaleAmount' => (float) (clone $baseQuery)->sum('total_amount'),
+            'totalDueAmount' => (float) (clone $baseQuery)->sum('due_amount'),
+            'monthOptions' => $monthOptions,
         ]);
     }
 

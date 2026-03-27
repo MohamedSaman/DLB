@@ -12,29 +12,37 @@
         </a>
     </div>
 
-    {{-- Stats Cards --}}
+    {{-- Summary Cards --}}
     <div class="row g-3 mb-4">
-        <div class="col-md-4">
-            <div class="card border-0 shadow-sm bg-warning bg-opacity-10">
-                <div class="card-body text-center py-3">
-                    <h4 class="fw-bold text-warning mb-0">{{ $pendingCount }}</h4>
-                    <small class="text-muted">Pending Approval</small>
+        <div class="col-md-6">
+            <div class="card border-0 shadow-sm h-100" style="background: linear-gradient(135deg, #eef6ff 0%, #f8fbff 100%);">
+                <div class="card-body py-3 px-4">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <p class="text-uppercase small fw-bold text-primary mb-1">Total Sale</p>
+                            <h3 class="fw-bold text-dark mb-1">Rs. {{ number_format($totalSaleAmount, 2) }}</h3>
+                            <small class="text-muted">Based on selected month</small>
+                        </div>
+                        <div class="rounded-circle d-flex align-items-center justify-content-center" style="width:48px;height:48px;background:#dbeafe;">
+                            <i class="bi bi-cash-stack text-primary fs-5"></i>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
-        <div class="col-md-4">
-            <div class="card border-0 shadow-sm bg-success bg-opacity-10">
-                <div class="card-body text-center py-3">
-                    <h4 class="fw-bold text-success mb-0">{{ $approvedCount }}</h4>
-                    <small class="text-muted">Approved</small>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-4">
-            <div class="card border-0 shadow-sm bg-danger bg-opacity-10">
-                <div class="card-body text-center py-3">
-                    <h4 class="fw-bold text-danger mb-0">{{ $rejectedCount }}</h4>
-                    <small class="text-muted">Rejected</small>
+        <div class="col-md-6">
+            <div class="card border-0 shadow-sm h-100" style="background: linear-gradient(135deg, #fff2f2 0%, #fff8f8 100%);">
+                <div class="card-body py-3 px-4">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <p class="text-uppercase small fw-bold text-danger mb-1">Total Due</p>
+                            <h3 class="fw-bold text-dark mb-1">Rs. {{ number_format($totalDueAmount, 2) }}</h3>
+                            <small class="text-muted">Outstanding due for selected month</small>
+                        </div>
+                        <div class="rounded-circle d-flex align-items-center justify-content-center" style="width:48px;height:48px;background:#fee2e2;">
+                            <i class="bi bi-wallet2 text-danger fs-5"></i>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -44,11 +52,19 @@
     <div class="card border-0 shadow-sm mb-4">
         <div class="card-body">
             <div class="row g-3">
-                <div class="col-md-5">
+                <div class="col-md-4">
                     <div class="input-group">
                         <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
                         <input type="text" wire:model.live.debounce.300ms="search" class="form-control" placeholder="Search by invoice, sale ID or customer...">
                     </div>
+                </div>
+                <div class="col-md-2">
+                    <select wire:model.live="selectedMonth" class="form-select">
+                        <option value="">All Months</option>
+                        @foreach($monthOptions as $month)
+                            <option value="{{ $month->month_key }}">{{ $month->month_label }}</option>
+                        @endforeach
+                    </select>
                 </div>
                 <div class="col-md-3">
                     <select wire:model.live="statusFilter" class="form-select">
@@ -150,9 +166,13 @@
     </div>
 
     {{-- Pagination --}}
-    <div class="mt-4">
-        {{ $sales->links() }}
+    @if ($sales->hasPages())
+    <div class="card-footer">
+        <div class="d-flex justify-content-center">
+            {{ $sales->links('livewire.custom-pagination') }}
+        </div>
     </div>
+    @endif
 
     {{-- Details Modal --}}
     @if($showDetailsModal && $selectedSale)

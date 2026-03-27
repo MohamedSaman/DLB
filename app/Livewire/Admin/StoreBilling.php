@@ -49,6 +49,9 @@ class StoreBilling extends Component
     public $searchResults = [];
     public $relatedProducts = [];
     public $customerId = '';
+    public $customerSearch = '';
+    public $customerSearchResults = [];
+    public $showCustomerSearchDropdown = false;
 
     // Categories and Products for Grid
     public $categories = [];
@@ -152,6 +155,7 @@ class StoreBilling extends Component
                 // Load sale data
                 $this->customerId = $this->editingSale->customer_id;
                 $this->selectedCustomer = $this->editingSale->customer;
+                $this->customerSearch = $this->formatCustomerDisplayName($this->editingSale->customer);
                 $this->notes = $this->editingSale->notes ?? '';
 
                 // Load additional discount from sale
@@ -876,12 +880,27 @@ class StoreBilling extends Component
 
         $this->customerId = $walkingCustomer->id;
         $this->selectedCustomer = $walkingCustomer;
+        $this->customerSearch = $this->formatCustomerDisplayName($walkingCustomer);
+        $this->customerSearchResults = [];
+        $this->showCustomerSearchDropdown = false;
     }
 
-    // Load customers for dropdown
+    // Load customers for customer search dropdown
     public function loadCustomers()
     {
         $this->customers = Customer::orderBy('business_name')->get();
+    }
+
+    private function formatCustomerDisplayName($customer)
+    {
+        if (!$customer) {
+            return '';
+        }
+
+        $name = $customer->business_name ?: $customer->name;
+        $phone = $customer->phone ?: 'N/A';
+
+        return $name . ' (' . $phone . ')';
     }
 
     // Computed Properties for Totals
@@ -992,6 +1011,73 @@ class StoreBilling extends Component
         }
     }
 
+    public function updatedCustomerSearch($value)
+    {
+        $term = trim((string) $value);
+
+        if (strlen($term) < 1) {
+            $this->customerSearchResults = [];
+            $this->showCustomerSearchDropdown = false;
+            return;
+        }
+
+        $lowerTerm = strtolower($term);
+
+        $this->customerSearchResults = collect($this->customers)
+            ->filter(function ($customer) use ($lowerTerm) {
+                $business = strtolower((string) ($customer->business_name ?? ''));
+                $name = strtolower((string) ($customer->name ?? ''));
+                $phone = strtolower((string) ($customer->phone ?? ''));
+
+                return str_contains($business, $lowerTerm)
+                    || str_contains($name, $lowerTerm)
+                    || str_contains($phone, $lowerTerm);
+            })
+            ->take(12)
+            ->map(function ($customer) {
+                return [
+                    'id' => $customer->id,
+                    'label' => $this->formatCustomerDisplayName($customer),
+                    'name' => $customer->name,
+                    'business_name' => $customer->business_name,
+                    'phone' => $customer->phone,
+                ];
+            })
+            ->values()
+            ->toArray();
+
+        $this->showCustomerSearchDropdown = true;
+    }
+
+    public function selectCustomer($customerId)
+    {
+        $customer = Customer::find($customerId);
+
+        if (!$customer) {
+            return;
+        }
+
+        $this->customerId = $customer->id;
+        $this->selectedCustomer = $customer;
+        $this->customerSearch = $this->formatCustomerDisplayName($customer);
+        $this->customerSearchResults = [];
+        $this->showCustomerSearchDropdown = false;
+
+        $this->customerOpeningBalanceDisplay = $customer->opening_balance ?? 0;
+        $this->customerDueAmountDisplay = $customer->due_amount ?? 0;
+        $this->customerOverpaidAmountDisplay = $customer->overpaid_amount ?? 0;
+        $this->customerTotalDueDisplay = $customer->total_due ?? 0;
+    }
+
+    public function hideCustomerSearchDropdown()
+    {
+        $this->showCustomerSearchDropdown = false;
+
+        if ($this->selectedCustomer) {
+            $this->customerSearch = $this->formatCustomerDisplayName($this->selectedCustomer);
+        }
+    }
+
     // When customer is selected from dropdown
     public function updatedCustomerId($value)
     {
@@ -999,6 +1085,9 @@ class StoreBilling extends Component
             $customer = Customer::find($value);
             if ($customer) {
                 $this->selectedCustomer = $customer;
+                $this->customerSearch = $this->formatCustomerDisplayName($customer);
+                $this->customerSearchResults = [];
+                $this->showCustomerSearchDropdown = false;
                 // Load balance information
                 $this->customerOpeningBalanceDisplay = $customer->opening_balance ?? 0;
                 $this->customerDueAmountDisplay = $customer->due_amount ?? 0;
@@ -1249,6 +1338,9 @@ class StoreBilling extends Component
             $this->loadCustomers();
             $this->customerId = $customer->id;
             $this->selectedCustomer = $customer;
+            $this->customerSearch = $this->formatCustomerDisplayName($customer);
+            $this->customerSearchResults = [];
+            $this->showCustomerSearchDropdown = false;
             // Load balance information
             $this->customerOpeningBalanceDisplay = $openingBalance;
             $this->customerDueAmountDisplay = 0;

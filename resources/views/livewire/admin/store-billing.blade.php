@@ -379,15 +379,31 @@
                             <label class="text-[10px] font-black text-slate-400 uppercase mb-1.5 block tracking-widest">Customer Selection</label>
                             <div class="relative group">
                                 <span class="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-lg group-focus-within:text-[#e67e22] transition-colors">person</span>
-                                <select class="w-full pl-9 pr-10 py-2 bg-slate-50 border border-slate-200 rounded-md outline-none text-xs font-bold appearance-none focus:ring-2 focus:ring-[#e67e22]/10 focus:border-[#e67e22] transition-all" wire:model.live="customerId">
-                                    @foreach($customers as $customer)
-                                    <option value="{{ $customer->id }}">{{ $customer->business_name ?? $customer->name }} ({{ $customer->phone }})</option>
-                                    @endforeach
-                                </select>
+                                <input type="text"
+                                    wire:model.live.debounce.250ms="customerSearch"
+                                    wire:focus="$set('showCustomerSearchDropdown', true)"
+                                    wire:blur="hideCustomerSearchDropdown"
+                                    class="w-full pl-9 pr-10 py-2 bg-slate-50 border border-slate-200 rounded-md outline-none text-xs font-bold focus:ring-2 focus:ring-[#e67e22]/10 focus:border-[#e67e22] transition-all"
+                                    placeholder="Search customer by name, business, or phone..."
+                                    autocomplete="off">
                                 <button class="absolute right-8 top-1/2 -translate-y-1/2 text-[#e67e22] p-1.5 hover:bg-orange-50 rounded-full transition-all" wire:click="openCustomerModal" title="Add Customer">
                                     <span class="material-symbols-outlined text-lg">person_add</span>
                                 </button>
-                                <span class="material-symbols-outlined absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-300 text-lg pointer-events-none">expand_more</span>
+
+                                @if($showCustomerSearchDropdown && strlen(trim($customerSearch)) >= 1)
+                                <div class="absolute left-0 right-0 mt-2 bg-white border border-slate-200 rounded-lg shadow-2xl z-40 max-h-64 overflow-y-auto custom-scrollbar">
+                                    @forelse($customerSearchResults as $customer)
+                                        <button type="button"
+                                            class="w-full text-left px-3 py-2.5 hover:bg-slate-50 border-b border-slate-100 last:border-b-0"
+                                            wire:mousedown.prevent="selectCustomer({{ $customer['id'] }})">
+                                            <div class="text-xs font-bold text-slate-800">{{ $customer['business_name'] ?: $customer['name'] }}</div>
+                                            <div class="text-[10px] text-slate-500">{{ $customer['phone'] ?: 'N/A' }}</div>
+                                        </button>
+                                    @empty
+                                        <div class="px-3 py-4 text-center text-[10px] text-slate-500 font-bold uppercase tracking-wider">No customer found</div>
+                                    @endforelse
+                                </div>
+                                @endif
                             </div>
                         </div>
                         <div class="w-1/3">
@@ -444,103 +460,69 @@
                 {{-- Product Grid Area --}}
                 <div class="flex-1 overflow-y-auto custom-scrollbar pr-1">
                     <div class="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 pb-2">
-                        @forelse($this->pagedProducts as $product)
-                        @php
-                            $isLow = ($product['stock'] ?? 0) <= 5 && ($product['stock'] ?? 0) > 0;
-                            $isOut = ($product['stock'] ?? 0) <= 0;
-                        @endphp
-                        <div class="group bg-white border border-slate-200 rounded-lg shadow-sm hover:border-[#e67e22]/60 hover:shadow-md transition-all cursor-pointer relative flex flex-col h-full overflow-hidden"
-                             wire:click="addToCart({{ json_encode($product) }})">
-                            
-                            {{-- Batch Status --}}
-                            <div class="absolute top-1.5 right-1.5 z-10">
-                                @if($isOut)
-                                    <span class="bg-red-500 text-[8px] text-white font-black px-1.5 py-0.5 rounded-sm uppercase tracking-tighter">Out of Stock</span>
-                                @elseif($isLow)
-                                    <span class="bg-amber-500 text-[8px] text-white font-black px-1.5 py-0.5 rounded-sm uppercase tracking-tighter">Low Stock</span>
-                                @else
-                                    <span class="bg-green-500 text-[8px] text-white font-black px-1.5 py-0.5 rounded-sm uppercase tracking-tighter">In Stock</span>
-                                @endif
-                            </div>
+                        @if(strlen($search) >= 2)
+                            @forelse($relatedProducts as $product)
+                                @php
+                                    $isLow = ($product['stock'] ?? 0) <= 5 && ($product['stock'] ?? 0) > 0;
+                                    $isOut = ($product['stock'] ?? 0) <= 0;
+                                @endphp
+                                <div class="group bg-white border border-slate-200 rounded-lg shadow-sm hover:border-[#e67e22]/60 hover:shadow-md transition-all cursor-pointer relative flex flex-col h-full overflow-hidden"
+                                     wire:click="addToCart({{ json_encode($product) }})">
 
-                            {{-- Product Image --}}
-                            <div class="aspect-square bg-slate-50 flex items-center justify-center p-3">
-                                <img src="{{ $this->getImageUrl($product['image']) }}" 
-                                    onerror="this.onerror=null;this.src='https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSrn_80I-lMAa0pVBNmFmQ7VI6l4rr74JW-eQ&s';" 
-                                    class="w-full h-full object-contain group-hover:scale-110 transition-transform duration-500" 
-                                    alt="{{ $product['name'] }}">
-                            </div>
-
-                            {{-- Product Details --}}
-                            <div class="p-2.5 flex flex-col flex-1 bg-white">
-                                <p class="text-[9px] text-slate-400 font-mono uppercase mb-0.5">{{ $product['code'] }}</p>
-                                <h3 class="text-[11px] font-bold text-slate-800 leading-tight mb-2 break-words" title="{{ $product['name'] }}">{{ $product['name'] }}</h3>
-                                
-                                <div class="mt-auto flex items-end justify-between">
-                                    <div class="flex flex-col">
-                                        <span class="text-[#e67e22] font-black text-sm leading-none tracking-tighter">Rs. {{ number_format($product['price'], 0) }}</span>
-                                        <span class="text-[9px] text-slate-400 font-bold mt-1.5">
-                                            <span class="{{ ($product['stock'] ?? 0) <= 5 ? 'text-amber-500' : 'text-green-600' }}">Avail: {{ $product['stock'] }}</span>
-                                            @if(($product['pending'] ?? 0) > 0)
-                                                | <span class="text-orange-500">Pend: {{ $product['pending'] }}</span>
-                                            @endif
-                                        </span>
+                                    <div class="absolute top-1.5 right-1.5 z-10">
+                                        @if($isOut)
+                                            <span class="bg-red-500 text-[8px] text-white font-black px-1.5 py-0.5 rounded-sm uppercase tracking-tighter">Out of Stock</span>
+                                        @elseif($isLow)
+                                            <span class="bg-amber-500 text-[8px] text-white font-black px-1.5 py-0.5 rounded-sm uppercase tracking-tighter">Low Stock</span>
+                                        @else
+                                            <span class="bg-green-500 text-[8px] text-white font-black px-1.5 py-0.5 rounded-sm uppercase tracking-tighter">In Stock</span>
+                                        @endif
                                     </div>
-                                    <div class="bg-slate-100 p-1.5 rounded-md group-hover:bg-[#e67e22] group-hover:text-white transition-all shadow-sm">
-                                        <span class="material-symbols-outlined text-base font-black">add</span>
+
+                                    <div class="aspect-square bg-slate-50 flex items-center justify-center p-3">
+                                        <img src="{{ $this->getImageUrl($product['image']) }}"
+                                            onerror="this.onerror=null;this.src='https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSrn_80I-lMAa0pVBNmFmQ7VI6l4rr74JW-eQ&s';"
+                                            class="w-full h-full object-contain group-hover:scale-110 transition-transform duration-500"
+                                            alt="{{ $product['name'] }}">
+                                    </div>
+
+                                    <div class="p-2.5 flex flex-col flex-1 bg-white">
+                                        <p class="text-[9px] text-slate-400 font-mono uppercase mb-0.5">{{ $product['code'] }}</p>
+                                        <h3 class="text-[11px] font-bold text-slate-800 leading-tight mb-2 break-words" title="{{ $product['name'] }}">{{ $product['name'] }}</h3>
+
+                                        <div class="mt-auto flex items-end justify-between">
+                                            <div class="flex flex-col">
+                                                <span class="text-[#e67e22] font-black text-sm leading-none tracking-tighter">Rs. {{ number_format($product['price'], 0) }}</span>
+                                                <span class="text-[9px] text-slate-400 font-bold mt-1.5">
+                                                    <span class="{{ ($product['stock'] ?? 0) <= 5 ? 'text-amber-500' : 'text-green-600' }}">Avail: {{ $product['stock'] }}</span>
+                                                    @if(($product['pending'] ?? 0) > 0)
+                                                        | <span class="text-orange-500">Pend: {{ $product['pending'] }}</span>
+                                                    @endif
+                                                </span>
+                                            </div>
+                                            <div class="bg-slate-100 p-1.5 rounded-md group-hover:bg-[#e67e22] group-hover:text-white transition-all shadow-sm">
+                                                <span class="material-symbols-outlined text-base font-black">add</span>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
+                            @empty
+                                <div class="col-span-full py-20 text-center">
+                                    <div class="bg-slate-50 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4 border border-slate-100">
+                                        <span class="material-symbols-outlined text-4xl text-slate-300">search_off</span>
+                                    </div>
+                                    <p class="text-slate-400 font-black uppercase tracking-widest text-xs">No related products found</p>
+                                </div>
+                            @endforelse
+                        @else
+                            <div class="col-span-full py-20 text-center">
+                                <div class="bg-slate-50 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4 border border-slate-100">
+                                    <span class="material-symbols-outlined text-4xl text-slate-300">manage_search</span>
+                                </div>
+                                <p class="text-slate-400 font-black uppercase tracking-widest text-xs">Search to view related products</p>
                             </div>
-                        </div>
-                        @empty
-                        <div class="col-span-full py-32 text-center">
-                            <div class="bg-slate-50 w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-4 border border-slate-100">
-                                <span class="material-symbols-outlined text-5xl text-slate-200">inventory_2</span>
-                            </div>
-                            <p class="text-slate-300 font-black uppercase tracking-widest text-xs">No products in this category</p>
-                        </div>
-                        @endforelse
+                        @endif
                     </div>
-
-                    {{-- Pagination --}}
-                    @if($this->totalPages > 1)
-                    <div class="flex items-center justify-between px-1 py-2.5 border-t border-slate-100 mt-1">
-                        <span class="text-[10px] text-slate-400 font-bold">
-                            {{ ($currentPage - 1) * $perPage + 1 }}–{{ min($currentPage * $perPage, count($products)) }} of {{ count($products) }}
-                        </span>
-                        <div class="flex items-center gap-1">
-                            {{-- Prev --}}
-                            <button wire:click="prevPage"
-                                class="w-6 h-6 flex items-center justify-center rounded border text-[10px] font-black transition-all
-                                    {{ $currentPage <= 1 ? 'border-slate-200 text-slate-300 cursor-not-allowed' : 'border-slate-300 text-slate-600 hover:bg-[#e67e22] hover:text-white hover:border-[#e67e22]' }}"
-                                {{ $currentPage <= 1 ? 'disabled' : '' }}>
-                                <span class="material-symbols-outlined text-xs">chevron_left</span>
-                            </button>
-
-                            {{-- Page numbers --}}
-                            @php
-                                $start = max(1, $currentPage - 2);
-                                $end   = min($this->totalPages, $start + 4);
-                                $start = max(1, $end - 4);
-                            @endphp
-                            @for($p = $start; $p <= $end; $p++)
-                                <button wire:click="goToPage({{ $p }})"
-                                    class="w-6 h-6 flex items-center justify-center rounded border text-[10px] font-black transition-all
-                                        {{ $p == $currentPage ? 'bg-[#e67e22] text-white border-[#e67e22]' : 'border-slate-300 text-slate-600 hover:bg-[#e67e22] hover:text-white hover:border-[#e67e22]' }}">
-                                    {{ $p }}
-                                </button>
-                            @endfor
-
-                            {{-- Next --}}
-                            <button wire:click="nextPage"
-                                class="w-6 h-6 flex items-center justify-center rounded border text-[10px] font-black transition-all
-                                    {{ $currentPage >= $this->totalPages ? 'border-slate-200 text-slate-300 cursor-not-allowed' : 'border-slate-300 text-slate-600 hover:bg-[#e67e22] hover:text-white hover:border-[#e67e22]' }}"
-                                {{ $currentPage >= $this->totalPages ? 'disabled' : '' }}>
-                                <span class="material-symbols-outlined text-xs">chevron_right</span>
-                            </button>
-                        </div>
-                    </div>
-                    @endif
                 </div>
             </section>
         </main>

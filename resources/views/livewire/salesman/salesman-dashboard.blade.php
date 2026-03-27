@@ -1,5 +1,4 @@
 <div class="container-fluid py-3">
-    {{-- Header --}}
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
             <h3 class="fw-bold text-dark mb-2">
@@ -9,169 +8,87 @@
         </div>
     </div>
 
-    {{-- Sales Stats Cards --}}
     <div class="row g-4 mb-4">
-        <div class="col-md-6 col-lg-3">
+        <div class="col-md-6 col-xl-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body d-flex flex-column">
+                    <p class="text-uppercase text-muted small fw-bold mb-2">Today's Sale</p>
+                    <h2 class="fw-bold mb-3">Rs.{{ number_format($todaySalesAmount, 2) }}</h2>
+
+                    <div class="progress mb-3" style="height: 10px;">
+                        <div class="progress-bar bg-primary" role="progressbar" style="width: 100%;"></div>
+                    </div>
+
+                    <div class="d-flex justify-content-between align-items-center text-muted mb-3">
+                        <span>Total Sales</span>
+                        <span class="badge rounded-pill bg-primary bg-opacity-10 text-primary">Rs.{{ number_format($lifetimeSalesAmount, 2) }}</span>
+                    </div>
+
+                    <button type="button" class="btn btn-link text-decoration-none p-0 text-dark mt-auto" wire:click="openDaySummaryModal">
+                        <i class="bi bi-eye me-1"></i> View Today Summary
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6 col-xl-3">
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-body">
-                    <div class="d-flex align-items-center justify-content-between">
-                        <div>
-                            <p class="text-muted small mb-1">Total Orders</p>
-                            <h3 class="fw-bold text-dark mb-0">{{ $totalSales }}</h3>
-                        </div>
-                        <div class="bg-primary bg-opacity-10 rounded-circle p-3">
-                            <i class="bi bi-cart-fill text-primary fs-4"></i>
-                        </div>
+                    <p class="text-uppercase text-muted small fw-bold mb-2">Cash Amount (Today)</p>
+                    <h2 class="fw-bold mb-3">Rs.{{ number_format($todayCashAmount, 2) }}</h2>
+
+                    <div class="progress mb-3" style="height: 10px;">
+                        <div class="progress-bar bg-success" role="progressbar" style="width: 100%;"></div>
+                    </div>
+
+                    <div class="d-flex justify-content-between align-items-center text-muted">
+                        <span>Total Cash Collected</span>
+                        <span class="badge rounded-pill bg-success bg-opacity-10 text-success">Rs.{{ number_format($lifetimeCashAmount, 2) }}</span>
                     </div>
                 </div>
             </div>
         </div>
-        <div class="col-md-6 col-lg-3">
+
+        <div class="col-md-6 col-xl-3">
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-body">
-                    <div class="d-flex align-items-center justify-content-between">
-                        <div>
-                            <p class="text-muted small mb-1">Pending Approval</p>
-                            <h3 class="fw-bold text-warning mb-0">{{ $pendingSales }}</h3>
-                        </div>
-                        <div class="bg-warning bg-opacity-10 rounded-circle p-3">
-                            <i class="bi bi-hourglass-split text-warning fs-4"></i>
-                        </div>
+                    <p class="text-uppercase text-muted small fw-bold mb-2">System Stock</p>
+                    <h2 class="fw-bold mb-3">{{ number_format($systemStockUnits) }} <span class="fs-4 fw-normal text-muted">units</span></h2>
+
+                    <div class="progress mb-3" style="height: 10px;">
+                        <div class="progress-bar bg-info" role="progressbar" style="width: {{ $systemStockCapacity > 0 ? min(100, ($systemStockUnits / $systemStockCapacity) * 100) : 0 }}%;"></div>
+                    </div>
+
+                    <div class="d-flex justify-content-between align-items-center text-muted">
+                        <span>Total Capacity</span>
+                        <span class="badge rounded-pill bg-info bg-opacity-10 text-info">{{ number_format($systemStockCapacity) }} units</span>
                     </div>
                 </div>
             </div>
         </div>
-        <div class="col-md-6 col-lg-3">
+
+        <div class="col-md-6 col-xl-3">
             <div class="card border-0 shadow-sm h-100">
-                <div class="card-body">
-                    <div class="d-flex align-items-center justify-content-between">
-                        <div>
-                            <p class="text-muted small mb-1">Approved</p>
-                            <h3 class="fw-bold text-success mb-0">{{ $approvedSales }}</h3>
-                        </div>
-                        <div class="bg-success bg-opacity-10 rounded-circle p-3">
-                            <i class="bi bi-check-circle-fill text-success fs-4"></i>
-                        </div>
+                <div class="card-body d-flex flex-column">
+                    <p class="text-uppercase text-muted small fw-bold mb-2">Recent Invoices</p>
+                    <h2 class="fw-bold mb-3">{{ $recentInvoicesCount }}</h2>
+
+                    <div class="text-muted mb-3">
+                        <i class="bi bi-clock me-1"></i> Showing last 5 sales
                     </div>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-6 col-lg-3">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-body">
-                    <div class="d-flex align-items-center justify-content-between">
-                        <div>
-                            <p class="text-muted small mb-1">Rejected</p>
-                            <h3 class="fw-bold text-danger mb-0">{{ $rejectedSales }}</h3>
-                        </div>
-                        <div class="bg-danger bg-opacity-10 rounded-circle p-3">
-                            <i class="bi bi-x-circle-fill text-danger fs-4"></i>
-                        </div>
-                    </div>
+
+                    <a href="{{ route('salesman.products') }}" class="btn btn-link text-decoration-none p-0 text-dark mt-auto">View All Products</a>
                 </div>
             </div>
         </div>
     </div>
 
-    {{-- Delivery Stats Cards --}}
-    <div class="row g-4 mb-4">
-        <div class="col-12">
-            <h5 class="fw-bold text-dark mb-3">
-                <i class="bi bi-truck text-info me-2"></i> Delivery Status
-            </h5>
-        </div>
-        <div class="col-md-4">
-            <div class="card border-0 shadow-sm h-100 bg-warning bg-opacity-10">
-                <div class="card-body">
-                    <div class="d-flex align-items-center justify-content-between">
-                        <div>
-                            <p class="text-muted small mb-1">Pending Delivery</p>
-                            <h3 class="fw-bold text-warning mb-0">{{ $pendingDeliveries }}</h3>
-                        </div>
-                        <div class="bg-warning bg-opacity-25 rounded-circle p-3">
-                            <i class="bi bi-box-seam text-warning fs-4"></i>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-4">
-            <div class="card border-0 shadow-sm h-100 bg-info bg-opacity-10">
-                <div class="card-body">
-                    <div class="d-flex align-items-center justify-content-between">
-                        <div>
-                            <p class="text-muted small mb-1">In Transit</p>
-                            <h3 class="fw-bold text-info mb-0">{{ $inTransitDeliveries }}</h3>
-                        </div>
-                        <div class="bg-info bg-opacity-25 rounded-circle p-3">
-                            <i class="bi bi-truck text-info fs-4"></i>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-4">
-            <div class="card border-0 shadow-sm h-100 bg-success bg-opacity-10">
-                <div class="card-body">
-                    <div class="d-flex align-items-center justify-content-between">
-                        <div>
-                            <p class="text-muted small mb-1">Delivered</p>
-                            <h3 class="fw-bold text-success mb-0">{{ $completedDeliveries }}</h3>
-                        </div>
-                        <div class="bg-success bg-opacity-25 rounded-circle p-3">
-                            <i class="bi bi-check2-all text-success fs-4"></i>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    {{-- Customer Dues Stats --}}
-    <div class="row g-4 mb-4">
-        <div class="col-12">
-            <h5 class="fw-bold text-dark mb-3">
-                <i class="bi bi-wallet2 text-danger me-2"></i> Customer Dues
-            </h5>
-        </div>
-        <div class="col-md-6">
-            <div class="card border-0 shadow-sm h-100 bg-danger bg-opacity-10">
-                <div class="card-body">
-                    <div class="d-flex align-items-center justify-content-between">
-                        <div>
-                            <p class="text-muted small mb-1">Total Due Amount</p>
-                            <h3 class="fw-bold text-danger mb-0">Rs. {{ number_format($totalDueAmount, 2) }}</h3>
-                        </div>
-                        <div class="bg-danger bg-opacity-25 rounded-circle p-3">
-                            <i class="bi bi-cash-stack text-danger fs-4"></i>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-6">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-body">
-                    <div class="d-flex align-items-center justify-content-between">
-                        <div>
-                            <p class="text-muted small mb-1">Customers with Dues</p>
-                            <h3 class="fw-bold text-primary mb-0">{{ $customersWithDues }}</h3>
-                        </div>
-                        <div class="bg-primary bg-opacity-10 rounded-circle p-3">
-                            <i class="bi bi-people text-primary fs-4"></i>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    {{-- Recent Sales --}}
     <div class="card border-0 shadow-sm">
-        <div class="card-header bg-white py-3">
+        <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
             <h5 class="fw-bold text-dark mb-0">
                 <i class="bi bi-clock-history text-primary me-2"></i> Recent Orders
             </h5>
+            <a href="{{ route('salesman.sales') }}" class="btn btn-sm btn-outline-primary">View All</a>
         </div>
         <div class="card-body p-0">
             <div class="table-responsive">
@@ -187,34 +104,91 @@
                     </thead>
                     <tbody>
                         @forelse($recentSales as $sale)
-                        <tr>
-                            <td class="ps-4">
-                                <span class="fw-medium">{{ $sale->invoice_number }}</span>
-                            </td>
-                            <td>{{ $sale->customer->name ?? 'N/A' }}</td>
-                            <td class="fw-semibold">Rs. {{ number_format($sale->total_amount, 2) }}</td>
-                            <td>
-                                @if($sale->status === 'pending')
-                                    <span class="badge bg-warning">Pending</span>
-                                @elseif($sale->status === 'confirm')
-                                    <span class="badge bg-success">Approved</span>
-                                @else
-                                    <span class="badge bg-danger">Rejected</span>
-                                @endif
-                            </td>
-                            <td class="text-muted">{{ $sale->created_at->format('M d, Y') }}</td>
-                        </tr>
+                            <tr>
+                                <td class="ps-4">
+                                    <span class="fw-medium">{{ $sale->invoice_number }}</span>
+                                </td>
+                                <td>{{ $sale->customer->name ?? 'N/A' }}</td>
+                                <td class="fw-semibold">Rs. {{ number_format($sale->total_amount, 2) }}</td>
+                                <td>
+                                    @if($sale->status === 'pending')
+                                        <span class="badge bg-warning">Pending</span>
+                                    @elseif($sale->status === 'confirm')
+                                        <span class="badge bg-success">Approved</span>
+                                    @else
+                                        <span class="badge bg-danger">Rejected</span>
+                                    @endif
+                                </td>
+                                <td class="text-muted">{{ $sale->created_at->format('M d, Y') }}</td>
+                            </tr>
                         @empty
-                        <tr>
-                            <td colspan="5" class="text-center py-4 text-muted">
-                                <i class="bi bi-inbox fs-1 d-block mb-2"></i>
-                                No sales yet. Start creating orders!
-                            </td>
-                        </tr>
+                            <tr>
+                                <td colspan="5" class="text-center py-4 text-muted">
+                                    <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+                                    No sales yet. Start creating orders!
+                                </td>
+                            </tr>
                         @endforelse
                     </tbody>
                 </table>
             </div>
         </div>
     </div>
+
+    @if($showDaySummaryModal)
+        <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+            <div class="modal-dialog modal-lg modal-dialog-scrollable">
+                <div class="modal-content border-0 shadow">
+                    <div class="modal-header bg-primary text-white">
+                        <h5 class="modal-title fw-bold">
+                            <i class="bi bi-clipboard-data me-2"></i>Today's Summary
+                        </h5>
+                        <button type="button" class="btn-close btn-close-white" wire:click="closeDaySummaryModal"></button>
+                    </div>
+
+                    <div class="modal-body p-4">
+                        <div class="border rounded p-3 mb-3 bg-info bg-opacity-10">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div class="fw-semibold"><i class="bi bi-cart-check text-info me-2"></i>Total Sale</div>
+                                <div class="fs-3 fw-bold text-info">Rs. {{ number_format($todaySalesAmount, 2) }}</div>
+                            </div>
+                            <div class="small text-muted mt-2">{{ $todaySalesCount }} orders today</div>
+                        </div>
+
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-6">
+                                <div class="border rounded p-3 h-100 bg-success bg-opacity-10">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <div class="fw-semibold"><i class="bi bi-cash text-success me-2"></i>Cash Sale</div>
+                                        <div class="fs-4 fw-bold text-success">Rs. {{ number_format($todayCashAmount, 2) }}</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="border rounded p-3 h-100 bg-warning bg-opacity-10">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <div class="fw-semibold"><i class="bi bi-wallet2 text-warning me-2"></i>Due Sale</div>
+                                        <div class="fs-4 fw-bold text-warning">Rs. {{ number_format($todayDueAmount, 2) }}</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="border rounded p-3 mb-3 bg-danger bg-opacity-10">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div class="fw-semibold"><i class="bi bi-bag-dash text-danger me-2"></i>Salesman Expenses</div>
+                                <div class="fs-3 fw-bold text-danger">- Rs. {{ number_format($todayExpenseAmount, 2) }}</div>
+                            </div>
+                        </div>
+
+                        
+                    </div>
+
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" wire:click="closeDaySummaryModal">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    @endif
 </div>
