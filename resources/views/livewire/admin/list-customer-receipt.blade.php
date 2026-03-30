@@ -11,11 +11,54 @@
 
     {{-- Customer List Table --}}
     <div class="card mb-4">
-        <div class="card-header d-flex justify-content-between align-items-center bg-light">
-            <h5 class="fw-bold mb-0">
-                <i class="bi bi-people me-2"></i> Customers with Payments
-            </h5>
-            <span class="badge bg-primary">{{ $customers->total() }} customers</span>
+        <div class="card-header bg-light">
+            <div class="d-flex flex-column flex-md-row justify-content-between w-100 align-items-start align-items-md-center gap-2">
+                <div>
+                    <h5 class="fw-bold mb-0">
+                        <i class="bi bi-people me-2"></i> Customers with Payments
+                    </h5>
+                    <div class="mt-2 d-flex flex-wrap gap-2">
+                        <div style="min-width:260px;">
+                            <div class="input-group input-group-sm">
+                                <span class="input-group-text"><i class="bi bi-search"></i></span>
+                                <input type="text" class="form-control" wire:model.live.debounce.300ms="customerSearch" placeholder="Search customer name, email, address...">
+                            </div>
+                        </div>
+
+                        <div style="min-width:160px;">
+                            <select class="form-select form-select-sm" wire:model="recipientFilter" wire:change="$refresh">
+                                <option value="all">All Collectors</option>
+                                <option value="admin">Admin</option>
+                                <option value="staff">Staff</option>
+                            </select>
+                        </div>
+
+                        @if($recipientFilter === 'staff')
+                        <div style="min-width:200px;">
+                            <select class="form-select form-select-sm" wire:model="selectedCollector" wire:change="$refresh">
+                                <option value="">All Staff</option>
+                                @foreach($staffUsers as $u)
+                                <option value="{{ $u->id }}">{{ $u->name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        @elseif($recipientFilter === 'admin')
+                        <div style="min-width:200px;">
+                            <select class="form-select form-select-sm" wire:model="selectedCollector" wire:change="$refresh">
+                                <option value="">All Admin</option>
+                                @foreach($adminUsers as $u)
+                                <option value="{{ $u->id }}">{{ $u->name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        @endif
+                    </div>
+                </div>
+
+                <div class="d-flex align-items-center">
+                    <span class="badge bg-primary">{{ $customers->total() }} customers</span>
+                </div>
+            </div>
         </div>
         <div class="card-body p-0 overflow-auto">
             <div class="table-responsive">
@@ -135,14 +178,25 @@
 
                     {{-- Payment List --}}
                     <div class="p-3">
+                        <div class="row mb-3">
+                            <div class="col-md-5">
+                                <label class="form-label fw-semibold mb-1">Search By Invoice Number</label>
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="bi bi-search"></i></span>
+                                    <input type="text" class="form-control" wire:model.live.debounce.300ms="invoiceSearch" placeholder="Type invoice number...">
+                                </div>
+                            </div>
+                        </div>
+
                         <div class="table-responsive">
-                            <table class="table table-hover">
+                            <table class="table table-hover payment-history-table">
                                 <thead class="table-light">
                                     <tr>
                                         <th>#</th>
-                                        <th>Receipt ID</th>
-                                        <th>Date</th>
-                                        <th>Payment Method</th>
+                                        <th class="text-nowrap">Receipt ID</th>
+                                        <th class="text-nowrap">Invoice Number</th>
+                                        <th class="text-nowrap">Date</th>
+                                        <th class="text-nowrap">Payment Method</th>
                                         <th class="text-end">Amount</th>
                                         <th class="text-center">Action</th>
                                     </tr>
@@ -152,11 +206,30 @@
                                     <tr wire:key="payment-{{ $payment->id }}">
                                         <td>{{ $index + 1 }}</td>
                                         <td><span class="badge bg-success">#{{ $payment->id }}</span></td>
-                                        <td>
+                                        <td class="invoice-cell">
+                                            @php
+                                                $invoiceNumbers = $payment->allocations
+                                                    ->pluck('sale.invoice_number')
+                                                    ->filter()
+                                                    ->unique()
+                                                    ->values();
+                                            @endphp
+
+                                            @if($invoiceNumbers->count() > 0)
+                                                <div class="invoice-badges">
+                                                    @foreach($invoiceNumbers as $inv)
+                                                        <span class="badge bg-dark">{{ $inv }}</span>
+                                                    @endforeach
+                                                </div>
+                                            @else
+                                                <span class="text-muted">N/A</span>
+                                            @endif
+                                        </td>
+                                        <td class="date-cell">
                                             <i class="bi bi-calendar3 me-1"></i>
                                             {{ $payment->payment_date ? date('M d, Y', strtotime($payment->payment_date)) : '-' }}
                                         </td>
-                                        <td>
+                                        <td class="method-cell">
                                             <span class="badge bg-secondary">
                                                 <i class="bi bi-{{ $payment->payment_method === 'cash' ? 'cash' : ($payment->payment_method === 'cheque' ? 'receipt' : 'bank') }} me-1"></i>
                                                 {{ ucfirst(str_replace('_', ' ', $payment->payment_method)) }}
@@ -164,14 +237,19 @@
                                         </td>
                                         <td class="text-end fw-bold text-success">Rs.{{ number_format($payment->amount, 2) }}</td>
                                         <td class="text-center">
-                                            <button class="btn btn-sm btn-info" wire:click="viewPaymentReceipt({{ $payment->id }})">
-                                                <i class="bi bi-receipt me-1"></i> View Receipt
-                                            </button>
+                                            <div class="payment-actions">
+                                                <button class="btn btn-sm btn-info" wire:click="viewPaymentReceipt({{ $payment->id }})">
+                                                    <i class="bi bi-receipt me-1"></i> View Receipt
+                                                </button>
+                                                <button class="btn btn-sm btn-warning" wire:click="editPayment({{ $payment->id }})">
+                                                    <i class="bi bi-pencil me-1"></i> Edit
+                                                </button>
+                                            </div>
                                         </td>
                                     </tr>
                                     @empty
                                     <tr>
-                                        <td colspan="6" class="text-center py-5 text-muted">
+                                        <td colspan="7" class="text-center py-5 text-muted">
                                             <i class="bi bi-inbox" style="font-size: 3rem;"></i>
                                             <p class="mt-3">No payments found for this customer.</p>
                                         </td>
@@ -396,6 +474,137 @@
     </div>
     @endif
 
+    {{-- Edit Payment Modal --}}
+    @if($showEditPaymentModal && $editingPayment)
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5); z-index: 1060;">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-warning text-white">
+                    <div>
+                        <h5 class="modal-title fw-bold mb-0">
+                            <i class="bi bi-pencil-square me-2"></i> Edit Payment #{{ $editingPayment->id }}
+                        </h5>
+                    </div>
+                    <button type="button" class="btn-close btn-close-white" wire:click="closeEditPaymentModal"></button>
+                </div>
+                <div class="modal-body">
+                    <form wire:submit.prevent="saveEditPayment">
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">Payment Date</label>
+                                <input type="date" class="form-control" wire:model="editPaymentData.payment_date" required>
+                                @error('editPaymentData.payment_date')
+                                <span class="text-danger small">{{ $message }}</span>
+                                @enderror
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">Payment Amount</label>
+                                <input type="number" class="form-control" wire:model="editPaymentData.amount" step="0.01" placeholder="0.00" required>
+                                @error('editPaymentData.amount')
+                                <span class="text-danger small">{{ $message }}</span>
+                                @enderror
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Payment Method</label>
+                            <select class="form-select" wire:model.live="editPaymentData.payment_method" required>
+                                <option value="cash">Cash</option>
+                                <option value="cheque">Cheque</option>
+                                <option value="bank_transfer">Bank Transfer</option>
+                            </select>
+                            @error('editPaymentData.payment_method')
+                            <span class="text-danger small">{{ $message }}</span>
+                            @enderror
+                        </div>
+
+                        @if(($editPaymentData['payment_method'] ?? 'cash') === 'cheque')
+                        <div class="mb-3 border rounded p-3 bg-light">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h6 class="fw-bold text-success mb-0">
+                                    <i class="bi bi-receipt me-2"></i>Cheque Details
+                                </h6>
+                                <button type="button" class="btn btn-sm btn-outline-success" wire:click="addEditChequeRow">
+                                    <i class="bi bi-plus-circle me-1"></i>Add Cheque
+                                </button>
+                            </div>
+
+                            @error('editCheques')
+                            <div class="alert alert-danger py-2">{{ $message }}</div>
+                            @enderror
+
+                            @foreach($editCheques as $index => $cheque)
+                            <div class="card border-0 shadow-sm mb-2">
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <small class="text-muted fw-semibold">Cheque {{ $index + 1 }}</small>
+                                        @if(count($editCheques) > 1)
+                                        <button type="button" class="btn btn-sm btn-outline-danger" wire:click="removeEditChequeRow({{ $index }})">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                        @endif
+                                    </div>
+
+                                    <div class="row g-2">
+                                        <div class="col-md-3">
+                                            <label class="form-label small fw-semibold">Cheque Number</label>
+                                            <input type="text" class="form-control" wire:model="editCheques.{{ $index }}.cheque_number" placeholder="Cheque No">
+                                            @error('editCheques.' . $index . '.cheque_number')
+                                            <span class="text-danger small">{{ $message }}</span>
+                                            @enderror
+                                        </div>
+                                        <div class="col-md-3">
+                                            <label class="form-label small fw-semibold">Bank Name</label>
+                                            <input type="text" class="form-control" wire:model="editCheques.{{ $index }}.bank_name" placeholder="Bank name">
+                                            @error('editCheques.' . $index . '.bank_name')
+                                            <span class="text-danger small">{{ $message }}</span>
+                                            @enderror
+                                        </div>
+                                        <div class="col-md-3">
+                                            <label class="form-label small fw-semibold">Cheque Date</label>
+                                            <input type="date" class="form-control" wire:model="editCheques.{{ $index }}.cheque_date">
+                                            @error('editCheques.' . $index . '.cheque_date')
+                                            <span class="text-danger small">{{ $message }}</span>
+                                            @enderror
+                                        </div>
+                                        <div class="col-md-3">
+                                            <label class="form-label small fw-semibold">Cheque Amount</label>
+                                            <input type="number" step="0.01" class="form-control" wire:model="editCheques.{{ $index }}.cheque_amount" placeholder="0.00">
+                                            @error('editCheques.' . $index . '.cheque_amount')
+                                            <span class="text-danger small">{{ $message }}</span>
+                                            @enderror
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            @endforeach
+                        </div>
+                        @endif
+
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Notes (Optional)</label>
+                            <textarea class="form-control" wire:model="editPaymentData.notes" rows="3" placeholder="Add any notes about this payment"></textarea>
+                        </div>
+
+                        <div class="alert alert-info mb-0">
+                            <i class="bi bi-info-circle me-2"></i>
+                            <strong>Current Amount:</strong> Rs.{{ number_format($editingPayment->amount, 2) }}
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer bg-light">
+                    <button type="button" class="btn btn-secondary" wire:click="closeEditPaymentModal">
+                        <i class="bi bi-x-circle me-1"></i> Cancel
+                    </button>
+                    <button type="button" class="btn btn-success" wire:click="saveEditPayment">
+                        <i class="bi bi-check-circle me-1"></i> Save Changes
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    @endif
+
     <style>
         .sticky-top {
             position: sticky;
@@ -426,6 +635,44 @@
         .table-responsive {
             
             overflow-y: auto;
+        }
+
+        .payment-history-table th,
+        .payment-history-table td {
+            vertical-align: middle;
+        }
+
+        .payment-history-table .date-cell,
+        .payment-history-table .method-cell {
+            white-space: nowrap;
+        }
+
+        .payment-history-table .invoice-cell {
+            min-width: 220px;
+        }
+
+        .invoice-badges {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.35rem;
+        }
+
+        .payment-actions {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .payment-actions .btn {
+            min-width: 132px;
+        }
+
+        @media (min-width: 768px) {
+            .payment-actions {
+                flex-direction: row;
+                justify-content: center;
+            }
         }
     </style>
 </div>

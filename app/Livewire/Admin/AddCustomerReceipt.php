@@ -96,6 +96,15 @@ class AddCustomerReceipt extends Component
         $this->cheque['cheque_date'] = now()->format('Y-m-d');
         $this->bankTransfer['transfer_date'] = now()->format('Y-m-d');
         $this->totalPaymentAmount = 0;
+
+        // Auto-load customer if customer_id is passed in query params
+        $customerId = request()->query('customer_id');
+        if ($customerId) {
+            $customer = Customer::find($customerId);
+            if ($customer) {
+                $this->selectCustomer($customerId);
+            }
+        }
     }
 
     public function updatedSearch()
