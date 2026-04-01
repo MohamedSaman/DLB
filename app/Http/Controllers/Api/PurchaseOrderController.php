@@ -226,16 +226,27 @@ class PurchaseOrderController extends ApiController
                     ? $itemData['product']['id']
                     : $itemData['product'];
 
+                $variantId = $itemData['variant_id'] ?? null;
+                $variantValue = $itemData['variant_value'] ?? null;
                 $receivedQty = $itemData['received_quantity'] ?? $itemData['accepted_quantity'] ?? 0;
                 $sellingPrice = $itemData['selling_price'] ?? 0;
 
-                // Find the matching PO item
-                $poItem = $order->items()->where('product_id', $productId)->first();
+                // Find the matching PO item (match by product_id AND variant_id for variant-aware lookup)
+                $poItemQuery = $order->items()->where('product_id', $productId);
+                if ($variantId) {
+                    $poItemQuery->where('variant_id', $variantId);
+                } else {
+                    $poItemQuery->whereNull('variant_id');
+                }
+                $poItem = $poItemQuery->first();
 
                 if ($poItem) {
                     // Update received quantity
                     $poItem->received_quantity = ($poItem->received_quantity ?? 0) + $receivedQty;
                     $poItem->status = 'received';
+                    // Preserve variant information
+                    $poItem->variant_id = $variantId;
+                    $poItem->variant_value = $variantValue;
                     $poItem->save();
 
                     // Update stock
@@ -258,6 +269,8 @@ class PurchaseOrderController extends ApiController
                     PurchaseOrderItem::create([
                         'order_id' => $order->id,
                         'product_id' => $productId,
+                        'variant_id' => $variantId,
+                        'variant_value' => $variantValue,
                         'quantity' => $receivedQty,
                         'received_quantity' => $receivedQty,
                         'unit_price' => $itemData['unit_price'] ?? 0,
@@ -317,6 +330,8 @@ class PurchaseOrderController extends ApiController
                             'name' => $item->product->name,
                             'code' => $item->product->code,
                         ] : null,
+                        'variant_id' => $item->variant_id,
+                        'variant_value' => $item->variant_value,
                         'received_quantity' => $item->received_quantity,
                         'accepted_quantity' => $item->received_quantity,
                         'unit_price' => (float) $item->unit_price,
