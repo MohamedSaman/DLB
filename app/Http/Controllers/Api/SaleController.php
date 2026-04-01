@@ -385,8 +385,19 @@ class SaleController extends ApiController
                 $userId = $apiUser ? $apiUser->id : 1;
             }
 
-            // Record payment
-            $payment = $this->createPaymentRecord($sale, $amount, $request->payment_method ?? 'cash', $userId, $request->notes);
+            // Record payment with cheque details if applicable
+            $chequeData = null;
+            if ($request->payment_method === 'cheque') {
+                $chequeData = [
+                    'cheque_number' => $request->cheque_number,
+                    'bank_name' => $request->bank_name,
+                    'cheque_date' => $request->cheque_date,
+                    'name' => $request->name,
+                    'note' => $request->note,
+                ];
+            }
+
+            $payment = $this->createPaymentRecord($sale, $amount, $request->payment_method ?? 'cash', $userId, $request->notes, $chequeData);
 
             // Update sale
             $newDueAmount = max(0, $sale->due_amount - $amount);
@@ -488,12 +499,12 @@ class SaleController extends ApiController
     /**
      * Helper to record payment internally
      */
-    private function createPaymentRecord($sale, $amount, $method, $userId, $notes = null)
+    private function createPaymentRecord($sale, $amount, $method, $userId, $notes = null, $chequeData = null)
     {
         // Check if Payment model exists and has the expected structure
         try {
             if (class_exists('App\Models\Payment')) {
-                return Payment::create([
+                $payment = Payment::create([
                     'sale_id' => $sale->id,
                     'customer_id' => $sale->customer_id,
                     'amount' => $amount,
@@ -503,6 +514,28 @@ class SaleController extends ApiController
                     'created_by' => $userId,
                     'status' => 'paid',
                 ]);
+
+                // If cheque payment, create Cheque record
+                if ($method === 'cheque' && $chequeData) {
+                    try {
+                        Cheque::create([
+                            'cheque_number' => $chequeData['cheque_number'],
+                            'cheque_date' => $chequeData['cheque_date'] ?? now()->toDateString(),
+                            'bank_name' => $chequeData['bank_name'],
+                            'cheque_amount' => $amount,
+                            'status' => 'pending', // Default to pending
+                            'type' => 'receive', // Default to receive for customer payments
+                            'name' => $chequeData['name'] ?? null,
+                            'note' => $chequeData['note'] ?? $notes,
+                            'customer_id' => $sale->customer_id,
+                            'payment_id' => $payment->id,
+                        ]);
+                    } catch (\Exception $chequeErr) {
+                        Log::warning('Failed to create cheque record: ' . $chequeErr->getMessage());
+                    }
+                }
+
+                return $payment;
             }
         } catch (\Exception $e) {
             // Payment model might have different structure, log and continue
