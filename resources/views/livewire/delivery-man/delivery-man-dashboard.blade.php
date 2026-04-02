@@ -12,15 +12,16 @@
     {{-- Stats Cards --}}
     <div class="row g-4 mb-4">
         <div class="col-md-6 col-lg-4">
-            <div class="card border-0 shadow-sm h-100 bg-warning bg-opacity-10">
+            <div class="card border-0 shadow-sm h-100 bg-primary bg-opacity-10">
                 <div class="card-body">
                     <div class="d-flex align-items-center justify-content-between">
                         <div>
-                            <p class="text-muted small mb-1">Pending Deliveries</p>
-                            <h3 class="fw-bold text-warning mb-0">{{ $pendingDeliveries }}</h3>
+                            <p class="text-muted small mb-1">Delivered Sale Total</p>
+                            <h3 class="fw-bold text-primary mb-1">Rs. {{ number_format($deliveredSalesTotal, 2) }}</h3>
+                            <small class="text-muted">Today Delivered: <span class="fw-semibold">Rs. {{ number_format($todayDeliveredSalesTotal, 2) }}</span></small>
                         </div>
-                        <div class="bg-warning bg-opacity-25 rounded-circle p-3">
-                            <i class="bi bi-hourglass-split text-warning fs-4"></i>
+                        <div class="bg-primary bg-opacity-25 rounded-circle p-3">
+                            <i class="bi bi-receipt text-primary fs-4"></i>
                         </div>
                     </div>
                 </div>
@@ -31,68 +32,36 @@
                 <div class="card-body">
                     <div class="d-flex align-items-center justify-content-between">
                         <div>
-                            <p class="text-muted small mb-1">Completed Deliveries</p>
-                            <h3 class="fw-bold text-success mb-0">{{ $completedDeliveries }}</h3>
+                            <p class="text-muted small mb-1">Total Received Amount</p>
+                            <h3 class="fw-bold text-success mb-1">Rs. {{ number_format($totalReceivedAmount, 2) }}</h3>
+                            <small class="text-muted">Today Received: <span class="fw-semibold">Rs. {{ number_format($todayReceivedAmount, 2) }}</span></small>
                         </div>
                         <div class="bg-success bg-opacity-25 rounded-circle p-3">
-                            <i class="bi bi-check-circle-fill text-success fs-4"></i>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-6 col-lg-4">
-            <div class="card border-0 shadow-sm h-100 bg-primary bg-opacity-10">
-                <div class="card-body">
-                    <div class="d-flex align-items-center justify-content-between">
-                        <div>
-                            <p class="text-muted small mb-1">Today's Deliveries</p>
-                            <h3 class="fw-bold text-primary mb-0">{{ $todaysDeliveries }}</h3>
-                        </div>
-                        <div class="bg-primary bg-opacity-25 rounded-circle p-3">
-                            <i class="bi bi-calendar-check text-primary fs-4"></i>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    {{-- Payment Stats --}}
-    <div class="row g-4 mb-4">
-        <div class="col-md-6">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-body">
-                    <div class="d-flex align-items-center justify-content-between">
-                        <div>
-                            <p class="text-muted small mb-1">Pending Payment Approvals</p>
-                            <h3 class="fw-bold text-orange mb-0">{{ $pendingPayments }}</h3>
-                        </div>
-                        <div class="bg-info bg-opacity-10 rounded-circle p-3">
-                            <i class="bi bi-clock-history text-info fs-4"></i>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-6">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-body">
-                    <div class="d-flex align-items-center justify-content-between">
-                        <div>
-                            <p class="text-muted small mb-1">Today's Collection</p>
-                            <h3 class="fw-bold text-success mb-0">Rs. {{ number_format($collectedAmount, 2) }}</h3>
-                        </div>
-                        <div class="bg-success bg-opacity-10 rounded-circle p-3">
                             <i class="bi bi-cash-coin text-success fs-4"></i>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
+        <div class="col-md-6 col-lg-4">
+            <div class="card border-0 shadow-sm h-100 bg-warning bg-opacity-10">
+                <div class="card-body">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div>
+                            <p class="text-muted small mb-1">My Deliveries</p>
+                            <h3 class="fw-bold text-success mb-1">Completed: {{ $completedDeliveries }}</h3>
+                            <small class="text-muted">Pending: <span class="fw-semibold text-warning">{{ $pendingDeliveries }}</span></small>
+                        </div>
+                        <div class="bg-warning bg-opacity-25 rounded-circle p-3">
+                            <i class="bi bi-truck text-warning fs-4"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
-    {{-- Quick Actions --}}
+    {{-- Quick Actions 
     <div class="row g-3 mb-4">
         <div class="col-6 col-md-3">
             <a href="{{ route('delivery.pending') }}" class="btn btn-primary w-100 py-3">
@@ -114,7 +83,7 @@
                 <i class="bi bi-cash-coin me-2"></i> Expenses
             </a>
         </div>
-    </div>
+    </div>--}}
 
     {{-- Recent Deliveries --}}
     <div class="card border-0 shadow-sm">

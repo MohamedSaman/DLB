@@ -85,6 +85,9 @@
                                         <i class="bi bi-percent"></i>
                                     </button>
                                     @endif
+                                    <button wire:click="showConfirmation('return', {{ $sale->id }})" class="btn btn-sm btn-outline-danger" title="Return Full Invoice">
+                                        <i class="bi bi-arrow-counterclockwise"></i>
+                                    </button>
                                     <button wire:click="showConfirmation('delivered', {{ $sale->id }})" class="btn btn-sm btn-success">
                                         <i class="bi bi-check-lg"></i>
                                     </button>
@@ -159,6 +162,9 @@
                         <i class="bi bi-percent me-2"></i> Edit Discount
                     </button>
                     @endif
+                    <button wire:click="showConfirmation('return', {{ $sale->id }})" class="btn btn-sm btn-outline-danger">
+                        <i class="bi bi-arrow-counterclockwise me-2"></i> Return Full Invoice
+                    </button>
                     <button wire:click="showConfirmation('delivered', {{ $sale->id }})" class="btn btn-sm btn-success">
                         <i class="bi bi-check-circle me-2"></i> Mark Delivered
                     </button>
@@ -245,6 +251,9 @@
                         <i class="bi bi-truck me-2"></i>Mark In Transit
                     </button>
                     @endif
+                    <button wire:click="showConfirmation('return', {{ $selectedSale->id }})" class="btn btn-outline-danger">
+                        <i class="bi bi-arrow-counterclockwise me-2"></i>Return Invoice
+                    </button>
                     <button wire:click="showConfirmation('delivered', {{ $selectedSale->id }})" class="btn btn-success">
                         <i class="bi bi-check-circle me-2"></i>Mark Delivered
                     </button>
@@ -272,6 +281,8 @@
                             Are you sure you want to mark this order as <strong class="text-info">In Transit</strong>?
                         @elseif($confirmAction === 'delivered')
                             Are you sure you want to mark this order as <strong class="text-success">Delivered</strong>?
+                        @elseif($confirmAction === 'return')
+                            Are you sure you want to <strong class="text-danger">fully return this invoice</strong>? This will restore all stock and adjust customer due.
                         @endif
                     </p>
                 </div>
@@ -279,7 +290,7 @@
                     <button type="button" class="btn btn-secondary" wire:click="closeConfirmModal">
                         <i class="bi bi-x-circle me-2"></i>Cancel
                     </button>
-                    <button type="button" class="btn {{ $confirmAction === 'transit' ? 'btn-info text-white' : 'btn-success' }}" wire:click="executeConfirmedAction">
+                    <button type="button" class="btn {{ $confirmAction === 'transit' ? 'btn-info text-white' : ($confirmAction === 'return' ? 'btn-danger' : 'btn-success') }}" wire:click="executeConfirmedAction">
                         <i class="bi bi-check-circle me-2"></i>Confirm
                     </button>
                 </div>

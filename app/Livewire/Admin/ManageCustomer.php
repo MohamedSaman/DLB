@@ -167,7 +167,10 @@ class ManageCustomer extends Component
         $this->viewCustomerSales = $sales->map(function ($sale) {
             // Calculate paid amount using total minus due
             $paidAmount = ($sale->total_amount ?? 0) - ($sale->due_amount ?? 0);
-            
+            $isReturned = $sale->delivery_status === 'cancelled'
+                || str_contains(strtolower((string) ($sale->notes ?? '')), 'invoice fully returned by delivery man')
+                || str_contains(strtolower((string) ($sale->notes ?? '')), 'returned by delivery man');
+
             return [
                 'id' => $sale->id,
                 'invoice_number' => $sale->invoice_number,
@@ -176,10 +179,12 @@ class ManageCustomer extends Component
                 'due_amount' => $sale->due_amount ?? 0,
                 'payment_status' => $sale->payment_status,
                 'status' => $sale->status,
+                'delivery_status' => $sale->delivery_status,
                 'payment_type' => $sale->payment_type,
                 'created_at' => $sale->created_at ? $sale->created_at->format('M d, Y h:i A') : '-',
                 'items_count' => $sale->items->count(),
                 'paid_amount' => $paidAmount,
+                'is_returned' => $isReturned,
             ];
         })->toArray();
 
@@ -209,7 +214,7 @@ class ManageCustomer extends Component
         })->map(function ($sale) {
             // Calculate paid amount using total minus due
             $paidAmount = ($sale->total_amount ?? 0) - ($sale->due_amount ?? 0);
-            
+
             return [
                 'id' => $sale->id,
                 'invoice_number' => $sale->invoice_number,
@@ -256,13 +261,17 @@ class ManageCustomer extends Component
 
         // Add sales as debit entries
         foreach ($sales as $sale) {
+            $isReturned = $sale->delivery_status === 'cancelled'
+                || str_contains(strtolower((string) ($sale->notes ?? '')), 'invoice fully returned by delivery man')
+                || str_contains(strtolower((string) ($sale->notes ?? '')), 'returned by delivery man');
+
             $ledgerEntries->push([
                 'date' => $sale->created_at ? $sale->created_at->format('M d, Y h:i A') : '-',
-                'description' => 'Sale Invoice',
+                'description' => $isReturned ? 'Sale Invoice Returned' : 'Sale Invoice',
                 'reference' => $sale->invoice_number ?? $sale->sale_id,
                 'debit' => $sale->total_amount ?? 0,
                 'credit' => 0,
-                'type' => 'sale',
+                'type' => $isReturned ? 'sale_return' : 'sale',
             ]);
         }
 

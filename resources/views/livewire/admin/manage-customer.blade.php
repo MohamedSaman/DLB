@@ -637,7 +637,9 @@
                                         @endif
                                     </td>
                                     <td class="text-center">
-                                        @if($sale['payment_status'] == 'paid')
+                                        @if(($sale['is_returned'] ?? false) || (($sale['delivery_status'] ?? null) === 'cancelled'))
+                                            <span class="badge bg-secondary">Returned</span>
+                                        @elseif($sale['payment_status'] == 'paid')
                                             <span class="badge bg-success">Paid</span>
                                         @elseif($sale['payment_status'] == 'partial')
                                             <span class="badge bg-warning text-dark">Partial</span>
@@ -648,7 +650,9 @@
                                         @endif
                                     </td>
                                     <td class="text-center">
-                                        @if($sale['status'] == 'confirm' || $sale['status'] == 'confirmed')
+                                        @if(($sale['is_returned'] ?? false) || (($sale['delivery_status'] ?? null) === 'cancelled'))
+                                            <span class="badge bg-danger">Returned</span>
+                                        @elseif($sale['status'] == 'confirm' || $sale['status'] == 'confirmed')
                                             <span class="badge bg-success">Confirmed</span>
                                         @elseif($sale['status'] == 'pending')
                                             <span class="badge bg-warning text-dark">Pending</span>
@@ -859,6 +863,8 @@
                                     <td>
                                         @if($entry['type'] === 'opening')
                                             <span class="text-info"><i class="bi bi-arrow-right-circle me-1"></i>{{ $entry['description'] }}</span>
+                                        @elseif($entry['type'] === 'sale_return')
+                                            <span class="text-warning"><i class="bi bi-arrow-counterclockwise me-1"></i>{{ $entry['description'] }}</span>
                                         @elseif($entry['type'] === 'sale')
                                             <span class="text-danger"><i class="bi bi-cart me-1"></i>{{ $entry['description'] }}</span>
                                         @elseif($entry['type'] === 'payment')

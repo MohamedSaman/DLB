@@ -3,6 +3,10 @@
 namespace App\Livewire\DeliveryMan;
 
 use App\Models\Sale;
+use App\Models\Customer;
+use App\Models\SaleItem;
+use App\Models\ProductStock;
+use App\Models\ReturnsProduct;
 use Livewire\Component;
 use Livewire\WithPagination;
 use Livewire\Attributes\Layout;
@@ -76,6 +80,8 @@ class DeliveryManPendingDeliveries extends Component
             $this->markInTransit($this->confirmSaleId);
         } elseif ($this->confirmAction === 'delivered') {
             $this->markDelivered($this->confirmSaleId);
+        } elseif ($this->confirmAction === 'return') {
+            $this->returnInvoice($this->confirmSaleId);
         }
 
         $this->closeConfirmModal();
@@ -231,10 +237,178 @@ class DeliveryManPendingDeliveries extends Component
         }
     }
 
+    /**
+     * Fully return an invoice from pending deliveries.
+     * Restores stock and reduces due from sale/customer.
+     */
+    public function returnInvoice($saleId)
+    {
+        $sale = Sale::with(['items', 'customer'])
+            ->where('status', 'confirm')
+            ->whereIn('delivery_status', ['pending', 'in_transit'])
+            ->find($saleId);
+
+        if (!$sale) {
+            $this->dispatch('show-toast', type: 'error', message: 'Sale not found for return.');
+            return;
+        }
+
+        if ($sale->delivery_status === 'in_transit' && (int) $sale->delivered_by !== (int) Auth::id()) {
+            $this->dispatch('show-toast', type: 'error', message: 'You can only return your own in-transit invoices.');
+            return;
+        }
+
+        try {
+            DB::beginTransaction();
+
+            $dueReduction = (float) $sale->due_amount;
+
+            foreach ($sale->items as $item) {
+                $remainingQty = $this->getRemainingReturnQuantity($sale->id, $item);
+
+                if ($remainingQty <= 0) {
+                    continue;
+                }
+
+                ReturnsProduct::create([
+                    'sale_id' => $sale->id,
+                    'product_id' => $item->product_id,
+                    'variant_id' => $item->variant_id,
+                    'variant_value' => $item->variant_value,
+                    'return_quantity' => $remainingQty,
+                    'selling_price' => $item->unit_price,
+                    'total_amount' => $remainingQty * (float) $item->unit_price,
+                    'notes' => 'Full invoice return by delivery man',
+                ]);
+
+                $this->restoreProductStock(
+                    (int) $item->product_id,
+                    (int) $remainingQty,
+                    $item->variant_id,
+                    $item->variant_value
+                );
+            }
+
+            $sale->update([
+                'subtotal' => 0,
+                'discount_amount' => 0,
+                'total_amount' => 0,
+                'due_amount' => 0,
+                'payment_status' => 'paid',
+                'delivery_status' => 'cancelled',
+                'delivered_by' => Auth::id(),
+                'delivered_at' => now(),
+                'notes' => trim(($sale->notes ? $sale->notes . PHP_EOL : '') . 'Invoice fully returned by delivery man on ' . now()->format('Y-m-d H:i:s')),
+            ]);
+
+            if ($sale->customer && $dueReduction > 0) {
+                $customer = Customer::find($sale->customer->id);
+                if ($customer) {
+                    $customer->due_amount = max(0, (float) ($customer->due_amount ?? 0) - $dueReduction);
+                    $customer->total_due = (float) ($customer->opening_balance ?? 0) + (float) $customer->due_amount;
+                    $customer->save();
+                }
+            }
+
+            DB::commit();
+
+            $this->closeDetailsModal();
+            $this->dispatch('show-toast', type: 'success', message: 'Invoice returned successfully. Stock restored and due adjusted.');
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            Log::error('Delivery return invoice error: ' . $e->getMessage(), [
+                'sale_id' => $saleId,
+                'user_id' => Auth::id(),
+            ]);
+            $this->dispatch('show-toast', type: 'error', message: 'Failed to return invoice. Please try again.');
+        }
+    }
+
+    private function getRemainingReturnQuantity(int $saleId, SaleItem $item): int
+    {
+        $alreadyReturned = ReturnsProduct::where('sale_id', $saleId)
+            ->where('product_id', $item->product_id)
+            ->where(function ($q) use ($item) {
+                if ($item->variant_id) {
+                    $q->where('variant_id', $item->variant_id);
+                } else {
+                    $q->whereNull('variant_id');
+                }
+            })
+            ->where(function ($q) use ($item) {
+                if ($item->variant_value !== null && $item->variant_value !== '') {
+                    $q->where('variant_value', $item->variant_value);
+                } else {
+                    $q->whereNull('variant_value')->orWhere('variant_value', '');
+                }
+            })
+            ->sum('return_quantity');
+
+        return max(0, (int) $item->quantity - (int) $alreadyReturned);
+    }
+
+    private function restoreProductStock(int $productId, int $quantity, $variantId = null, $variantValue = null): void
+    {
+        $stockQuery = ProductStock::where('product_id', $productId);
+
+        if ($variantId) {
+            $stockQuery->where('variant_id', $variantId);
+            if ($variantValue) {
+                $stockQuery->where('variant_value', $variantValue);
+            }
+        } else {
+            $stockQuery->where(function ($q) use ($variantValue) {
+                $q->whereNull('variant_id')->orWhere('variant_id', 0);
+
+                if ($variantValue !== null && $variantValue !== '') {
+                    $q->where('variant_value', $variantValue);
+                } else {
+                    $q->where(function ($sq) {
+                        $sq->whereNull('variant_value')
+                            ->orWhere('variant_value', '')
+                            ->orWhere('variant_value', 'null');
+                    });
+                }
+            });
+        }
+
+        $stock = $stockQuery->first();
+
+        if (!$stock) {
+            $stock = ProductStock::create([
+                'product_id' => $productId,
+                'variant_id' => $variantId,
+                'variant_value' => $variantValue,
+                'available_stock' => 0,
+                'damage_stock' => 0,
+                'total_stock' => 0,
+                'sold_count' => 0,
+                'restocked_quantity' => 0,
+            ]);
+        }
+
+        $stock->available_stock += $quantity;
+        $stock->sold_count = max(0, (int) $stock->sold_count - $quantity);
+        $stock->updateTotals();
+    }
+
     public function render()
     {
+        $userId = Auth::id();
+
         $sales = Sale::where('status', 'confirm')
-            ->whereIn('delivery_status', ['pending', 'in_transit'])
+            ->where(function ($q) use ($userId) {
+                $q->where(function ($pending) use ($userId) {
+                    $pending->where('delivery_status', 'pending')
+                        ->where(function ($assignment) use ($userId) {
+                            $assignment->whereNull('delivered_by')
+                                ->orWhere('delivered_by', $userId);
+                        });
+                })->orWhere(function ($inTransit) use ($userId) {
+                    $inTransit->where('delivery_status', 'in_transit')
+                        ->where('delivered_by', $userId);
+                });
+            })
             ->when($this->search, function ($q) {
                 $q->where(function ($sq) {
                     $sq->where('sale_id', 'like', '%' . $this->search . '%')

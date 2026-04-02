@@ -15,45 +15,49 @@ class DeliveryManDashboard extends Component
 {
     public $pendingDeliveries = 0;
     public $completedDeliveries = 0;
-    public $todaysDeliveries = 0;
-    public $pendingPayments = 0;
-    public $collectedAmount = 0;
+    public $deliveredSalesTotal = 0;
+    public $todayDeliveredSalesTotal = 0;
+    public $totalReceivedAmount = 0;
+    public $todayReceivedAmount = 0;
     public $recentDeliveries = [];
 
     public function mount()
     {
         $userId = Auth::id();
 
-        // Get delivery statistics
+        // Delivery counts for this delivery man
         $this->pendingDeliveries = Sale::where('status', 'confirm')
-            ->where('delivery_status', 'pending')
+            ->where('delivered_by', $userId)
+            ->whereIn('delivery_status', ['pending', 'in_transit'])
             ->count();
 
         $this->completedDeliveries = Sale::where('delivered_by', $userId)
             ->where('delivery_status', 'delivered')
             ->count();
 
-        $this->todaysDeliveries = Sale::where('delivered_by', $userId)
+        // Delivered sales total (all time and today)
+        $this->deliveredSalesTotal = Sale::where('delivered_by', $userId)
+            ->where('delivery_status', 'delivered')
+            ->sum('total_amount');
+
+        $this->todayDeliveredSalesTotal = Sale::where('delivered_by', $userId)
             ->where('delivery_status', 'delivered')
             ->whereDate('delivered_at', today())
-            ->count();
+            ->sum('total_amount');
 
-        // Payment statistics
-        $this->pendingPayments = Payment::where('collected_by', $userId)
-            ->where('status', 'pending')
-            ->count();
+        // Received payment amounts (all time and today)
+        $this->totalReceivedAmount = Payment::where('collected_by', $userId)
+            ->whereIn('status', ['approved', 'paid'])
+            ->sum('amount');
 
-        $this->collectedAmount = Payment::where('collected_by', $userId)
+        $this->todayReceivedAmount = Payment::where('collected_by', $userId)
             ->whereIn('status', ['approved', 'paid'])
             ->whereDate('collected_at', today())
             ->sum('amount');
 
         // Recent deliveries
         $this->recentDeliveries = Sale::where('status', 'confirm')
-            ->where(function ($q) use ($userId) {
-                $q->where('delivery_status', 'pending')
-                    ->orWhere('delivered_by', $userId);
-            })
+            ->where('delivered_by', $userId)
             ->with('customer')
             ->orderBy('created_at', 'desc')
             ->limit(10)
