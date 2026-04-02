@@ -172,6 +172,26 @@ class PaymentController extends ApiController
                     'allocated_amount' => $request->amount,
                 ]);
 
+                // Create Cheque record if payment method is cheque
+                if ($paymentMethod === 'cheque') {
+                    try {
+                        \App\Models\Cheque::create([
+                            'cheque_number' => $request->cheque_number ?? $request->reference,
+                            'cheque_date' => $request->cheque_date ?? $request->payment_date,
+                            'bank_name' => $request->bank_name,
+                            'cheque_amount' => $request->amount,
+                            'status' => 'pending',
+                            'type' => 'made', // This is a cheque we're making (paying out)
+                            'name' => $request->name ?? null,
+                            'note' => $request->note ?? $request->notes,
+                            'customer_id' => null, // No customer for supplier payments
+                            'payment_id' => $payment->id,
+                        ]);
+                    } catch (\Exception $chequeErr) {
+                        Log::warning('Failed to create cheque record for supplier payment: ' . $chequeErr->getMessage());
+                    }
+                }
+
                 // Update PO Due Amount
                 $po->due_amount = max(0, $po->due_amount - $request->amount);
                 $po->save();
@@ -200,6 +220,26 @@ class PaymentController extends ApiController
                         'is_completed' => true,
                         'payment_reference' => $request->reference,
                     ]);
+
+                    // Create Cheque record if payment method is cheque
+                    if (($request->payment_method ?? 'cash') === 'cheque') {
+                        try {
+                            \App\Models\Cheque::create([
+                                'cheque_number' => $request->cheque_number ?? $request->reference,
+                                'cheque_date' => $request->cheque_date ?? $request->payment_date,
+                                'bank_name' => $request->bank_name,
+                                'cheque_amount' => $request->amount,
+                                'status' => 'pending',
+                                'type' => 'receive', // This is a cheque we're receiving (customer payment)
+                                'name' => $request->name ?? null,
+                                'note' => $request->note ?? $request->notes,
+                                'customer_id' => $sale->customer_id,
+                                'payment_id' => $payment->id,
+                            ]);
+                        } catch (\Exception $chequeErr) {
+                            Log::warning('Failed to create cheque record: ' . $chequeErr->getMessage());
+                        }
+                    }
 
                     // Create Allocation
                     DB::table('payment_allocations')->insert([

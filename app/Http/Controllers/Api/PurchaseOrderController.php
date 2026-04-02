@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Api;
 use App\Models\PurchaseOrder;
 use App\Models\PurchaseOrderItem;
 use App\Models\ProductStock;
-use App\Models\ProductBatch;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -116,9 +115,13 @@ class PurchaseOrderController extends ApiController
             // Create order items
             foreach ($items as $item) {
                 $productId = $item['product_id'] ?? $item['product'];
+                $variantId = $item['variant_id'] ?? null;
+                $variantValue = $item['variant_value'] ?? null;
                 PurchaseOrderItem::create([
                     'order_id' => $order->id,
                     'product_id' => $productId,
+                    'variant_id' => $variantId,
+                    'variant_value' => $variantValue,
                     'quantity' => $item['quantity'],
                     'received_quantity' => 0,
                     'unit_price' => $item['unit_price'],
@@ -223,16 +226,27 @@ class PurchaseOrderController extends ApiController
                     ? $itemData['product']['id']
                     : $itemData['product'];
 
+                $variantId = $itemData['variant_id'] ?? null;
+                $variantValue = $itemData['variant_value'] ?? null;
                 $receivedQty = $itemData['received_quantity'] ?? $itemData['accepted_quantity'] ?? 0;
                 $sellingPrice = $itemData['selling_price'] ?? 0;
 
-                // Find the matching PO item
-                $poItem = $order->items()->where('product_id', $productId)->first();
+                // Find the matching PO item (match by product_id AND variant_id for variant-aware lookup)
+                $poItemQuery = $order->items()->where('product_id', $productId);
+                if ($variantId) {
+                    $poItemQuery->where('variant_id', $variantId);
+                } else {
+                    $poItemQuery->whereNull('variant_id');
+                }
+                $poItem = $poItemQuery->first();
 
                 if ($poItem) {
                     // Update received quantity
                     $poItem->received_quantity = ($poItem->received_quantity ?? 0) + $receivedQty;
                     $poItem->status = 'received';
+                    // Preserve variant information
+                    $poItem->variant_id = $variantId;
+                    $poItem->variant_value = $variantValue;
                     $poItem->save();
 
                     // Update stock
@@ -255,6 +269,8 @@ class PurchaseOrderController extends ApiController
                     PurchaseOrderItem::create([
                         'order_id' => $order->id,
                         'product_id' => $productId,
+                        'variant_id' => $variantId,
+                        'variant_value' => $variantValue,
                         'quantity' => $receivedQty,
                         'received_quantity' => $receivedQty,
                         'unit_price' => $itemData['unit_price'] ?? 0,
@@ -306,7 +322,7 @@ class PurchaseOrderController extends ApiController
                 'po_number' => $order->order_code,
                 'supplier_name' => $order->supplier ? $order->supplier->name : null,
                 'status' => $request->status ?? 'approved',
-                'items' => $order->items->map(function ($item) {
+                'items' => collect($order->items)->map(function ($item) {
                     return [
                         'id' => $item->id,
                         'product' => $item->product ? [
@@ -314,6 +330,8 @@ class PurchaseOrderController extends ApiController
                             'name' => $item->product->name,
                             'code' => $item->product->code,
                         ] : null,
+                        'variant_id' => $item->variant_id,
+                        'variant_value' => $item->variant_value,
                         'received_quantity' => $item->received_quantity,
                         'accepted_quantity' => $item->received_quantity,
                         'unit_price' => (float) $item->unit_price,
@@ -380,6 +398,8 @@ class PurchaseOrderController extends ApiController
                 // Robust product ID extraction
                 $productIdRaw = $item['product_id'] ?? $item['product'];
                 $productId = is_array($productIdRaw) ? ($productIdRaw['id'] ?? null) : $productIdRaw;
+                $variantId = $item['variant_id'] ?? null;
+                $variantValue = $item['variant_value'] ?? null;
 
                 if (!$productId) {
                     throw new \Exception("Invalid product ID encountered for item");
@@ -388,6 +408,8 @@ class PurchaseOrderController extends ApiController
                 PurchaseOrderItem::create([
                     'order_id' => $order->id,
                     'product_id' => $productId,
+                    'variant_id' => $variantId,
+                    'variant_value' => $variantValue,
                     'quantity' => $item['quantity'] ?? 0,
                     'received_quantity' => 0,
                     'unit_price' => $item['unit_price'] ?? 0,
@@ -436,6 +458,13 @@ class PurchaseOrderController extends ApiController
      */
     private function transformOrder($order, $detailed = false)
     {
+        $items = collect($order->items ?? []);
+        $variantCount = $items
+            ->filter(fn($i) => !empty($i->variant_value) || !empty($i->variant_id))
+            ->map(fn($i) => ($i->product_id ?? 'p') . '::' . ($i->variant_id ?? 'v') . '::' . ($i->variant_value ?? ''))
+            ->unique()
+            ->count();
+
         $data = [
             'id' => $order->id,
             'order_code' => $order->order_code,
@@ -460,15 +489,19 @@ class PurchaseOrderController extends ApiController
             'due_amount' => (float) $order->due_amount,
             'balance' => (float) $order->due_amount, // Alias for frontend
             'discount_amount' => (float) $order->discount_amount,
+            'item_count' => $items->count(),
+            'variant_count' => $variantCount,
             'created_at' => $order->created_at,
             'updated_at' => $order->updated_at,
         ];
 
         if ($detailed) {
-            $data['items'] = $order->items->map(function ($item) {
+            $data['items'] = $items->map(function ($item) {
                 return [
                     'id' => $item->id,
                     'product_id' => $item->product_id,
+                    'variant_id' => $item->variant_id,
+                    'variant_value' => $item->variant_value,
                     'product_name' => $item->product ? $item->product->name : 'Unknown',
                     'product_code' => $item->product ? $item->product->code : '',
                     'product' => $item->product ? [
