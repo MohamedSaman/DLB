@@ -17,6 +17,7 @@ use App\Http\Controllers\Api\QuotationController;
 use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\PaymentController;
+use App\Http\Controllers\Api\ChequeController;
 use App\Http\Controllers\Api\ExpenseController;
 use App\Http\Controllers\Api\SettingsController;
 use App\Http\Controllers\Api\StaffManagementController;
@@ -114,6 +115,10 @@ Route::get('/product-stocks', function () {
 
 // Payments
 Route::apiResource('payments', PaymentController::class);
+
+// Cheques
+Route::get('/cheques', [ChequeController::class, 'index']);
+Route::get('/cheques/{id}', [ChequeController::class, 'show']);
 
 // Expenses
 Route::apiResource('expenses', ExpenseController::class);
