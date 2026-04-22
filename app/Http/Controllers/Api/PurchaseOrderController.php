@@ -295,7 +295,7 @@ class PurchaseOrderController extends ApiController
                 }
             }
 
-            // Update order status
+            // Update order status and GRN details
             $allReceived = true;
             $order->refresh();
             foreach ($order->items as $item) {
@@ -307,6 +307,8 @@ class PurchaseOrderController extends ApiController
 
             $order->status = $allReceived ? 'received' : 'partial';
             $order->received_date = now();
+            $order->grn_number = $request->grn_number ?? ('GRN-' . $order->id);
+            $order->grn_date = $request->grn_date ?? now()->toDateString();
             $order->save();
 
             DB::commit();
@@ -475,6 +477,8 @@ class PurchaseOrderController extends ApiController
                 'address' => $order->supplier->address,
             ] : null,
             'supplier_name' => $order->supplier ? $order->supplier->name : null,
+            'grn_number' => $order->grn_number,
+            'grn_date' => $order->grn_date,
             'order_date' => $order->order_date,
             'po_date' => $order->order_date, // Alias for frontend
             'expected_delivery_date' => $order->received_date,

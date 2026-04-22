@@ -14,6 +14,8 @@ class PurchaseOrder extends Model
         'supplier_id',
         'order_date',
         'received_date',
+        'grn_number',
+        'grn_date',
         'status',
         'total_amount',
         'due_amount',

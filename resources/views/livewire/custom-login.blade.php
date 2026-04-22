@@ -26,6 +26,9 @@
             </div>
 
             <form wire:submit.prevent="login">
+                <input type="hidden" wire:model="latitude" id="login-latitude">
+                <input type="hidden" wire:model="longitude" id="login-longitude">
+                <input type="hidden" wire:model="accuracy" id="login-accuracy">
           
 
                 <!-- Email field -->
@@ -86,4 +89,39 @@
                 </div>
             </form>
         </div>
+
+        <script>
+            document.addEventListener('DOMContentLoaded', function () {
+                if (!navigator.geolocation) {
+                    return;
+                }
+
+                const setFieldValue = (fieldId, value) => {
+                    const input = document.getElementById(fieldId);
+                    if (!input) {
+                        return;
+                    }
+
+                    input.value = value;
+                    input.dispatchEvent(new Event('input', { bubbles: true }));
+                    input.dispatchEvent(new Event('change', { bubbles: true }));
+                };
+
+                navigator.geolocation.getCurrentPosition(
+                    function (position) {
+                        setFieldValue('login-latitude', position.coords.latitude);
+                        setFieldValue('login-longitude', position.coords.longitude);
+                        setFieldValue('login-accuracy', position.coords.accuracy ?? null);
+                    },
+                    function () {
+                        // If user denies location or browser fails, login still works without location.
+                    },
+                    {
+                        enableHighAccuracy: true,
+                        timeout: 10000,
+                        maximumAge: 300000,
+                    }
+                );
+            });
+        </script>
     </div>
