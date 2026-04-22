@@ -31,12 +31,22 @@ class SaleApproval extends Component
     public $dateTo = '';
     public $selectedSaleId = null;
     public $showDetailsModal = false;
+    public $showEditModal = false;
     public $showRejectModal = false;
     public $showApproveModal = false;
     public $showDeleteModal = false;
     public $rejectionReason = '';
     public $perPage = 10;
     public $isProcessing = false;
+    public $editQuantities = [];
+    public $editPrices = [];
+    public $editDiscounts = [];
+    public $editAvailableStock = [];
+    public $editSubtotal = 0;
+    public $editTotalDiscount = 0;
+    public $editSaleDiscountType = 'fixed';
+    public $editSaleDiscountAmount = 0;
+    public $editGrandTotal = 0;
 
     public function mount()
     {
@@ -52,7 +62,7 @@ class SaleApproval extends Component
         }
         return Sale::with(['customer', 'items' => function ($q) {
             $q->with('variant');
-        }, 'items.product', 'user', 'returns' => function ($q) {
+        }, 'items.product', 'user', 'payments', 'returns' => function ($q) {
             $q->with('product');
         }])->find($this->selectedSaleId);
     }
@@ -94,6 +104,340 @@ class SaleApproval extends Component
     {
         $this->showDetailsModal = false;
         $this->selectedSaleId = null;
+    }
+
+    public function printSale($saleId)
+    {
+        $this->selectedSaleId = $saleId;
+        $this->showDetailsModal = true;
+
+        $this->js("setTimeout(function(){ if (window.printInvoice) { window.printInvoice(); } }, 500);");
+    }
+
+    public function openEditModal($saleId)
+    {
+        $sale = Sale::with(['items', 'customer'])->find($saleId);
+
+        if (!$sale) {
+            $this->showToast('error', 'Sale not found.');
+            return;
+        }
+
+        if ($sale->status === 'rejected') {
+            $this->showToast('warning', 'Rejected sales cannot be edited.');
+            return;
+        }
+
+        $this->selectedSaleId = $saleId;
+        $this->editQuantities = [];
+        $this->editPrices = [];
+        $this->editDiscounts = [];
+        $this->editAvailableStock = [];
+
+        foreach ($sale->items as $item) {
+            $itemId = $item->id;
+            $this->editQuantities[$itemId] = (int) ($item->quantity ?? 0);
+            $this->editPrices[$itemId] = (float) ($item->unit_price ?? 0);
+            $this->editDiscounts[$itemId] = (float) ($item->discount_per_unit ?? 0);
+
+            $stock = $this->findProductStockForItem($item);
+            $availableNow = (int) ($stock->available_stock ?? 0);
+
+            if ($sale->status === 'confirm') {
+                // Approved sale: stock was already deducted, so add back current qty for editable maximum
+                $this->editAvailableStock[$itemId] = $availableNow + (int) ($item->quantity ?? 0);
+            } else {
+                // Pending sale: stock hasn't been deducted yet, available_stock is the real limit
+                $this->editAvailableStock[$itemId] = $availableNow;
+            }
+        }
+
+        $this->editSaleDiscountType = $sale->discount_type ?? 'fixed';
+        $this->editSaleDiscountAmount = (float) ($sale->discount_amount ?? 0);
+
+        $this->recalculateEditTotals();
+        $this->showEditModal = true;
+    }
+
+    public function closeEditModal()
+    {
+        $this->showEditModal = false;
+        $this->selectedSaleId = null;
+        $this->editQuantities = [];
+        $this->editPrices = [];
+        $this->editDiscounts = [];
+        $this->editAvailableStock = [];
+        $this->editSubtotal = 0;
+        $this->editTotalDiscount = 0;
+        $this->editSaleDiscountType = 'fixed';
+        $this->editSaleDiscountAmount = 0;
+        $this->editGrandTotal = 0;
+    }
+
+    public function updateEditItem($itemId)
+    {
+        $this->recalculateEditTotals();
+    }
+
+    private function recalculateEditTotals()
+    {
+        $subtotal = 0;
+        $discountTotal = 0;
+
+        foreach ($this->editQuantities as $itemId => $quantity) {
+            $qty = max(0, (int) $quantity);
+            $price = max(0, (float) ($this->editPrices[$itemId] ?? 0));
+            $discountPerUnit = max(0, (float) ($this->editDiscounts[$itemId] ?? 0));
+
+            $subtotal += $price * $qty;
+            $discountTotal += $discountPerUnit * $qty;
+        }
+
+        $this->editSubtotal = $subtotal;
+        
+        $saleDiscountTotal = 0;
+        if ($this->editSaleDiscountType === 'percentage') {
+            $saleDiscountTotal = $subtotal * ((float) $this->editSaleDiscountAmount / 100);
+        } else {
+            $saleDiscountTotal = (float) $this->editSaleDiscountAmount;
+        }
+
+        $this->editTotalDiscount = $discountTotal + $saleDiscountTotal;
+        $this->editGrandTotal = max(0, $subtotal - $this->editTotalDiscount);
+    }
+
+    private function findProductStockForItem($item)
+    {
+        $query = ProductStock::where('product_id', $item->product_id);
+
+        if (!empty($item->variant_id)) {
+            $query->where('variant_id', $item->variant_id);
+        } else {
+            $query->whereNull('variant_id');
+        }
+
+        if (!empty($item->variant_value)) {
+            $query->where('variant_value', $item->variant_value);
+        } else {
+            $query->where(function ($q) {
+                $q->whereNull('variant_value')
+                    ->orWhere('variant_value', '')
+                    ->orWhere('variant_value', 'null');
+            });
+        }
+
+        $stock = $query->first();
+
+        if (!$stock) {
+            $stock = ProductStock::where('product_id', $item->product_id)->first();
+        }
+
+        return $stock;
+    }
+
+    public function saveEditSale()
+    {
+        if (!$this->selectedSaleId) {
+            $this->showToast('error', 'No sale selected.');
+            return;
+        }
+
+        if ($this->isProcessing) {
+            $this->showToast('warning', 'Request is already being processed. Please wait.');
+            return;
+        }
+
+        $this->isProcessing = true;
+
+        try {
+            DB::beginTransaction();
+
+            $sale = Sale::with(['items', 'customer'])->lockForUpdate()->find($this->selectedSaleId);
+
+            if (!$sale) {
+                throw new \Exception('Sale not found.');
+            }
+
+            if ($sale->status === 'rejected') {
+                throw new \Exception('Rejected sales cannot be edited.');
+            }
+
+            $oldDueAmount = (float) ($sale->due_amount ?? 0);
+
+            $newSubtotal = 0;
+            $newDiscountTotal = 0;
+
+            foreach ($sale->items as $item) {
+                $itemId = $item->id;
+
+                if (!array_key_exists($itemId, $this->editQuantities)) {
+                    throw new \Exception('Missing edited quantity for an item.');
+                }
+
+                $newQty = (int) ($this->editQuantities[$itemId] ?? 0);
+                $newPrice = (float) ($this->editPrices[$itemId] ?? 0);
+                $newDiscountPerUnit = (float) ($this->editDiscounts[$itemId] ?? 0);
+
+                if ($newQty < 1) {
+                    throw new \Exception("Quantity must be at least 1 for {$item->product_name}.");
+                }
+                if ($newPrice < 0) {
+                    throw new \Exception("Price cannot be negative for {$item->product_name}.");
+                }
+                if ($newDiscountPerUnit < 0) {
+                    throw new \Exception("Discount cannot be negative for {$item->product_name}.");
+                }
+                if ($newDiscountPerUnit > $newPrice) {
+                    throw new \Exception("Discount cannot exceed unit price for {$item->product_name}.");
+                }
+
+                $oldQty = (int) ($item->quantity ?? 0);
+                $quantityDelta = $newQty - $oldQty;
+
+                if ($quantityDelta !== 0) {
+                    // Only adjust stock for approved sales - pending sales haven't had stock deducted yet
+                    if ($sale->status === 'confirm') {
+                        $productStock = $this->findProductStockForItem($item);
+
+                        if (!$productStock) {
+                            throw new \Exception("Stock record not found for {$item->product_name}.");
+                        }
+
+                        if ($quantityDelta > 0) {
+                            if ((int) $productStock->available_stock < $quantityDelta) {
+                                throw new \Exception("Insufficient stock for {$item->product_name}. Available: {$productStock->available_stock}, requested additional: {$quantityDelta}.");
+                            }
+
+                            $productStock->available_stock -= $quantityDelta;
+                            $productStock->sold_count += $quantityDelta;
+                        } else {
+                            $restoreQty = abs($quantityDelta);
+                            $productStock->available_stock += $restoreQty;
+                            $productStock->sold_count = max(0, (int) $productStock->sold_count - $restoreQty);
+                        }
+
+                        $productStock->updateTotals();
+                    }
+                }
+
+                $lineSubtotal = $newPrice * $newQty;
+                $lineDiscount = $newDiscountPerUnit * $newQty;
+                $lineTotal = $lineSubtotal - $lineDiscount;
+
+                $item->update([
+                    'quantity' => $newQty,
+                    'unit_price' => $newPrice,
+                    'discount_per_unit' => $newDiscountPerUnit,
+                    'total_discount' => $lineDiscount,
+                    'total' => $lineTotal,
+                ]);
+
+                $newSubtotal += $lineSubtotal;
+                $newDiscountTotal += $lineDiscount;
+            }
+
+            $saleDiscountTotal = 0;
+            if ($this->editSaleDiscountType === 'percentage') {
+                $saleDiscountTotal = $newSubtotal * ((float) $this->editSaleDiscountAmount / 100);
+            } else {
+                $saleDiscountTotal = (float) $this->editSaleDiscountAmount;
+            }
+
+            $totalCombinedDiscount = $newDiscountTotal + $saleDiscountTotal;
+            $newTotalAmount = max(0, $newSubtotal - $totalCombinedDiscount);
+
+            $totalPaid = (float) Payment::where('sale_id', $sale->id)
+                ->where(function ($q) {
+                    $q->whereIn('status', ['paid', 'approved'])
+                        ->orWhere('is_completed', true);
+                })
+                ->sum('amount');
+
+            $newDueAmount = max(0, $newTotalAmount - $totalPaid);
+
+            $newPaymentStatus = 'pending';
+            if ($newDueAmount <= 0) {
+                $newPaymentStatus = 'paid';
+            } elseif ($totalPaid > 0) {
+                $newPaymentStatus = 'partial';
+            }
+
+            $sale->update([
+                'subtotal' => $newSubtotal,
+                'discount_amount' => $this->editSaleDiscountAmount,
+                'discount_type' => $this->editSaleDiscountType,
+                'total_amount' => $newTotalAmount,
+                'due_amount' => $newDueAmount,
+                'payment_status' => $newPaymentStatus,
+                'payment_type' => $newDueAmount <= 0 ? 'full' : 'partial',
+            ]);
+
+            if ($sale->customer) {
+                $currentDue = (float) ($sale->customer->due_amount ?? 0);
+                $sale->customer->due_amount = max(0, $currentDue - $oldDueAmount + $newDueAmount);
+                $sale->customer->total_due = (float) ($sale->customer->opening_balance ?? 0) + (float) $sale->customer->due_amount;
+                $sale->customer->save();
+            }
+
+            $pendingPayments = Payment::where('sale_id', $sale->id)
+                ->where(function ($q) {
+                    $q->whereNull('status')
+                        ->orWhere('status', 'pending');
+                })
+                ->orderBy('id')
+                ->get();
+
+            if ($newDueAmount > 0) {
+                if ($pendingPayments->count() > 0) {
+                    $primaryPending = $pendingPayments->first();
+                    $primaryPending->update([
+                        'amount' => $newDueAmount,
+                        'status' => 'pending',
+                        'is_completed' => false,
+                        'payment_date' => $primaryPending->payment_date ?? now(),
+                        'notes' => $primaryPending->notes ?: 'Updated after sale edit',
+                    ]);
+
+                    foreach ($pendingPayments->slice(1) as $extraPending) {
+                        $extraPending->delete();
+                    }
+                } else {
+                    Payment::create([
+                        'sale_id' => $sale->id,
+                        'customer_id' => $sale->customer_id,
+                        'amount' => $newDueAmount,
+                        'payment_method' => 'cash',
+                        'is_completed' => false,
+                        'payment_date' => now(),
+                        'status' => 'pending',
+                        'notes' => 'Pending amount updated after sale edit',
+                    ]);
+                }
+            } else {
+                foreach ($pendingPayments as $pendingPayment) {
+                    $pendingPayment->delete();
+                }
+            }
+
+            DB::commit();
+
+            $this->isProcessing = false;
+            $this->closeEditModal();
+            $this->showToast('success', 'Sale updated successfully. Stock, payment and customer balances are synchronized.');
+        } catch (\Exception $e) {
+            if (DB::transactionLevel() > 0) {
+                DB::rollBack();
+            }
+
+            $this->isProcessing = false;
+
+            Log::error('Sale edit error for sale ID: ' . $this->selectedSaleId, [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            $this->showToast('error', 'Error updating sale: ' . $e->getMessage());
+        }
     }
 
     /**

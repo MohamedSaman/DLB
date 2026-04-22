@@ -146,22 +146,47 @@
                                 @endif
                             </td>
                             <td class="text-muted">{{ $sale->created_at->format('M d, Y') }}</td>
-                            <td class="text-end pe-4">
-                                <div class="btn-group">
-                                    <button wire:click="viewDetails({{ $sale->id }})" class="btn btn-sm btn-outline-primary">
-                                        <i class="bi bi-eye"></i>
+                            <td class="text-end pe-4" style="position: relative;">
+                                <div class="dropdown" style="position: static;">
+                                    <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                        <i class="bi bi-three-dots-vertical"></i> Actions
                                     </button>
-                                    @if($sale->status === 'pending')
-                                    <button wire:click="openApproveModal({{ $sale->id }})" class="btn btn-sm btn-success">
-                                        <i class="bi bi-check-lg"></i>
-                                    </button>
-                                    <button wire:click="openRejectModal({{ $sale->id }})" class="btn btn-sm btn-danger">
-                                        <i class="bi bi-x-lg"></i>
-                                    </button>
-                                    @endif
-                                    <button wire:click="openDeleteModal({{ $sale->id }})" class="btn btn-sm btn-outline-danger" title="Delete Sale">
-                                        <i class="bi bi-trash"></i>
-                                    </button>
+                                    <ul class="dropdown-menu dropdown-menu-end shadow-sm" style="z-index: 1050;">
+                                        <li>
+                                            <a class="dropdown-item" href="#" wire:click.prevent="viewDetails({{ $sale->id }})">
+                                                <i class="bi bi-eye text-primary me-2"></i> View
+                                            </a>
+                                        </li>
+                                        <li>
+                                            <a class="dropdown-item" href="#" wire:click.prevent="openEditModal({{ $sale->id }})">
+                                                <i class="bi bi-pencil-square text-info me-2"></i> Edit
+                                            </a>
+                                        </li>
+                                        <li>
+                                            <a class="dropdown-item" href="#" wire:click.prevent="printSale({{ $sale->id }})">
+                                                <i class="bi bi-printer text-success me-2"></i> Print
+                                            </a>
+                                        </li>
+                                        @if($sale->status === 'pending')
+                                        <li><hr class="dropdown-divider"></li>
+                                        <li>
+                                            <a class="dropdown-item" href="#" wire:click.prevent="openApproveModal({{ $sale->id }})">
+                                                <i class="bi bi-check-circle text-success me-2"></i> Approve
+                                            </a>
+                                        </li>
+                                        <li>
+                                            <a class="dropdown-item" href="#" wire:click.prevent="openRejectModal({{ $sale->id }})">
+                                                <i class="bi bi-x-circle text-warning me-2"></i> Reject
+                                            </a>
+                                        </li>
+                                        @endif
+                                        <li><hr class="dropdown-divider"></li>
+                                        <li>
+                                            <a class="dropdown-item text-danger" href="#" wire:click.prevent="openDeleteModal({{ $sale->id }})">
+                                                <i class="bi bi-trash me-2"></i> Delete
+                                            </a>
+                                        </li>
+                                    </ul>
                                 </div>
                             </td>
                         </tr>
@@ -248,6 +273,22 @@
                             </div>
 
                             {{-- Items Table --}}
+                            @php
+                                $saleItemsSubtotal = 0;
+                                foreach ($this->selectedSale->items as $saleItem) {
+                                    $saleItemsSubtotal += (float) ($saleItem->total ?? 0);
+                                }
+
+                                $returnItemsTotal = 0;
+                                if (isset($this->selectedSale->returns) && count($this->selectedSale->returns) > 0) {
+                                    foreach ($this->selectedSale->returns as $returnItem) {
+                                        $returnItemsTotal += (float) ($returnItem->total_amount ?? 0);
+                                    }
+                                }
+
+                                $discountAmount = (float) ($this->selectedSale->discount_amount ?? 0);
+                                $netTotalAfterReturns = $saleItemsSubtotal - $discountAmount - $returnItemsTotal;
+                            @endphp
                             <table class="receipt-table">
                                 <thead>
                                     <tr>
@@ -289,6 +330,12 @@
                                     </tr>
                                     @endforeach
                                 </tbody>
+                                <tfoot>
+                                    <tr>
+                                        <td colspan="6" class="text-end"><strong>Sales Items Subtotal</strong></td>
+                                        <td class="text-end"><strong>Rs.{{ number_format($saleItemsSubtotal, 2) }}</strong></td>
+                                    </tr>
+                                </tfoot>
                             </table>
 
                             @if(isset($this->selectedSale->returns) && count($this->selectedSale->returns) > 0)
@@ -316,6 +363,12 @@
                                         </tr>
                                         @endforeach
                                     </tbody>
+                                    <tfoot>
+                                        <tr>
+                                            <td colspan="4" class="text-end"><strong>Returned Items Total</strong></td>
+                                            <td class="text-end"><strong>Rs.{{ number_format($returnItemsTotal, 2) }}</strong></td>
+                                        </tr>
+                                    </tfoot>
                                 </table>
                             </div>
                             @endif
@@ -338,19 +391,25 @@
                                 <div style="flex:1;">
                                     <div>
                                         <h4 style="margin:0 0 8px 0; border-bottom:1px solid #000; padding-bottom:8px;">ORDER SUMMARY</h4>
-                                        <div style="display:flex; justify-content:space-between; margin-bottom:6px;"><span>Subtotal:</span><span>Rs.{{ number_format($this->selectedSale->subtotal, 2) }}</span></div>
+                                            <div style="display:flex; justify-content:space-between; margin-bottom:6px;"><span>Subtotal:</span><span>Rs.{{ number_format($saleItemsSubtotal, 2) }}</span></div>
                                         <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
                                             <span>Total Discount:</span>
                                             <span>
                                                 @if($this->selectedSale->discount_type === 'percentage')
-                                                    {{ number_format($this->selectedSale->discount_amount, 2) }}%
+                                                        {{ number_format($discountAmount, 2) }}%
                                                 @else
-                                                    Rs.{{ number_format($this->selectedSale->discount_amount, 2) }}
+                                                        Rs.{{ number_format($discountAmount, 2) }}
                                                 @endif
                                             </span>
                                         </div>
+                                            @if($returnItemsTotal > 0)
+                                            <div style="display:flex; justify-content:space-between; margin-bottom:6px; color:#dc3545;">
+                                                <span>Returned Items Total:</span>
+                                                <span>- Rs.{{ number_format($returnItemsTotal, 2) }}</span>
+                                            </div>
+                                            @endif
                                         <hr>
-                                        <div style="display:flex; justify-content:space-between;"><strong>Grand Total:</strong><strong>Rs.{{ number_format($this->selectedSale->total_amount, 2) }}</strong></div>
+                                            <div style="display:flex; justify-content:space-between;"><strong>{{ $returnItemsTotal > 0 ? 'Net Total' : 'Grand Total' }}:</strong><strong>Rs.{{ number_format($netTotalAfterReturns, 2) }}</strong></div>
                                     </div>
                                 </div>
                             </div>
@@ -498,7 +557,208 @@
         </div>
     </div>
     @endif
+
+    {{-- Edit Sale Modal --}}
+    @if($showEditModal && $this->selectedSale)
+    <div class="modal fade show d-block" tabindex="-1" style="background: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header bg-info text-white">
+                    <h5 class="modal-title">
+                        <i class="bi bi-pencil-square me-2"></i>Edit Invoice - {{ $this->selectedSale->invoice_number }}
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" wire:click="closeEditModal"></button>
+                </div>
+                <div class="modal-body p-4">
+                    {{-- Sale Info --}}
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <p class="mb-1"><strong>Customer:</strong> {{ $this->selectedSale->customer->name ?? 'Walk-in' }}</p>
+                            <p class="mb-1"><strong>Staff:</strong> {{ $this->selectedSale->user->name ?? 'N/A' }}</p>
+                        </div>
+                        <div class="col-md-6 text-end">
+                            <p class="mb-1"><strong>Invoice #:</strong> {{ $this->selectedSale->invoice_number }}</p>
+                            <p class="mb-1"><strong>Date:</strong> {{ $this->selectedSale->created_at->format('d/m/Y h:i A') }}</p>
+                            <p class="mb-1"><strong>Status:</strong>
+                                @if($this->selectedSale->status === 'pending')
+                                    <span class="badge bg-warning">Pending</span>
+                                @elseif($this->selectedSale->status === 'confirm')
+                                    <span class="badge bg-success">Approved</span>
+                                @else
+                                    <span class="badge bg-danger">Rejected</span>
+                                @endif
+                            </p>
+                        </div>
+                    </div>
+
+                    {{-- Items Table --}}
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-sm align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>#</th>
+                                    <th>Product</th>
+                                    <th class="text-center" style="width: 100px;">Qty</th>
+                                    <th class="text-center" style="width: 120px;">Unit Price</th>
+                                    <th class="text-center" style="width: 120px;">Discount/Unit</th>
+                                    <th class="text-end" style="width: 120px;">Line Total</th>
+                                    <th class="text-center" style="width: 80px;">Stock</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach($this->selectedSale->items as $index => $item)
+                                @php
+                                    $itemId = $item->id;
+                                    $editQty = (int) ($editQuantities[$itemId] ?? $item->quantity);
+                                    $editPrice = (float) ($editPrices[$itemId] ?? $item->unit_price);
+                                    $editDisc = (float) ($editDiscounts[$itemId] ?? $item->discount_per_unit ?? 0);
+                                    $lineTotal = ($editPrice - $editDisc) * $editQty;
+                                    $maxStock = (int) ($editAvailableStock[$itemId] ?? 0);
+                                @endphp
+                                <tr>
+                                    <td>{{ $index + 1 }}</td>
+                                    <td>
+                                        <strong>{{ $item->product_name }}</strong>
+                                        @if($item->product_code)
+                                            <br><small class="text-muted">{{ $item->product_code }}</small>
+                                        @endif
+                                        @if($item->variant_value)
+                                            <br><small class="text-muted">Variant: {{ $item->variant_value }}</small>
+                                        @endif
+                                    </td>
+                                    <td>
+                                        <input type="number"
+                                            class="form-control form-control-sm text-center {{ $editQty > $maxStock ? 'is-invalid' : '' }}"
+                                            wire:model.live="editQuantities.{{ $itemId }}"
+                                            wire:change="updateEditItem({{ $itemId }})"
+                                            min="1"
+                                            max="{{ $maxStock }}"
+                                            style="width: 80px; margin: 0 auto;">
+                                        @if($editQty > $maxStock)
+                                            <div class="invalid-feedback text-center" style="font-size: 10px;">Max: {{ $maxStock }}</div>
+                                        @endif
+                                    </td>
+                                    <td>
+                                        <input type="number"
+                                            class="form-control form-control-sm text-center"
+                                            wire:model.live="editPrices.{{ $itemId }}"
+                                            wire:change="updateEditItem({{ $itemId }})"
+                                            min="0"
+                                            step="0.01"
+                                            style="width: 110px; margin: 0 auto;">
+                                    </td>
+                                    <td>
+                                        <input type="number"
+                                            class="form-control form-control-sm text-center"
+                                            wire:model.live="editDiscounts.{{ $itemId }}"
+                                            wire:change="updateEditItem({{ $itemId }})"
+                                            min="0"
+                                            step="0.01"
+                                            style="width: 110px; margin: 0 auto;">
+                                    </td>
+                                    <td class="text-end fw-semibold">Rs. {{ number_format($lineTotal, 2) }}</td>
+                                    <td class="text-center">
+                                        <span class="badge {{ $maxStock > 5 ? 'bg-success' : ($maxStock > 0 ? 'bg-warning' : 'bg-danger') }}">
+                                            {{ $maxStock }}
+                                        </span>
+                                    </td>
+                                </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+
+                    {{-- Totals Summary --}}
+                    <div class="card bg-light border-0 mt-3">
+                        <div class="card-body py-3">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="row">
+                                        <div class="col-sm-6 mb-2">
+                                            <label class="form-label form-label-sm mb-1 fw-bold text-muted" style="font-size: 12px;">Global Discount Type</label>
+                                            <select class="form-select form-select-sm" wire:model.live="editSaleDiscountType" wire:change="updateEditItem(0)">
+                                                <option value="fixed">Fixed Amount (Rs.)</option>
+                                                <option value="percentage">Percentage (%)</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-sm-6 mb-2">
+                                            <label class="form-label form-label-sm mb-1 fw-bold text-muted" style="font-size: 12px;">Global Discount Value</label>
+                                            <input type="number" class="form-control form-control-sm" wire:model.live="editSaleDiscountAmount" wire:change="updateEditItem(0)" min="0" step="0.01">
+                                        </div>
+                                    </div>
+                                    <div class="text-muted" style="font-size: 11px;">
+                                        <i class="bi bi-info-circle me-1"></i> This applies to the entire sale subtotal.
+                                    </div>
+                                </div>
+                                <div class="col-md-6 border-start">
+                                    <div class="d-flex justify-content-between mb-2">
+                                        <span>Subtotal:</span>
+                                        <strong>Rs. {{ number_format($editSubtotal, 2) }}</strong>
+                                    </div>
+                                    <div class="d-flex justify-content-between mb-2 text-danger">
+                                        <span>Total Discount:</span>
+                                        <strong>- Rs. {{ number_format($editTotalDiscount, 2) }}</strong>
+                                    </div>
+                                    <hr class="my-2">
+                                    <div class="d-flex justify-content-between">
+                                        <span class="fw-bold fs-5">Grand Total:</span>
+                                        <strong class="fs-5 text-primary">Rs. {{ number_format($editGrandTotal, 2) }}</strong>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {{-- Warnings --}}
+                    @php
+                        $hasStockIssue = false;
+                        foreach ($editQuantities as $itemId => $qty) {
+                            if ((int) $qty > (int) ($editAvailableStock[$itemId] ?? 0)) {
+                                $hasStockIssue = true;
+                                break;
+                            }
+                        }
+                    @endphp
+                    @if($hasStockIssue)
+                    <div class="alert alert-danger mt-3 mb-0">
+                        <i class="bi bi-exclamation-triangle me-2"></i>
+                        <strong>Stock Issue:</strong> One or more items exceed available stock. Please reduce the quantity before saving.
+                    </div>
+                    @endif
+                </div>
+                <div class="modal-footer bg-light">
+                    <button type="button" class="btn btn-secondary" wire:click="closeEditModal" wire:loading.attr="disabled" wire:target="saveEditSale">
+                        <i class="bi bi-x-circle me-1"></i> Cancel
+                    </button>
+                    <button type="button" wire:click="saveEditSale" class="btn btn-primary"
+                        wire:loading.attr="disabled" wire:target="saveEditSale" wire:loading.class="opacity-50"
+                        {{ $hasStockIssue ? 'disabled' : '' }}>
+                        <span wire:loading.remove wire:target="saveEditSale">
+                            <i class="bi bi-check-circle me-1"></i> Save Changes
+                        </span>
+                        <span wire:loading wire:target="saveEditSale">
+                            <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+                            Saving...
+                        </span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    @endif
 </div>
+
+@push('style')
+<style>
+    /* Ensure dropdown menus in the main sales table are visible and not clipped */
+    .card > .card-body > .table-responsive {
+        overflow: visible !important;
+    }
+    .card > .card-body > .table-responsive .dropdown-menu {
+        position: absolute !important;
+    }
+</style>
+@endpush
 
 @push('scripts')
 <script>

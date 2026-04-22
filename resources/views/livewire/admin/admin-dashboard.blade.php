@@ -80,6 +80,150 @@
             border-radius: 3px;
             background: var(--border-light);
         }
+
+        /* ============================================================
+           TODAY SUMMARY MODAL STYLES
+        ============================================================ */
+        .tsm-backdrop {
+            position: fixed; inset: 0;
+            background: rgba(10,15,30,0.65);
+            backdrop-filter: blur(4px);
+            z-index: 9999;
+            display: flex; align-items: center; justify-content: center;
+            padding: 16px;
+        }
+        .tsm-modal {
+            background: #fff;
+            border-radius: 20px;
+            width: 100%; max-width: 680px;
+            box-shadow: 0 24px 64px rgba(0,0,0,0.25);
+            overflow: hidden;
+            animation: tsm-slide-in 0.3s cubic-bezier(.4,0,.2,1);
+        }
+        @keyframes tsm-slide-in {
+            from { opacity:0; transform: translateY(24px) scale(0.97); }
+            to   { opacity:1; transform: translateY(0) scale(1); }
+        }
+        .tsm-header {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            padding: 20px 24px;
+            display: flex; align-items: center; justify-content: space-between;
+        }
+        .tsm-header-left { display: flex; align-items: center; gap: 14px; }
+        .tsm-header-icon {
+            width: 46px; height: 46px; border-radius: 14px;
+            background: rgba(255,255,255,0.15);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 22px; color: #f0c040;
+        }
+        .tsm-title { margin: 0; color: #fff; font-size: 1.1rem; font-weight: 700; }
+        .tsm-subtitle { margin: 0; color: rgba(255,255,255,0.55); font-size: 0.78rem; }
+        .tsm-close {
+            background: rgba(255,255,255,0.1); border: none;
+            color: rgba(255,255,255,0.8); border-radius: 10px;
+            width: 36px; height: 36px;
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer; transition: background 0.2s;
+        }
+        .tsm-close:hover { background: rgba(255,255,255,0.2); color: #fff; }
+        .tsm-body { padding: 20px 24px; }
+
+        /* Tab Bar */
+        .tsm-tab-bar {
+            display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+            background: #f1f5f9; border-radius: 12px; padding: 5px;
+            margin-bottom: 16px;
+        }
+        .tsm-tab {
+            flex: none; padding: 7px 14px; border: none; border-radius: 9px;
+            background: transparent; font-size: 0.8rem; font-weight: 600;
+            color: #64748b; cursor: pointer; transition: all 0.18s;
+            white-space: nowrap;
+        }
+        .tsm-tab:hover { background: rgba(255,255,255,0.7); color: #1e293b; }
+        .tsm-tab-active {
+            background: linear-gradient(135deg, #f58320, #e85d04) !important;
+            color: #fff !important; box-shadow: 0 2px 8px rgba(245,131,32,0.35);
+        }
+        .tsm-tab-divider { width: 1px; height: 24px; background: #cbd5e1; margin: 0 2px; }
+        .tsm-month-select {
+            flex: 1; min-width: 130px; max-width: 200px;
+            padding: 6px 10px; border: 1.5px solid #e2e8f0; border-radius: 9px;
+            background: #fff; font-size: 0.8rem; font-weight: 600; color: #475569;
+            cursor: pointer; outline: none; transition: border-color .2s;
+        }
+        .tsm-month-select:hover, .tsm-month-select:focus { border-color: #f58320; color: #1e293b; }
+        .tsm-month-select-active { border-color: #f58320 !important; background: #fff7ed !important; color: #c2410c !important; }
+        .tsm-grand-banner {
+            background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);
+            border-radius: 14px; padding: 16px 22px;
+            display: flex; gap: 20px; justify-content: space-between; align-items: center;
+            margin-bottom: 20px;
+        }
+        .tsm-grand-left, .tsm-grand-right { display: flex; flex-direction: column; gap: 2px; }
+        .tsm-grand-right { text-align: right; }
+        .tsm-grand-label { color: rgba(255,255,255,0.75); font-size: 0.72rem; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; }
+        .tsm-grand-value { color: #fff; font-size: 1.5rem; font-weight: 800; }
+        .tsm-grand-due   { color: #fde68a; font-size: 1.35rem; font-weight: 800; }
+        .tsm-section-title { font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: #6b7280; margin-bottom: 10px; }
+        .text-indigo { color: #6366f1; }
+        .tsm-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+        .tsm-card { border-radius: 14px; padding: 16px; border: 1.5px solid transparent; }
+        .tsm-card-pos   { background: #f0fdf4; border-color: #bbf7d0; }
+        .tsm-card-staff { background: #eff6ff; border-color: #bfdbfe; }
+        .tsm-card-header-row { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+        .tsm-card-icon { width: 40px; height: 40px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 18px; }
+        .tsm-icon-pos   { background: #dcfce7; color: #16a34a; }
+        .tsm-icon-staff { background: #dbeafe; color: #2563eb; }
+        .tsm-card-label { font-weight: 700; font-size: 0.9rem; color: #1f2937; }
+        .tsm-card-count { font-size: 0.75rem; color: #6b7280; }
+        .tsm-card-metrics { display: flex; flex-direction: column; gap: 8px; }
+        .tsm-metric { display: flex; justify-content: space-between; align-items: center; }
+        .tsm-metric-label { font-size: 0.78rem; color: #6b7280; }
+        .tsm-metric-value { font-size: 0.85rem; font-weight: 700; }
+        .tsm-pos-total      { color: #15803d; }
+        .tsm-pos-collected  { color: #059669; }
+        .tsm-staff-total    { color: #1d4ed8; }
+        .tsm-staff-collected{ color: #2563eb; }
+        .tsm-due-red        { color: #dc2626; }
+        .tsm-grid-3 { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; }
+        .tsm-pay-card { border-radius: 14px; padding: 16px 12px; text-align: center; border: 1.5px solid transparent; }
+        .tsm-pay-cash   { background: #fefce8; border-color: #fde68a; }
+        .tsm-pay-cheque { background: #fdf2f8; border-color: #f0abfc; }
+        .tsm-pay-total  { background: #f5f3ff; border-color: #c4b5fd; }
+        .tsm-pay-icon { font-size: 24px; margin-bottom: 6px; }
+        .tsm-pay-cash   .tsm-pay-icon { color: #ca8a04; }
+        .tsm-pay-cheque .tsm-pay-icon { color: #a21caf; }
+        .tsm-pay-total  .tsm-pay-icon { color: #7c3aed; }
+        .tsm-pay-label { font-size: 0.73rem; font-weight: 600; text-transform: uppercase; letter-spacing:.05em; color: #6b7280; margin-bottom: 4px; }
+        .tsm-pay-value { font-size: 0.92rem; font-weight: 800; }
+        .tsm-pay-cash   .tsm-pay-value { color: #92400e; }
+        .tsm-pay-cheque .tsm-pay-value { color: #7e22ce; }
+        .tsm-pay-total  .tsm-pay-value { color: #4c1d95; }
+        .tsm-footer {
+            padding: 14px 24px; background: #f9fafb;
+            border-top: 1px solid #e5e7eb;
+            display: flex; align-items: center; justify-content: space-between;
+        }
+        .tsm-btn-refresh {
+            background: none; border: 1.5px solid #d1d5db;
+            border-radius: 10px; padding: 7px 18px;
+            font-size: 0.82rem; font-weight: 600; color: #374151;
+            cursor: pointer; transition: border-color .2s, color .2s;
+        }
+        .tsm-btn-refresh:hover { border-color: #6366f1; color: #4f46e5; }
+        .tsm-btn-close {
+            background: linear-gradient(135deg,#1a1a2e,#0f3460);
+            border: none; border-radius: 10px;
+            padding: 8px 24px; color: #fff;
+            font-size: 0.85rem; font-weight: 600; cursor: pointer;
+        }
+        @media (max-width: 576px) {
+            .tsm-grid-2 { grid-template-columns: 1fr; }
+            .tsm-grid-3 { grid-template-columns: 1fr 1fr; }
+            .tsm-grand-banner { flex-direction: column; gap: 10px; }
+            .tsm-grand-right { text-align: left; }
+        }
     </style>
     @endpush
 
@@ -109,9 +253,16 @@
                     
                     <div class="d-flex justify-content-between align-items-center">
                         <small class="text-muted">Revenue: {{ $revenuePercentage }}%</small>
-                        <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 px-2 py-1">
-                            Rs.{{ number_format($totalRevenue, 0) }}
-                        </span>
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 px-2 py-1">
+                                Rs.{{ number_format($totalRevenue, 0) }}
+                            </span>
+                            <button wire:click="openTodaySummaryModal"
+                                class="btn btn-sm px-2 py-1"
+                                style="background: linear-gradient(135deg,#f58320,#e85d04); color:#fff; border:none; border-radius:8px; font-size:11px; font-weight:600; line-height:1.2; white-space:nowrap;">
+                                <i class="bi bi-calendar-check me-1"></i>Summary
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -195,7 +346,7 @@
                        
                     </div>
                     <!-- Add scrollable wrapper for the chart -->
-                    <div class="chart-scroll-container">
+                    <div class="chart-scroll-container" wire:ignore>
                         <div class="chart-container" style="min-width: 300px;">
                             <canvas id="salesChart"></canvas>
                         </div>
@@ -263,6 +414,179 @@
             </div>
         </div>
     </div>
+
+    {{-- ============================================================ --}}
+    {{-- TODAY SUMMARY MODAL --}}
+    {{-- ============================================================ --}}
+    @if($showTodaySummaryModal)
+    @php
+        $s = $todaySaleSummary;
+        $posCollected   = ($s['pos_total'] ?? 0) - ($s['pos_due'] ?? 0);
+        $staffCollected = ($s['staff_total'] ?? 0) - ($s['staff_due'] ?? 0);
+        $otherPayment   = max(0, ($s['total_collected'] ?? 0) - ($s['cash_payment'] ?? 0) - ($s['cheque_payment'] ?? 0));
+    @endphp
+    <div class="tsm-backdrop" wire:click.self="closeTodaySummaryModal">
+        <div class="tsm-modal">
+
+            {{-- Header --}}
+            <div class="tsm-header">
+                <div class="tsm-header-left">
+                    <div class="tsm-header-icon"><i class="bi bi-calendar2-check-fill"></i></div>
+                    <div>
+                        <h5 class="tsm-title">Sales Summary</h5>
+                        <p class="tsm-subtitle">{{ $summaryPeriodLabel }}</p>
+                    </div>
+                </div>
+                <button class="tsm-close" wire:click="closeTodaySummaryModal">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+
+            <div class="tsm-body">
+
+                {{-- Period Tab Bar --}}
+                <div class="tsm-tab-bar">
+                    <button wire:click="switchSummaryPeriod('today')"
+                        class="tsm-tab {{ $summaryPeriod === 'today' ? 'tsm-tab-active' : '' }}">
+                        <i class="bi bi-sun me-1"></i>Today
+                    </button>
+                    <button wire:click="switchSummaryPeriod('current_month')"
+                        class="tsm-tab {{ $summaryPeriod === 'current_month' ? 'tsm-tab-active' : '' }}">
+                        <i class="bi bi-calendar-month me-1"></i>This Month
+                    </button>
+                    <button wire:click="switchSummaryPeriod('last_month')"
+                        class="tsm-tab {{ $summaryPeriod === 'last_month' ? 'tsm-tab-active' : '' }}">
+                        <i class="bi bi-calendar-minus me-1"></i>Last Month
+                    </button>
+                    <button wire:click="switchSummaryPeriod('all')"
+                        class="tsm-tab {{ $summaryPeriod === 'all' ? 'tsm-tab-active' : '' }}">
+                        <i class="bi bi-infinity me-1"></i>All
+                    </button>
+                    <div class="tsm-tab-divider"></div>
+                    <select class="tsm-month-select {{ $summaryPeriod === 'custom' ? 'tsm-month-select-active' : '' }}"
+                        wire:change="switchSummaryMonth($event.target.value)">
+                        <option value="">📅 Previous Month…</option>
+                        @foreach($summaryMonthOptions as $opt)
+                            <option value="{{ $opt['value'] }}" {{ $summaryCustomMonth === $opt['value'] ? 'selected' : '' }}>
+                                {{ $opt['label'] }}
+                            </option>
+                        @endforeach
+                    </select>
+                </div>
+
+                {{-- Grand Total Banner --}}
+                <div class="tsm-grand-banner">
+                    <div class="tsm-grand-left">
+                        <span class="tsm-grand-label">Total Sales — {{ $summaryPeriodLabel }}</span>
+                        <span class="tsm-grand-value">Rs.{{ number_format($s['grand_total'] ?? 0, 2) }}</span>
+                    </div>
+                    <div class="tsm-grand-right">
+                        <span class="tsm-grand-label">Outstanding Due</span>
+                        <span class="tsm-grand-due">Rs.{{ number_format($s['grand_due'] ?? 0, 2) }}</span>
+                    </div>
+                </div>
+
+                {{-- Sales Breakdown --}}
+                <h6 class="tsm-section-title"><i class="bi bi-bar-chart-fill me-2 text-indigo"></i>Sales Breakdown</h6>
+                <div class="tsm-grid-2">
+
+                    {{-- POS Card --}}
+                    <div class="tsm-card tsm-card-pos">
+                        <div class="tsm-card-header-row">
+                            <div class="tsm-card-icon tsm-icon-pos"><i class="bi bi-display-fill"></i></div>
+                            <div>
+                                <div class="tsm-card-label">POS Sales</div>
+                                <div class="tsm-card-count">{{ $s['pos_count'] ?? 0 }} invoices</div>
+                            </div>
+                        </div>
+                        <div class="tsm-card-metrics">
+                            <div class="tsm-metric">
+                                <span class="tsm-metric-label">Total</span>
+                                <span class="tsm-metric-value tsm-pos-total">Rs.{{ number_format($s['pos_total'] ?? 0, 2) }}</span>
+                            </div>
+                            <div class="tsm-metric">
+                                <span class="tsm-metric-label">Collected</span>
+                                <span class="tsm-metric-value tsm-pos-collected">Rs.{{ number_format($posCollected, 2) }}</span>
+                            </div>
+                            <div class="tsm-metric">
+                                <span class="tsm-metric-label">Due</span>
+                                <span class="tsm-metric-value tsm-due-red">Rs.{{ number_format($s['pos_due'] ?? 0, 2) }}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    {{-- Staff Card --}}
+                    <div class="tsm-card tsm-card-staff">
+                        <div class="tsm-card-header-row">
+                            <div class="tsm-card-icon tsm-icon-staff"><i class="bi bi-people-fill"></i></div>
+                            <div>
+                                <div class="tsm-card-label">Staff Sales</div>
+                                <div class="tsm-card-count">{{ $s['staff_count'] ?? 0 }} invoices</div>
+                            </div>
+                        </div>
+                        <div class="tsm-card-metrics">
+                            <div class="tsm-metric">
+                                <span class="tsm-metric-label">Total</span>
+                                <span class="tsm-metric-value tsm-staff-total">Rs.{{ number_format($s['staff_total'] ?? 0, 2) }}</span>
+                            </div>
+                            <div class="tsm-metric">
+                                <span class="tsm-metric-label">Collected</span>
+                                <span class="tsm-metric-value tsm-staff-collected">Rs.{{ number_format($staffCollected, 2) }}</span>
+                            </div>
+                            <div class="tsm-metric">
+                                <span class="tsm-metric-label">Due</span>
+                                <span class="tsm-metric-value tsm-due-red">Rs.{{ number_format($s['staff_due'] ?? 0, 2) }}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {{-- Payment Breakdown --}}
+                <h6 class="tsm-section-title mt-3"><i class="bi bi-credit-card-2-front-fill me-2 text-indigo"></i>Payment Collection</h6>
+                <div class="tsm-grid-3">
+
+                    <div class="tsm-pay-card tsm-pay-cash">
+                        <div class="tsm-pay-icon"><i class="bi bi-cash-coin"></i></div>
+                        <div class="tsm-pay-label">Cash</div>
+                        <div class="tsm-pay-value">Rs.{{ number_format($s['cash_payment'] ?? 0, 2) }}</div>
+                    </div>
+
+                    <div class="tsm-pay-card tsm-pay-cheque">
+                        <div class="tsm-pay-icon"><i class="bi bi-file-earmark-check-fill"></i></div>
+                        <div class="tsm-pay-label">Cheque</div>
+                        <div class="tsm-pay-value">Rs.{{ number_format($s['cheque_payment'] ?? 0, 2) }}</div>
+                    </div>
+
+                    <div class="tsm-pay-card tsm-pay-total">
+                        <div class="tsm-pay-icon"><i class="bi bi-wallet2"></i></div>
+                        <div class="tsm-pay-label">Total Collected</div>
+                        <div class="tsm-pay-value">Rs.{{ number_format($s['total_collected'] ?? 0, 2) }}</div>
+                    </div>
+                </div>
+
+            </div>{{-- /body --}}
+
+            {{-- Footer --}}
+            <div class="tsm-footer">
+                <button class="tsm-btn-refresh" wire:click="switchSummaryPeriod('{{ $summaryPeriod }}')"
+                    wire:loading.attr="disabled" wire:target="switchSummaryPeriod,switchSummaryMonth">
+                    <span wire:loading.remove wire:target="switchSummaryPeriod,switchSummaryMonth">
+                        <i class="bi bi-arrow-clockwise me-2"></i>Refresh
+                    </span>
+                    <span wire:loading wire:target="switchSummaryPeriod,switchSummaryMonth">
+                        <span class="spinner-border spinner-border-sm me-1"></span>Loading…
+                    </span>
+                </button>
+                <button class="tsm-btn-close" wire:click="closeTodaySummaryModal">
+                    Close
+                </button>
+            </div>
+
+        </div>
+    </div>
+
+    @endif
+    {{-- END TODAY SUMMARY MODAL --}}
 
     @push('scripts')
     <script>
@@ -364,6 +688,21 @@
         window.addEventListener('resize', function() {
             if (salesChartInstance) {
                 salesChartInstance.update();
+            }
+        });
+
+        // Reinitialize chart after any Livewire DOM update (e.g. modal open/close)
+        document.addEventListener('livewire:update', function() {
+            // If the canvas is present but the chart instance was lost, recreate it
+            const ctx = document.getElementById('salesChart');
+            if (ctx && !salesChartInstance) {
+                initializeDailySalesChart();
+            } else if (salesChartInstance) {
+                // Chart instance exists — just call update to re-render correctly
+                try { salesChartInstance.update(); } catch(e) {
+                    salesChartInstance = null;
+                    initializeDailySalesChart();
+                }
             }
         });
     </script>

@@ -388,6 +388,23 @@ use App\Models\Sale;
                         </div>
 
                         <!-- Items -->
+                        @php
+                            $saleItemsSubtotal = 0;
+                            foreach ($selectedSale->items as $saleItem) {
+                                $saleItemsSubtotal += (float) ($saleItem->total ?? 0);
+                            }
+
+                            $returnItemsTotal = 0;
+                            if (isset($selectedSale->returns) && count($selectedSale->returns) > 0) {
+                                foreach ($selectedSale->returns as $returnItem) {
+                                    $returnItemsTotal += (float) ($returnItem->total_amount ?? 0);
+                                }
+                            }
+
+                            $discountAmount = (float) ($selectedSale->discount_amount ?? 0);
+                            $saleGrandTotal = (float) ($selectedSale->total_amount ?? 0);
+                            $netTotalAfterReturns = $saleGrandTotal;
+                        @endphp
                         <table class="receipt-table">
                             <thead>
                                 <tr>
@@ -428,6 +445,12 @@ use App\Models\Sale;
                                 </tr>
                                 @endforeach
                             </tbody>
+                            <tfoot>
+                                <tr>
+                                    <td colspan="6" class="text-end"><strong>Sales Items Subtotal</strong></td>
+                                    <td class="text-end"><strong>Rs.{{ number_format($saleItemsSubtotal, 2) }}</strong></td>
+                                </tr>
+                            </tfoot>
                         </table>
 
                         
@@ -457,6 +480,12 @@ use App\Models\Sale;
                                     </tr>
                                     @endforeach
                                 </tbody>
+                                <tfoot>
+                                    <tr>
+                                        <td colspan="4" class="text-end"><strong>Returned Items Total</strong></td>
+                                        <td class="text-end"><strong>Rs.{{ number_format($returnItemsTotal, 2) }}</strong></td>
+                                    </tr>
+                                </tfoot>
                             </table>
                         </div>
                         @endif
@@ -479,22 +508,28 @@ use App\Models\Sale;
                                     <h4 style="margin:0 0 8px 0; border-bottom:1px solid #000; padding-bottom:8px; font-size:14px; font-weight:bold;">ORDER SUMMARY</h4>
                                     <div style="display:flex; justify-content:space-between; margin-bottom:6px; font-size:12px;">
                                         <span>Subtotal:</span>
-                                        <span>Rs.{{ number_format($selectedSale->subtotal, 2) }}</span>
+                                        <span>Rs.{{ number_format($saleItemsSubtotal, 2) }}</span>
                                     </div>
                                     <div style="display:flex; justify-content:space-between; margin-bottom:6px; font-size:12px;">
                                         <span>Total Discount:</span>
                                         <span>
-                                            @php
-                                                $totalDiscount = $selectedSale->discount_amount ?? 0;
-                                                $discountPercent = $selectedSale->subtotal > 0 ? ($totalDiscount / $selectedSale->subtotal) * 100 : 0;
-                                            @endphp
-                                            {{ number_format($discountPercent, 2) }}%
+                                            @if($selectedSale->discount_type === 'percentage')
+                                                {{ number_format($discountAmount, 2) }}%
+                                            @else
+                                                Rs.{{ number_format($discountAmount, 2) }}
+                                            @endif
                                         </span>
                                     </div>
+                                    @if($returnItemsTotal > 0)
+                                    <div style="display:flex; justify-content:space-between; margin-bottom:6px; font-size:12px; color:#dc3545;">
+                                        <span>Returned Items Total:</span>
+                                        <span>- Rs.{{ number_format($returnItemsTotal, 2) }}</span>
+                                    </div>
+                                    @endif
                                     <hr style="margin: 8px  0;">
                                     <div style="display:flex; justify-content:space-between; font-size:13px;">
-                                        <strong>Grand Total:</strong>
-                                        <strong>Rs.{{ number_format($selectedSale->total_amount, 2) }}</strong>
+                                        <strong>{{ $returnItemsTotal > 0 ? 'Net Total' : 'Grand Total' }}:</strong>
+                                        <strong>Rs.{{ number_format($netTotalAfterReturns, 2) }}</strong>
                                     </div>
                                 </div>
                             </div>

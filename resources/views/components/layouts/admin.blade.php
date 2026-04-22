@@ -793,7 +793,7 @@
             z-index: 1050 !important;
         }
         .table-responsive {
-            min-height: 50vh;
+            min-height: 20vh;
             overflow-y: auto;
         }
 

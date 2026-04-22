@@ -50,6 +50,14 @@ class AdminDashboard extends Component
     public $dailySales = [];
     public $staffSales = [];
 
+    // Today's Summary
+    public $showTodaySummaryModal = false;
+    public $todaySaleSummary = [];
+    public $summaryPeriod = 'today';          // today | current_month | last_month | custom
+    public $summaryCustomMonth = '';           // format: YYYY-MM
+    public $summaryPeriodLabel = 'Today';
+    public $summaryMonthOptions = [];          // array of {value, label} for the dropdown
+
     // Expenses
     public $todayTotal = 0;
     public $monthTotal = 0;
@@ -219,6 +227,9 @@ class AdminDashboard extends Component
 
         // Fetch staff sales data
         $this->loadStaffSales();
+
+        // Fetch today's summary
+        $this->loadTodaySummary();
     }
 
     public function loadRecentSales()
@@ -280,6 +291,158 @@ class AdminDashboard extends Component
         }
 
         $this->dailySales = $dailySales;
+    }
+
+    public function loadTodaySummary()
+    {
+        // Determine date range based on selected period
+        switch ($this->summaryPeriod) {
+            case 'current_month':
+                $from = Carbon::now()->startOfMonth();
+                $to   = Carbon::now()->endOfMonth();
+                $this->summaryPeriodLabel = 'This Month (' . Carbon::now()->format('F Y') . ')';
+                $isRange = true;
+                break;
+            case 'last_month':
+                $from = Carbon::now()->subMonth()->startOfMonth();
+                $to   = Carbon::now()->subMonth()->endOfMonth();
+                $this->summaryPeriodLabel = 'Last Month (' . Carbon::now()->subMonth()->format('F Y') . ')';
+                $isRange = true;
+                break;
+            case 'custom':
+                if ($this->summaryCustomMonth) {
+                    $dt   = Carbon::createFromFormat('Y-m', $this->summaryCustomMonth);
+                    $from = $dt->copy()->startOfMonth();
+                    $to   = $dt->copy()->endOfMonth();
+                    $this->summaryPeriodLabel = $dt->format('F Y');
+                } else {
+                    $from = Carbon::today();
+                    $to   = Carbon::today();
+                    $this->summaryPeriodLabel = 'Today';
+                }
+                $isRange = true;
+                break;
+            case 'all':
+                $from = Carbon::create(2000, 1, 1)->startOfDay();
+                $to   = Carbon::now()->endOfDay();
+                $this->summaryPeriodLabel = 'All Time';
+                $isRange = true;
+                break;
+            default: // today
+                $from = Carbon::today();
+                $to   = Carbon::today();
+                $this->summaryPeriodLabel = 'Today (' . Carbon::today()->format('d F Y') . ')';
+                $isRange = false;
+                break;
+        }
+
+        $salesQuery = function(string $field) use ($from, $to, $isRange) {
+            $q = DB::table('sales');
+            if ($isRange) {
+                return $q->whereBetween('created_at', [$from->startOfDay(), $to->endOfDay()]);
+            }
+            return $q->whereDate('created_at', $from);
+        };
+
+        $paymentQuery = function() use ($from, $to, $isRange) {
+            $q = DB::table('payments');
+            if ($isRange) {
+                return $q->whereBetween('payment_date', [$from->toDateString(), $to->toDateString()]);
+            }
+            return $q->whereDate('payment_date', $from);
+        };
+
+        // POS Sales
+        $pos = $salesQuery('created_at')
+            ->where('sale_type', 'pos')
+            ->selectRaw('COUNT(*) as count, COALESCE(SUM(total_amount),0) as total, COALESCE(SUM(due_amount),0) as due')
+            ->first();
+
+        // Staff Sales
+        $staff = $salesQuery('created_at')
+            ->whereIn('sale_type', ['staff', 'admin'])
+            ->selectRaw('COUNT(*) as count, COALESCE(SUM(total_amount),0) as total, COALESCE(SUM(due_amount),0) as due')
+            ->first();
+
+        // Grand totals
+        $grandTotal = $salesQuery('created_at')
+            ->selectRaw('COALESCE(SUM(total_amount),0) as total, COALESCE(SUM(due_amount),0) as due')
+            ->first();
+
+        // Cash payments
+        $cashPayment = $paymentQuery()
+            ->where('is_completed', true)
+            ->where(function ($q) {
+                $q->where('payment_method', 'cash')
+                  ->orWhere('due_payment_method', 'cash');
+            })
+            ->sum('amount');
+
+        // Cheque payments
+        $chequePayment = $paymentQuery()
+            ->where('is_completed', true)
+            ->where(function ($q) {
+                $q->where('payment_method', 'cheque')
+                  ->orWhere('due_payment_method', 'cheque');
+            })
+            ->sum('amount');
+
+        // Total collected
+        $totalCollected = $paymentQuery()
+            ->where('is_completed', true)
+            ->sum('amount');
+
+        $this->todaySaleSummary = [
+            'pos_count'       => $pos->count ?? 0,
+            'pos_total'       => $pos->total ?? 0,
+            'pos_due'         => $pos->due ?? 0,
+            'staff_count'     => $staff->count ?? 0,
+            'staff_total'     => $staff->total ?? 0,
+            'staff_due'       => $staff->due ?? 0,
+            'grand_total'     => $grandTotal->total ?? 0,
+            'grand_due'       => $grandTotal->due ?? 0,
+            'total_collected' => $totalCollected,
+            'cash_payment'    => $cashPayment,
+            'cheque_payment'  => $chequePayment,
+        ];
+    }
+
+    public function openTodaySummaryModal()
+    {
+        // Build the last-12-months list for the dropdown (excluding current month)
+        $months = [];
+        for ($i = 1; $i <= 12; $i++) {
+            $date = Carbon::now()->subMonths($i)->startOfMonth();
+            $months[] = [
+                'value' => $date->format('Y-m'),
+                'label' => $date->format('F Y'),
+            ];
+        }
+        $this->summaryMonthOptions = $months;
+        $this->summaryPeriod = 'today';
+        $this->loadTodaySummary();
+        $this->showTodaySummaryModal = true;
+    }
+
+    public function switchSummaryPeriod(string $period)
+    {
+        $this->summaryPeriod = $period;
+        if ($period !== 'custom') {
+            $this->summaryCustomMonth = '';
+        }
+        $this->loadTodaySummary();
+    }
+
+    public function switchSummaryMonth(string $ym)
+    {
+        $this->summaryPeriod    = 'custom';
+        $this->summaryCustomMonth = $ym;
+        $this->loadTodaySummary();
+    }
+
+    public function closeTodaySummaryModal()
+    {
+        $this->showTodaySummaryModal = false;
     }
 
     public function loadStaffSales()
