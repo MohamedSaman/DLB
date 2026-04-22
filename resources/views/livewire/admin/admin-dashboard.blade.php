@@ -187,18 +187,22 @@
         .tsm-staff-collected{ color: #2563eb; }
         .tsm-due-red        { color: #dc2626; }
         .tsm-grid-3 { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; }
+        .tsm-grid-4 { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; }
         .tsm-pay-card { border-radius: 14px; padding: 16px 12px; text-align: center; border: 1.5px solid transparent; }
         .tsm-pay-cash   { background: #fefce8; border-color: #fde68a; }
         .tsm-pay-cheque { background: #fdf2f8; border-color: #f0abfc; }
+        .tsm-pay-bank   { background: #ecfeff; border-color: #a5f3fc; }
         .tsm-pay-total  { background: #f5f3ff; border-color: #c4b5fd; }
         .tsm-pay-icon { font-size: 24px; margin-bottom: 6px; }
         .tsm-pay-cash   .tsm-pay-icon { color: #ca8a04; }
         .tsm-pay-cheque .tsm-pay-icon { color: #a21caf; }
+        .tsm-pay-bank   .tsm-pay-icon { color: #0891b2; }
         .tsm-pay-total  .tsm-pay-icon { color: #7c3aed; }
         .tsm-pay-label { font-size: 0.73rem; font-weight: 600; text-transform: uppercase; letter-spacing:.05em; color: #6b7280; margin-bottom: 4px; }
         .tsm-pay-value { font-size: 0.92rem; font-weight: 800; }
         .tsm-pay-cash   .tsm-pay-value { color: #92400e; }
         .tsm-pay-cheque .tsm-pay-value { color: #7e22ce; }
+        .tsm-pay-bank   .tsm-pay-value { color: #164e63; }
         .tsm-pay-total  .tsm-pay-value { color: #4c1d95; }
         .tsm-footer {
             padding: 14px 24px; background: #f9fafb;
@@ -221,6 +225,7 @@
         @media (max-width: 576px) {
             .tsm-grid-2 { grid-template-columns: 1fr; }
             .tsm-grid-3 { grid-template-columns: 1fr 1fr; }
+            .tsm-grid-4 { grid-template-columns: 1fr 1fr; }
             .tsm-grand-banner { flex-direction: column; gap: 10px; }
             .tsm-grand-right { text-align: left; }
         }
@@ -423,7 +428,7 @@
         $s = $todaySaleSummary;
         $posCollected   = ($s['pos_total'] ?? 0) - ($s['pos_due'] ?? 0);
         $staffCollected = ($s['staff_total'] ?? 0) - ($s['staff_due'] ?? 0);
-        $otherPayment   = max(0, ($s['total_collected'] ?? 0) - ($s['cash_payment'] ?? 0) - ($s['cheque_payment'] ?? 0));
+        $otherPayment   = max(0, ($s['total_collected'] ?? 0) - ($s['cash_payment'] ?? 0) - ($s['cheque_payment'] ?? 0) - ($s['bank_transfer_payment'] ?? 0));
     @endphp
     <div class="tsm-backdrop" wire:click.self="closeTodaySummaryModal">
         <div class="tsm-modal">
@@ -543,7 +548,7 @@
 
                 {{-- Payment Breakdown --}}
                 <h6 class="tsm-section-title mt-3"><i class="bi bi-credit-card-2-front-fill me-2 text-indigo"></i>Payment Collection</h6>
-                <div class="tsm-grid-3">
+                <div class="tsm-grid-4">
 
                     <div class="tsm-pay-card tsm-pay-cash">
                         <div class="tsm-pay-icon"><i class="bi bi-cash-coin"></i></div>
@@ -555,6 +560,12 @@
                         <div class="tsm-pay-icon"><i class="bi bi-file-earmark-check-fill"></i></div>
                         <div class="tsm-pay-label">Cheque</div>
                         <div class="tsm-pay-value">Rs.{{ number_format($s['cheque_payment'] ?? 0, 2) }}</div>
+                    </div>
+
+                    <div class="tsm-pay-card tsm-pay-bank">
+                        <div class="tsm-pay-icon"><i class="bi bi-bank"></i></div>
+                        <div class="tsm-pay-label">Bank Transfer</div>
+                        <div class="tsm-pay-value">Rs.{{ number_format($s['bank_transfer_payment'] ?? 0, 2) }}</div>
                     </div>
 
                     <div class="tsm-pay-card tsm-pay-total">

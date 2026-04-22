@@ -387,6 +387,14 @@ class AdminDashboard extends Component
             })
             ->sum('amount');
 
+        $bankTransferPayment = $paymentQuery()
+            ->where('is_completed', true)
+            ->where(function ($q) {
+                $q->where('payment_method', 'bank_transfer')
+                  ->orWhere('due_payment_method', 'bank_transfer');
+            })
+            ->sum('amount');
+
         // Total collected
         $totalCollected = $paymentQuery()
             ->where('is_completed', true)
@@ -404,6 +412,7 @@ class AdminDashboard extends Component
             'total_collected' => $totalCollected,
             'cash_payment'    => $cashPayment,
             'cheque_payment'  => $chequePayment,
+            'bank_transfer_payment' => $bankTransferPayment,
         ];
     }
 
