@@ -367,9 +367,7 @@
                             <h6 class="fw-bold text-dark mb-1">Inventory Status</h6>
                             <p class="text-muted small mb-0">Current stock levels and alerts</p>
                         </div>
-                        <a href="{{ route('admin.Product-stock-details') }}" class="btn btn-sm btn-outline-primary border-0 bg-transparent text-primary">
-                            <i class="bi bi-arrow-right-circle fs-5"></i>
-                        </a>
+                        
                     </div>
 
                     <!-- Scrollable container -->

@@ -2,6 +2,7 @@
      x-data="billingKeyboard()"
      x-init="initBilling()"
      @product-added-to-cart.window="handleProductAdded($event.detail.cartKey)"
+     @customer-selected.window="handleCustomerSelected()"
      @keydown.window="handleGlobalKey($event)">
     {{-- Edit Mode Alert --}}
     @if($editMode && $editingSaleId)
@@ -48,31 +49,75 @@
                 </div>
                 <div class="card-body">
                     <div class="mb-3">
-                        <label class="form-label fw-semibold">Select Customer *</label>
-                        <select class="form-select shadow-sm" wire:model.live="customerId">
-                            <option value="">-- Select Customer --</option>
-                            @foreach($customers as $customer)
-                                <option value="{{ $customer->id }}">
-                                    {{ $customer->business_name ?? $customer->name}} - {{ $customer->phone ?? 'N/A' }}
-                                </option>
-                            @endforeach
-                        </select>
+                        <label class="form-label fw-semibold">Search Customer</label>
+                        <div class="input-group mb-2">
+                            <span class="input-group-text bg-white border-end-0">
+                                <i class="bi bi-search text-muted"></i>
+                            </span>
+                            <input type="text" class="form-control border-start-0 ps-0 shadow-sm" 
+                                id="customerSearchInput"
+                                x-ref="customerSearchInput"
+                                wire:model.live.debounce.300ms="customerSearch" 
+                                placeholder="Search by name, business or phone..."
+                                @keydown.arrow-down.prevent="moveCustomerDown()"
+                                @keydown.arrow-up.prevent="moveCustomerUp()"
+                                @keydown.enter.prevent="selectCurrentCustomer()"
+                                @keydown.escape.prevent="customerSearch = ''">
+                        </div>
+
+                        {{-- Customer Search Results --}}
+                        @if(count($customerSearchResults) > 0)
+                            <div class="list-group shadow-sm mb-3 border rounded overflow-hidden customer-search-results"
+                                 x-ref="customerSearchResultsContainer">
+                                @foreach($customerSearchResults as $idx => $result)
+                                    <button type="button" 
+                                        class="list-group-item list-group-item-action d-flex justify-content-between align-items-center py-2 border-start-0 border-end-0"
+                                        :class="customerSelectedIndex === {{ $idx }} ? 'bg-primary text-white' : ''"
+                                        data-customer-index="{{ $idx }}"
+                                        @mouseenter="customerSelectedIndex = {{ $idx }}"
+                                        wire:click="selectCustomer({{ $result->id }})">
+                                        <div>
+                                            <div class="fw-bold" :class="customerSelectedIndex === {{ $idx }} ? 'text-white' : 'text-primary'">{{ $result->business_name ?? $result->name }}</div>
+                                            <small :class="customerSelectedIndex === {{ $idx }} ? 'text-white-50' : 'text-muted'">
+                                                <i class="bi bi-person me-1"></i>{{ $result->name }} | 
+                                                <i class="bi bi-telephone me-1"></i>{{ $result->phone ?? 'N/A' }}
+                                            </small>
+                                        </div>
+                                        <i class="bi bi-plus-circle fs-5" :class="customerSelectedIndex === {{ $idx }} ? 'text-white' : 'text-success'"></i>
+                                    </button>
+                                @endforeach
+                            </div>
+                        @elseif($customerSearch && strlen($customerSearch) >= 1)
+                            <div class="alert alert-light border py-2 mb-3">
+                                <small class="text-muted"><i class="bi bi-info-circle me-1"></i> No matching customers found.</small>
+                            </div>
+                        @endif
+
+                        
 
                         <div class="form-text mt-2">
                             @if($selectedCustomer)
-                                <div class="p-3 bg-light rounded mt-2">
+                                <div class="p-3 bg-light rounded mt-2 border-start border-4 border-success">
                                     <div class="row">
                                         <div class="col-sm-6">
-                                            <small class="text-muted d-block">Phone:</small>
-                                            <span class="fw-medium">{{ $selectedCustomer->phone ?? 'N/A' }}</span>
+                                            <small class="text-muted d-block text-uppercase" style="font-size: 10px; letter-spacing: 0.5px;">Customer Name:</small>
+                                            <span class="fw-bold text-dark">{{ $selectedCustomer->name }}</span>
                                         </div>
-                                        <div class="col-sm-6">
-                                            <small class="text-muted d-block">Type:</small>
-                                            <span class="badge bg-info">{{ ucfirst($selectedCustomer->type ?? 'Regular') }}</span>
+                                        <div class="col-sm-6 text-sm-end">
+                                            <small class="text-muted d-block text-uppercase" style="font-size: 10px; letter-spacing: 0.5px;">Customer Type:</small>
+                                            <span class="badge bg-success">{{ ucfirst($selectedCustomer->type ?? 'Regular') }}</span>
                                         </div>
-                                        <div class="col-12 mt-2">
-                                            <small class="text-muted d-block">Address:</small>
-                                            <span>{{ $selectedCustomer->address ?? 'No address' }}</span>
+                                        <div class="col-sm-6 mt-2">
+                                            <small class="text-muted d-block text-uppercase" style="font-size: 10px; letter-spacing: 0.5px;">Phone:</small>
+                                            <span class="fw-medium text-dark">{{ $selectedCustomer->phone ?? 'N/A' }}</span>
+                                        </div>
+                                        <div class="col-sm-6 mt-2 text-sm-end">
+                                            <small class="text-muted d-block text-uppercase" style="font-size: 10px; letter-spacing: 0.5px;">Current Balance:</small>
+                                            <span class="fw-bold text-danger">Rs.{{ number_format($selectedCustomer->total_due, 2) }}</span>
+                                        </div>
+                                        <div class="col-12 mt-2 pt-2 border-top">
+                                            <small class="text-muted d-block text-uppercase" style="font-size: 10px; letter-spacing: 0.5px;">Address:</small>
+                                            <span class="text-dark">{{ $selectedCustomer->address ?? 'No address' }}</span>
                                         </div>
                                         @if(($selectedCustomer->overpaid_amount ?? 0) > 0)
                                         <div class="col-12 mt-2">
@@ -127,7 +172,7 @@
                             style="cursor: pointer;"
                             data-search-index="{{ $idx }}"
                             @mouseenter="selectedIndex = {{ $idx }}"
-                            @click="isAddingToCart = true"
+                            @click="focusLock = true"
                             wire:click="addToCart({{ json_encode($product) }})">
                             <div class="flex-grow-1">
                                 <div class="fw-medium text-dark">{{ $product['display_name'] ?? $product['name'] }}</div>
@@ -545,6 +590,20 @@
         transition: background-color 0.15s ease;
     }
 
+    .customer-search-results {
+        max-height: 250px;
+        overflow-y: auto;
+        z-index: 1000;
+    }
+    .customer-search-results .list-group-item {
+        transition: all 0.2s ease;
+        border-left: 3px solid transparent !important;
+    }
+    .customer-search-results .list-group-item:hover {
+        background-color: #f0f7ff;
+        border-left: 3px solid #0d6efd !important;
+    }
+
     .search-results .bg-primary.bg-opacity-10 {
         background-color: rgba(13, 110, 253, 0.1) !important;
         border-left: 3px solid #0d6efd !important;
@@ -619,53 +678,32 @@
     function billingKeyboard() {
         return {
             selectedIndex: -1,
+            customerSelectedIndex: -1,
             pendingFocusCartKey: null,
-            isAddingToCart: false, // Flag to prevent search auto-focus during cart add
+            focusLock: false, // When true, nothing else can steal focus
 
             initBilling() {
                 const self = this;
 
-                // Auto-focus search input on page load
+                // Auto-focus customer search input on page load
                 setTimeout(() => {
-                    const searchEl = document.getElementById('productSearchInput');
+                    const searchEl = document.getElementById('customerSearchInput');
                     if (searchEl) {
                         searchEl.focus();
-                        console.log('Page loaded - search input focused');
+                        console.log('Page loaded - customer search input focused');
                     }
                 }, 300);
 
-                // Listen for Livewire finish event to handle pending focus
+                // Listen for Livewire morph to reset dropdown indexes
                 Livewire.hook('morph.updated', ({ el, component }) => {
-                    // Reset selectedIndex when search results disappear
                     const items = document.querySelectorAll('.search-result-item');
                     if (items.length === 0) {
                         self.selectedIndex = -1;
                     }
-                    
-                    // If we have a pending focus cart key, try to focus it after morph
-                    if (self.pendingFocusCartKey) {
-                        console.log('🎯 Morph complete, attempting to focus qty input for:', self.pendingFocusCartKey);
-                        
-                        // Give DOM a moment to fully settle
-                        setTimeout(() => {
-                            const success = self.focusCartQty(self.pendingFocusCartKey);
-                            if (success) {
-                                console.log('✅ Successfully focused qty input');
-                                self.pendingFocusCartKey = null;
-                                self.isAddingToCart = false;
-                            } else {
-                                console.warn('❌ Failed to focus qty input, retrying...');
-                                // Retry once more with longer delay
-                                setTimeout(() => {
-                                    const retrySuccess = self.focusCartQty(self.pendingFocusCartKey);
-                                    if (retrySuccess) {
-                                        console.log('✅ Retry successful - qty input focused');
-                                        self.pendingFocusCartKey = null;
-                                    }
-                                    self.isAddingToCart = false;
-                                }, 200);
-                            }
-                        }, 100);
+
+                    const customerItems = document.querySelectorAll('.customer-search-results button');
+                    if (customerItems.length === 0) {
+                        self.customerSelectedIndex = -1;
                     }
                 });
 
@@ -686,7 +724,7 @@
                 });
             },
 
-            // --- Search dropdown navigation ---
+            // --- Product search dropdown navigation ---
             getSearchItems() {
                 return document.querySelectorAll('.search-result-item');
             },
@@ -716,7 +754,6 @@
 
             closeDropdown() {
                 this.selectedIndex = -1;
-                // Clear search to hide dropdown
                 if (this.$refs.searchInput) {
                     this.$refs.searchInput.value = '';
                     this.$refs.searchInput.dispatchEvent(new Event('input'));
@@ -728,67 +765,75 @@
                 if (this.selectedIndex < 0 || items.length === 0) return;
                 const item = items[this.selectedIndex];
                 if (item) {
-                    console.log('📦 Selecting item at index:', this.selectedIndex);
+                    console.log('📦 Selecting product at index:', this.selectedIndex);
                     this.selectedIndex = -1;
-                    this.isAddingToCart = true; // Set flag before clicking
-                    // Click the item to trigger wire:click (addToCart)
+                    this.focusLock = true; // Lock focus immediately
                     item.click();
-                    // Focus will be handled by handleProductAdded via Livewire event
                 }
             },
 
             // --- Called via @product-added-to-cart.window from Livewire ---
             handleProductAdded(cartKey) {
-                console.log('🔔 Product added event received, cart key:', cartKey);
+                console.log('🔔 Product added, will focus qty for:', cartKey);
                 this.pendingFocusCartKey = cartKey;
-                this.isAddingToCart = true;
-                // The morph.updated hook will handle the focus when DOM is ready
-            },
+                this.focusLock = true;
 
-            // --- Focus helpers ---
-            focusCartQty(cartKey) {
-                console.log('🔍 Looking for qty input with cart key:', cartKey);
-                const qtyInput = document.querySelector(`input.cart-qty-input[data-cart-key="${cartKey}"]`);
-                if (qtyInput) {
-                    console.log('✅ Found qty input - focusing and selecting');
-                    qtyInput.focus();
-                    qtyInput.select();
-                    return true;
-                } else {
-                    console.warn('⚠️ Qty input not found for cart key:', cartKey, '- trying first input');
-                    // Fallback: focus first qty input
-                    const first = document.querySelector('input.cart-qty-input');
-                    if (first) { 
-                        console.log('✅ Focused first qty input as fallback');
-                        first.focus(); 
-                        first.select();
-                        return true;
+                // Use persistent interval to keep re-applying focus until it sticks.
+                // Livewire's morph.updated fires per-element and can steal focus multiple
+                // times during a single update cycle. This interval outlasts that.
+                const self = this;
+                let attempts = 0;
+                const maxAttempts = 30; // ~3 seconds max
+
+                const focusInterval = setInterval(() => {
+                    attempts++;
+
+                    const qtyInput = document.querySelector(
+                        `input.cart-qty-input[data-cart-key="${cartKey}"]`
+                    );
+
+                    if (qtyInput) {
+                        qtyInput.focus();
+                        qtyInput.select();
+
+                        // Only stop once focus has actually stuck
+                        if (document.activeElement === qtyInput) {
+                            clearInterval(focusInterval);
+                            self.pendingFocusCartKey = null;
+                            console.log('✅ Qty input focused on attempt', attempts);
+                            // Hold lock a bit longer to prevent post-morph steal
+                            setTimeout(() => { self.focusLock = false; }, 500);
+                            return;
+                        }
                     }
-                    console.error('❌ No qty inputs found at all');
-                    return false;
-                }
+
+                    // Safety: give up after max attempts
+                    if (attempts >= maxAttempts) {
+                        clearInterval(focusInterval);
+                        self.pendingFocusCartKey = null;
+                        self.focusLock = false;
+                        // Last resort fallback
+                        const first = document.querySelector('input.cart-qty-input');
+                        if (first) { first.focus(); first.select(); }
+                    }
+                }, 100);
             },
 
-            // Qty Enter → commit change, then focus price of same row
-            handleQtyEnter(event, cartKey) {
-                console.log('⏎ Qty Enter pressed for cart key:', cartKey);
-                const el = event.target;
-                el.dispatchEvent(new Event('change', { bubbles: true }));
+            // --- Called via @customer-selected.window from Livewire ---
+            handleCustomerSelected() {
+                if (this.focusLock) return; // Don't interfere
+                console.log('👤 Customer selected - focusing product search');
                 setTimeout(() => {
-                    const priceInput = document.querySelector(`input.cart-price-input[data-cart-key="${cartKey}"]`);
-                    if (priceInput) {
-                        priceInput.focus();
-                        priceInput.select();
-                        console.log('💰 Price input focused');
-                    } else {
-                        console.error('❌ Price input not found for cart key:', cartKey);
+                    if (this.focusLock) return;
+                    const searchEl = document.getElementById('productSearchInput');
+                    if (searchEl) {
+                        searchEl.focus();
                     }
-                }, 150);
+                }, 100);
             },
 
-            // Price Enter → commit change, then focus search
-            handlePriceEnter(event) {
-                console.log('⏎ Price Enter pressed - focusing search');
+            // Qty Enter → commit change, then focus product search
+            handleQtyEnter(event, cartKey) {
                 const el = event.target;
                 el.dispatchEvent(new Event('change', { bubbles: true }));
                 setTimeout(() => {
@@ -796,30 +841,77 @@
                     if (searchEl) {
                         searchEl.focus();
                         searchEl.value = '';
-                        console.log('🔍 Search focused and cleared');
+                        console.log('🔍 Product search focused after qty enter');
                     }
                 }, 150);
             },
 
-            // --- Global keydown: focus search on any key if nothing is focused ---
-            handleGlobalKey(event) {
-                // Don't interfere if we're adding to cart
-                if (this.isAddingToCart) {
-                    console.log('🚫 Ignoring global key - adding to cart in progress');
-                    return;
+            // Price Enter → commit change, then focus product search
+            handlePriceEnter(event) {
+                const el = event.target;
+                el.dispatchEvent(new Event('change', { bubbles: true }));
+                setTimeout(() => {
+                    const searchEl = document.getElementById('productSearchInput');
+                    if (searchEl) {
+                        searchEl.focus();
+                        searchEl.value = '';
+                    }
+                }, 150);
+            },
+
+            // --- Customer search navigation ---
+            getCustomerItems() {
+                return document.querySelectorAll('.customer-search-results button');
+            },
+
+            moveCustomerDown() {
+                const items = this.getCustomerItems();
+                if (items.length === 0) return;
+                this.customerSelectedIndex = (this.customerSelectedIndex + 1) % items.length;
+                this.scrollToSelectedCustomer();
+            },
+
+            moveCustomerUp() {
+                const items = this.getCustomerItems();
+                if (items.length === 0) return;
+                this.customerSelectedIndex = this.customerSelectedIndex <= 0 ? items.length - 1 : this.customerSelectedIndex - 1;
+                this.scrollToSelectedCustomer();
+            },
+
+            scrollToSelectedCustomer() {
+                this.$nextTick(() => {
+                    const item = document.querySelector(`.list-group-item[data-customer-index="${this.customerSelectedIndex}"]`);
+                    if (item) {
+                        item.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+                    }
+                });
+            },
+
+            selectCurrentCustomer() {
+                const items = this.getCustomerItems();
+                if (this.customerSelectedIndex < 0 || items.length === 0) return;
+                const item = items[this.customerSelectedIndex];
+                if (item) {
+                    item.click();
+                    this.customerSelectedIndex = -1;
                 }
+            },
+
+            // --- Global keydown: focus product search on any key if nothing focused ---
+            handleGlobalKey(event) {
+                // Don't interfere if focus is locked (waiting for qty focus)
+                if (this.focusLock || this.pendingFocusCartKey) return;
                 
-                // Don't interfere with modals, textareas, or existing inputs
+                // Don't interfere with inputs, textareas, selects, or modals
                 const tag = event.target.tagName.toLowerCase();
                 if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
                 if (document.querySelector('.modal.show.d-block')) return;
 
-                // Printable character → focus search box
+                // Printable character → focus product search
                 if (event.key.length === 1 && !event.ctrlKey && !event.altKey && !event.metaKey) {
                     const searchEl = document.getElementById('productSearchInput');
                     if (searchEl) {
                         searchEl.focus();
-                        // Let the character pass through to the input naturally
                     }
                 }
             }

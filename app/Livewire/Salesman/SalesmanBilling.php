@@ -32,6 +32,8 @@ class SalesmanBilling extends Component
     public $customers = [];
     public $customerId = '';
     public $selectedCustomer = null;
+    public $customerSearch = '';
+    public $customerSearchResults = [];
 
     // Customer Form
     public $showCustomerModal = false;
@@ -79,7 +81,35 @@ class SalesmanBilling extends Component
 
     public function loadCustomers()
     {
+        if (strlen($this->customerSearch) >= 1) {
+            $this->customerSearchResults = Customer::where('type', 'distributor')
+                ->where(function ($q) {
+                    $q->where('name', 'like', '%' . $this->customerSearch . '%')
+                        ->orWhere('business_name', 'like', '%' . $this->customerSearch . '%')
+                        ->orWhere('phone', 'like', '%' . $this->customerSearch . '%');
+                })
+                ->orderBy('business_name')
+                ->limit(10)
+                ->get();
+        } else {
+            $this->customerSearchResults = [];
+        }
+
         $this->customers = Customer::where('type', 'distributor')->orderBy('business_name')->get();
+    }
+
+    public function updatedCustomerSearch()
+    {
+        $this->loadCustomers();
+    }
+
+    public function selectCustomer($id)
+    {
+        $this->customerId = $id;
+        $this->selectedCustomer = Customer::find($id);
+        $this->customerSearch = '';
+        $this->customerSearchResults = [];
+        $this->dispatch('customer-selected');
     }
 
     /**
@@ -655,8 +685,15 @@ class SalesmanBilling extends Component
                 session()->flash('error', 'Not enough available stock!');
                 return;
             }
-            $this->cart[$existingIndex]['quantity'] += 1;
-            $this->cart[$existingIndex]['total'] = ($this->cart[$existingIndex]['price'] - $this->cart[$existingIndex]['discount']) * $this->cart[$existingIndex]['quantity'];
+            
+            $item = $this->cart[$existingIndex];
+            $item['quantity'] += 1;
+            $item['total'] = ($item['price'] - $item['discount']) * $item['quantity'];
+            
+            // Remove from current position and move to top
+            unset($this->cart[$existingIndex]);
+            $this->cart = array_values($this->cart); // Re-index
+            array_unshift($this->cart, $item);
         } else {
             array_unshift($this->cart, [
                 'cart_key' => $cartKey,
@@ -679,12 +716,10 @@ class SalesmanBilling extends Component
 
         $this->search = '';
         $this->searchResults = [];
+        $this->customerSearch = '';
 
-        // Dispatch event so Alpine.js can focus the qty input of the newly added item
-        $firstCartKey = $this->cart[0]['cart_key'] ?? null;
-        if ($firstCartKey) {
-            $this->dispatch('product-added-to-cart', cartKey: $firstCartKey);
-        }
+        // Dispatch event so Alpine.js can focus the qty input of the added/updated item
+        $this->dispatch('product-added-to-cart', cartKey: $cartKey);
     }
 
     public function updateQuantity($cartKey, $quantity)
