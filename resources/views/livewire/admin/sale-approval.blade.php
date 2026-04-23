@@ -287,7 +287,7 @@
                                 }
 
                                 $discountAmount = (float) ($this->selectedSale->discount_amount ?? 0);
-                                $netTotalAfterReturns = $saleItemsSubtotal - $discountAmount - $returnItemsTotal;
+                                $netTotalAfterReturns = (float) ($this->selectedSale->total_amount ?? 0);
                             @endphp
                             <table class="receipt-table">
                                 <thead>
