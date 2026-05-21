@@ -48,6 +48,21 @@
             padding: 8px 24px; color: #fff;
             font-size: 0.85rem; font-weight: 600; cursor: pointer;
         }
+
+        /* Mobile Responsiveness Tweaks */
+        @media (max-width: 767.98px) {
+            .container-fluid { padding-left: 10px !important; padding-right: 10px !important; padding-top: 10px !important; }
+            .card-body { padding: 12px !important; }
+            .table { font-size: 0.8rem !important; }
+            .table th, .table td { padding: 8px 6px !important; }
+            h2.fw-bold { font-size: 1.4rem !important; }
+            h3.fw-bold { font-size: 1.2rem !important; }
+            .mb-4 { margin-bottom: 1rem !important; }
+            .g-4, .row { --bs-gutter-y: 1rem; --bs-gutter-x: 1rem; }
+            .card-header { padding: 10px 12px !important; }
+            .card-header h5 { font-size: 1.1rem !important; }
+            .badge { font-size: 0.7rem !important; padding: 0.35em 0.5em !important; }
+        }
     </style>
 
     <div class="container-fluid py-3">
@@ -135,7 +150,8 @@
         </div>
     </div>
 
-    <div class="card border-0 shadow-sm">
+    {{-- Recent Orders - Desktop View --}}
+    <div class="card border-0 shadow-sm d-none d-md-block">
         <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
             <h5 class="fw-bold text-dark mb-0">
                 <i class="bi bi-clock-history text-primary me-2"></i> Recent Orders
@@ -185,6 +201,52 @@
                 </table>
             </div>
         </div>
+    </div>
+    
+    {{-- Recent Orders - Mobile View --}}
+    <div class="d-md-none mb-4">
+        <div class="d-flex justify-content-between align-items-center mb-3 px-1 mt-2">
+            <h5 class="fw-bold text-dark mb-0">
+                <i class="bi bi-clock-history text-primary me-2"></i> Recent Orders
+            </h5>
+            <a href="{{ route('salesman.sales') }}" class="btn btn-sm btn-outline-primary py-1 px-2" style="font-size: 0.8rem;">View All</a>
+        </div>
+        
+        @forelse($recentSales as $sale)
+        <div class="card border-0 shadow-sm mb-3">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start mb-3">
+                    <div>
+                        <h6 class="fw-bold mb-1">{{ $sale->invoice_number }}</h6>
+                        <small class="text-muted d-block">{{ $sale->created_at->format('M d, Y') }}</small>
+                    </div>
+                    <div class="text-end">
+                        @if($sale->status === 'pending')
+                            <span class="badge bg-warning">Pending</span>
+                        @elseif($sale->status === 'confirm')
+                            <span class="badge bg-success">Approved</span>
+                        @else
+                            <span class="badge bg-danger">Rejected</span>
+                        @endif
+                    </div>
+                </div>
+                
+                <div class="mb-3">
+                    <p class="mb-1"><strong><i class="bi bi-person me-2"></i>{{ $sale->customer->name ?? 'N/A' }}</strong></p>
+                </div>
+                
+                <div>
+                    <small class="text-muted d-block">Amount</small>
+                    <span class="fw-bold">Rs. {{ number_format($sale->total_amount, 2) }}</span>
+                </div>
+            </div>
+        </div>
+        @empty
+        <div class="text-center py-4 text-muted bg-white rounded shadow-sm">
+            <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+            <p class="mb-0">No sales yet. Start creating orders!</p>
+        </div>
+        @endforelse
     </div>
 
     @if($showDaySummaryModal)

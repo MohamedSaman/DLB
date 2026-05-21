@@ -216,7 +216,8 @@
                 </div>
                 <div class="card-body p-0">
                     @if(count($cart) > 0)
-                    <div class="table-responsive">
+                    <!-- Desktop Table -->
+                    <div class="table-responsive d-none d-md-block">
                         <table class="table table-hover mb-0">
                             <thead class="table-light">
                                 <tr>
@@ -323,6 +324,83 @@
                                 </tr>
                             </tfoot>
                         </table>
+                    </div>
+                    
+                    <!-- Mobile List -->
+                    <div class="d-md-none p-2">
+                        @foreach($cart as $index => $item)
+                        <div class="card mb-2 border shadow-sm" wire:key="mobile-cart-item-{{ $item['cart_key'] }}">
+                            <div class="card-body p-2">
+                                <div class="d-flex justify-content-between align-items-start mb-2">
+                                    <div>
+                                        <div class="fw-medium text-dark">{{ $item['name'] }}</div>
+                                        @if(!empty($item['code']))
+                                            <small class="text-muted d-inline-block me-2">{{ $item['code'] }}</small>
+                                        @endif
+                                        <small class="text-info">Available: {{ $item['available'] }}</small>
+                                        @if(isset($item['is_variant']) && $item['is_variant'])
+                                            <small class="text-primary d-block mt-1">
+                                                <i class="bi bi-tags me-1"></i>{{ $item['variant_value'] ?? 'Variant' }}
+                                            </small>
+                                        @endif
+                                    </div>
+                                    <button class="btn btn-sm btn-outline-danger py-0 px-2" wire:click="removeFromCart('{{ $item['cart_key'] }}')" title="Remove">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </div>
+                                
+                                <div class="row g-2 mb-2">
+                                    <div class="col-6">
+                                        <small class="text-muted d-block">Qty</small>
+                                        <div class="input-group input-group-sm">
+                                            <button class="btn btn-outline-secondary px-2" type="button" wire:click="updateQuantity('{{ $item['cart_key'] }}', {{ $item['quantity'] - 1 }})">-</button>
+                                            <input type="number" class="form-control text-center px-1" value="{{ $item['quantity'] }}" wire:change="updateQuantity('{{ $item['cart_key'] }}', $event.target.value)" min="1">
+                                            <button class="btn btn-outline-secondary px-2" type="button" wire:click="updateQuantity('{{ $item['cart_key'] }}', {{ $item['quantity'] + 1 }})">+</button>
+                                        </div>
+                                    </div>
+                                    <div class="col-6">
+                                        <small class="text-muted d-block">Price</small>
+                                        <input type="number" class="form-control form-control-sm text-primary fw-bold" value="{{ $item['price'] }}" wire:change="updatePrice('{{ $item['cart_key'] }}', $event.target.value)" min="0" step="0.01">
+                                    </div>
+                                    <div class="col-6">
+                                        <small class="text-muted d-block">Discount</small>
+                                        <input type="number" class="form-control form-control-sm text-danger" value="{{ $item['discount'] }}" wire:change="updateDiscount('{{ $item['cart_key'] }}', $event.target.value)" min="0" step="0.01">
+                                    </div>
+                                    <div class="col-6 text-end">
+                                        <small class="text-muted d-block">Total</small>
+                                        <div class="fw-bold fs-6">Rs. {{ number_format($item['total'], 2) }}</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        @endforeach
+                        
+                        <div class="bg-light p-3 rounded mt-3 border">
+                            <div class="d-flex justify-content-between mb-1">
+                                <span class="text-muted">Subtotal:</span>
+                                <span class="fw-bold">Rs. {{ number_format($this->subtotal, 2) }}</span>
+                            </div>
+                            <div class="d-flex justify-content-between mb-2">
+                                <span class="text-muted">Item Disc:</span>
+                                <span class="fw-bold text-danger">- Rs. {{ number_format($this->totalDiscount, 2) }}</span>
+                            </div>
+                            
+                            <div class="mb-2 pb-2 border-bottom border-secondary">
+                                <small class="text-muted d-block mb-1">Add. Discount:</small>
+                                <div class="input-group input-group-sm">
+                                    <input type="number" class="form-control text-danger" wire:model.live="additionalDiscount" min="0" step="0.01">
+                                    <select class="form-select" wire:model.live="additionalDiscountType" style="max-width: 80px;">
+                                        <option value="fixed">Rs.</option>
+                                        <option value="percentage">%</option>
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <div class="d-flex justify-content-between mt-2">
+                                <span class="fw-bold fs-5">TOTAL:</span>
+                                <span class="fw-bold fs-5 text-primary">Rs. {{ number_format($this->grandTotal, 2) }}</span>
+                            </div>
+                        </div>
                     </div>
                     @else
                     <div class="text-center text-muted py-5">
@@ -663,6 +741,12 @@
 
         .modal-dialog {
             margin: 0.5rem;
+        }
+        
+        /* Prevent iOS zoom on input focus */
+        .form-control,
+        .form-select {
+            font-size: 16px !important;
         }
     }
 

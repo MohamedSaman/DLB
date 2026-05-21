@@ -1,4 +1,14 @@
 <div class="container-fluid py-3">
+    <style>
+        /* Mobile Responsiveness Tweaks */
+        @media (max-width: 767.98px) {
+            .container-fluid { padding-left: 10px !important; padding-right: 10px !important; padding-top: 10px !important; }
+            .card-body { padding: 12px !important; }
+            h3.fw-bold { font-size: 1.2rem !important; }
+            .mb-4 { margin-bottom: 1rem !important; }
+            .g-3 { --bs-gutter-y: 0.75rem; --bs-gutter-x: 0.75rem; }
+        }
+    </style>
     {{-- Header --}}
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
@@ -103,6 +113,11 @@
             </div>
         </div>
         @endforelse
+
+        {{-- Pagination --}}
+        <div class="mt-4">
+            {{ $products->links('livewire.custom-pagination') }}
+        </div>
     </div>
 
     <style>

@@ -397,6 +397,18 @@
                 width: 100%;
             }
         }
+        
+        @media (max-width: 767.98px) {
+            .top-bar {
+                padding: 0 12px;
+            }
+            .main-content {
+                padding: 15px 5px;
+            }
+            .admin-name {
+                display: none;
+            }
+        }
     </style>
     @livewireStyles
     @stack('styles')

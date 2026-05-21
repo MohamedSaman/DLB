@@ -1,4 +1,20 @@
 <div>
+    <style>
+        /* Mobile Responsiveness Tweaks */
+        @media (max-width: 767.98px) {
+            .container-fluid { padding-left: 10px !important; padding-right: 10px !important; padding-top: 10px !important; }
+            .card-body { padding: 12px !important; }
+            .table { font-size: 0.8rem !important; }
+            .table th, .table td { padding: 8px 6px !important; }
+            h2.fw-bold { font-size: 1.4rem !important; }
+            h3.fw-bold { font-size: 1.2rem !important; }
+            .mb-4 { margin-bottom: 1rem !important; }
+            .g-4, .row { --bs-gutter-y: 1rem; --bs-gutter-x: 1rem; }
+            .card-header { padding: 10px 12px !important; }
+            .card-header h5 { font-size: 1.1rem !important; }
+            .badge { font-size: 0.7rem !important; padding: 0.35em 0.5em !important; }
+        }
+    </style>
     <!-- Header -->
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
@@ -99,8 +115,8 @@
                 </div>
             </div>
 
-            <!-- Expenses Table -->
-            <div class="table-responsive">
+            <!-- Expenses Table - Desktop -->
+            <div class="table-responsive d-none d-md-block">
                 <table class="table table-hover align-middle">
                     <thead class="table-light">
                         <tr>
@@ -166,6 +182,57 @@
                         @endforelse
                     </tbody>
                 </table>
+            </div>
+
+            <!-- Expenses List - Mobile -->
+            <div class="d-md-none">
+                @forelse($expenses as $expense)
+                <div class="card border-0 shadow-sm mb-3 bg-light">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <div>
+                                <h6 class="fw-bold mb-1">{{ $expense->expense_type }}</h6>
+                                <small class="text-muted d-block">{{ $expense->expense_date->format('d M, Y') }}</small>
+                            </div>
+                            <div class="text-end">
+                                @if($expense->status === 'pending')
+                                    <span class="badge bg-warning text-dark"><i class="bi bi-clock me-1"></i> Pending</span>
+                                @elseif($expense->status === 'approved')
+                                    <span class="badge bg-success"><i class="bi bi-check-circle me-1"></i> Approved</span>
+                                @else
+                                    <span class="badge bg-danger"><i class="bi bi-x-circle me-1"></i> Rejected</span>
+                                @endif
+                            </div>
+                        </div>
+                        
+                        <div class="mb-2">
+                            <p class="mb-0 text-muted small">{{ Str::limit($expense->description, 60) ?: 'No description' }}</p>
+                        </div>
+                        
+                        @if($expense->admin_notes)
+                        <div class="mb-2 p-2 bg-white border rounded small text-danger">
+                            <strong>Note:</strong> {{ $expense->admin_notes }}
+                        </div>
+                        @endif
+                        
+                        <div class="d-flex justify-content-between align-items-center mt-3 pt-2 border-top">
+                            <div>
+                                <span class="fw-bold text-dark fs-5">Rs. {{ number_format($expense->amount, 2) }}</span>
+                            </div>
+                            @if($expense->status === 'pending')
+                                <button class="btn btn-sm btn-outline-danger" wire:click="confirmDelete({{ $expense->id }})">
+                                    <i class="bi bi-trash"></i> Delete
+                                </button>
+                            @endif
+                        </div>
+                    </div>
+                </div>
+                @empty
+                <div class="text-center py-4 text-muted bg-light rounded shadow-sm">
+                    <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+                    <p class="mb-0">No expenses found</p>
+                </div>
+                @endforelse
             </div>
 
             <!-- Pagination -->

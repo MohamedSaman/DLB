@@ -202,7 +202,21 @@ class SalesmanProductList extends Component
 
     public function render()
     {
-        $products = $this->loadProducts();
+        $items = collect($this->loadProducts());
+        
+        $page = $this->getPage('page');
+        $perPage = 15;
+        
+        $products = new \Illuminate\Pagination\LengthAwarePaginator(
+            $items->forPage($page, $perPage),
+            $items->count(),
+            $perPage,
+            $page,
+            [
+                'path' => \Illuminate\Pagination\Paginator::resolveCurrentPath(),
+                'pageName' => 'page',
+            ]
+        );
 
         return view('livewire.salesman.salesman-product-list', [
             'products' => $products,

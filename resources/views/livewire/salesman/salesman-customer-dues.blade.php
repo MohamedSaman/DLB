@@ -1,4 +1,20 @@
 <div class="container-fluid py-3">
+    <style>
+        /* Mobile Responsiveness Tweaks */
+        @media (max-width: 767.98px) {
+            .container-fluid { padding-left: 10px !important; padding-right: 10px !important; padding-top: 10px !important; }
+            .card-body { padding: 12px !important; }
+            .table { font-size: 0.8rem !important; }
+            .table th, .table td { padding: 8px 6px !important; }
+            h2.fw-bold { font-size: 1.4rem !important; }
+            h3.fw-bold { font-size: 1.2rem !important; }
+            .mb-4 { margin-bottom: 1rem !important; }
+            .g-4, .row { --bs-gutter-y: 1rem; --bs-gutter-x: 1rem; }
+            .card-header { padding: 10px 12px !important; }
+            .card-header h5 { font-size: 1.1rem !important; }
+            .badge { font-size: 0.7rem !important; padding: 0.35em 0.5em !important; }
+        }
+    </style>
     {{-- Header --}}
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
@@ -49,8 +65,8 @@
         </div>
     </div>
 
-    {{-- Customers List --}}
-    <div class="card border-0 shadow-sm">
+    {{-- Customers List - Desktop --}}
+    <div class="card border-0 shadow-sm d-none d-md-block">
         <div class="card-body p-0">
             <div class="table-responsive">
                 <table class="table table-hover mb-0">
@@ -98,10 +114,45 @@
             </div>
         </div>
     </div>
+    
+    {{-- Customers List - Mobile --}}
+    <div class="d-md-none mb-4">
+        @forelse($customers as $customer)
+        <div class="card border-0 shadow-sm mb-3">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <div class="d-flex align-items-center">
+                        <div class="bg-primary bg-opacity-10 rounded-circle p-2 me-2">
+                            <i class="bi bi-person text-primary"></i>
+                        </div>
+                        <h6 class="fw-bold text-dark mb-0">{{ $customer->name }}</h6>
+                    </div>
+                    <button wire:click="viewDetails({{ $customer->id }})" class="btn btn-sm btn-outline-primary py-1 px-2">
+                        <i class="bi bi-eye"></i>
+                    </button>
+                </div>
+                <div class="mb-3">
+                    <div class="text-dark"><i class="bi bi-telephone me-2"></i>{{ $customer->phone ?? 'N/A' }}</div>
+                    <small class="text-muted d-block"><i class="bi bi-geo-alt me-2"></i>{{ Str::limit($customer->address ?? 'N/A', 40) }}</small>
+                </div>
+                <div>
+                    <small class="text-muted d-block">Total Due</small>
+                    <span class="fw-bold text-danger fs-5">Rs. {{ number_format($customer->total_due, 2) }}</span>
+                </div>
+            </div>
+        </div>
+        @empty
+        <div class="text-center py-4 text-muted bg-white rounded shadow-sm">
+            <i class="bi bi-check-circle fs-1 text-success d-block mb-2"></i>
+            <p class="mb-0">No outstanding dues! All your customers are settled.</p>
+        </div>
+        @endforelse
+    </div>
 
+    
     {{-- Pagination --}}
     <div class="mt-4">
-        {{ $customers->links() }}
+        {{ $customers->links('livewire.custom-pagination') }}
     </div>
 
     {{-- Details Modal --}}
