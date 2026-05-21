@@ -390,11 +390,17 @@
 
             .top-bar {
                 left: 0;
+                padding: 0 12px;
             }
 
             .main-content {
                 margin-left: 0;
                 width: 100%;
+                padding: 15px 5px;
+            }
+            
+            .admin-name {
+                display: none;
             }
         }
     </style>

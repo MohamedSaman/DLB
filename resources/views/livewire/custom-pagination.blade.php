@@ -42,7 +42,7 @@
             @foreach ($elements as $element)
             {{-- "Three Dots" Separator --}}
             @if (is_string($element))
-            <li class="page-item disabled">
+            <li class="page-item disabled d-none d-sm-block">
                 <a class="page-link rounded-circle" href="javascript:void(0)">{{ $element }}</a>
             </li>
             @endif
@@ -50,7 +50,7 @@
             {{-- Array Of Links --}}
             @if (is_array($element))
             @foreach ($element as $page => $url)
-            <li class="page-item {{ $page == $paginator->currentPage() ? 'active' : '' }}">
+            <li class="page-item {{ $page == $paginator->currentPage() ? 'active' : '' }} d-none d-sm-block">
                 <a class="page-link rounded-circle" href="javascript:void(0)"
                     wire:click="gotoPage({{ $page }})">
                     {{ $page }}
@@ -59,6 +59,11 @@
             @endforeach
             @endif
             @endforeach
+
+            {{-- Mobile Current Page Indicator --}}
+            <li class="page-item active d-sm-none">
+                <span class="page-link rounded-circle">{{ $paginator->currentPage() }}</span>
+            </li>
 
             {{-- Next Page Link --}}
             <li class="page-item {{ $paginator->hasMorePages() ? '' : 'disabled' }}">

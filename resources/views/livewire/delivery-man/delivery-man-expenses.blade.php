@@ -1,4 +1,20 @@
 <div>
+    <style>
+        /* Mobile Responsiveness Tweaks */
+        @media (max-width: 767.98px) {
+            .container-fluid, .px-4 { padding-left: 10px !important; padding-right: 10px !important; padding-top: 10px !important; }
+            .card-body { padding: 12px !important; }
+            .table { font-size: 0.8rem !important; }
+            .table th, .table td { padding: 8px 6px !important; }
+            h2.fw-bold { font-size: 1.4rem !important; }
+            h3.fw-bold { font-size: 1.2rem !important; }
+            .mb-4 { margin-bottom: 1rem !important; }
+            .g-4, .row { --bs-gutter-y: 1rem; --bs-gutter-x: 1rem; }
+            .card-header { padding: 10px 12px !important; }
+            .card-header h5 { font-size: 1.1rem !important; }
+            .badge { font-size: 0.7rem !important; padding: 0.35em 0.5em !important; }
+        }
+    </style>
     <!-- Header -->
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>

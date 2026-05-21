@@ -1,4 +1,20 @@
 <div class="container-fluid py-3">
+    <style>
+        /* Mobile Responsiveness Tweaks */
+        @media (max-width: 767.98px) {
+            .container-fluid { padding-left: 10px !important; padding-right: 10px !important; padding-top: 10px !important; }
+            .card-body { padding: 12px !important; }
+            .table { font-size: 0.8rem !important; }
+            .table th, .table td { padding: 8px 6px !important; }
+            h2.fw-bold { font-size: 1.4rem !important; }
+            h3.fw-bold { font-size: 1.2rem !important; }
+            .mb-4 { margin-bottom: 1rem !important; }
+            .g-4, .row { --bs-gutter-y: 1rem; --bs-gutter-x: 1rem; }
+            .card-header { padding: 10px 12px !important; }
+            .card-header h5 { font-size: 1.1rem !important; }
+            .badge { font-size: 0.7rem !important; padding: 0.35em 0.5em !important; }
+        }
+    </style>
     {{-- Header --}}
     <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4 gap-3">
         <div>
@@ -7,14 +23,13 @@
             </h3>
             <p class="text-muted mb-0">Collect payments directly from customers</p>
         </div>
-        <a href="{{ route('delivery.dashboard') }}" class="btn btn-outline-secondary">
-            <i class="bi bi-arrow-left me-2"></i> Back to Dashboard
-        </a>
+        
     </div>
 
     {{-- Pending Payments Alert --}}
+    {{-- Pending Payments Alert - Desktop --}}
     @if($pendingPayments->count() > 0)
-    <div class="card border-0 shadow-sm bg-warning bg-opacity-10 mb-4">
+    <div class="card border-0 shadow-sm bg-warning bg-opacity-10 mb-4 d-none d-md-block">
         <div class="card-header bg-warning text-dark">
             <h6 class="mb-0"><i class="bi bi-hourglass-split me-2"></i>Your Pending Payment Approvals ({{ $pendingPayments->count() }})</h6>
         </div>
@@ -43,7 +58,29 @@
                     </tbody>
                 </table>
             </div>
+          
         </div>
+    </div>
+    
+    {{-- Pending Payments Alert - Mobile --}}
+    <div class="d-md-none mb-4">
+        <div class="d-flex align-items-center mb-2 px-1 text-warning">
+            <h6 class="mb-0 fw-bold"><i class="bi bi-hourglass-split me-2"></i>Pending Approvals ({{ $pendingPayments->count() }})</h6>
+        </div>
+        @foreach($pendingPayments as $payment)
+        <div class="card border-0 shadow-sm bg-warning bg-opacity-10 mb-2">
+            <div class="card-body py-2 px-3">
+                <div class="d-flex justify-content-between align-items-center mb-1">
+                    <span class="fw-bold text-dark">{{ $payment->customer->name ?? 'N/A' }}</span>
+                    <span class="fw-semibold text-danger">Rs. {{ number_format($payment->amount, 2) }}</span>
+                </div>
+                <div class="d-flex justify-content-between align-items-center">
+                    <small class="text-muted">{{ $payment->collected_at?->format('M d, Y') }}</small>
+                    <span class="badge bg-info">{{ ucfirst(str_replace('_', ' ', $payment->payment_method)) }}</span>
+                </div>
+            </div>
+        </div>
+        @endforeach
     </div>
     @endif
 
@@ -83,9 +120,9 @@
         </div>
     </div>
 
-    {{-- Customer List --}}
+    {{-- Customer List - Desktop --}}
     @if(!$selectedCustomer)
-    <div class="card border-0 shadow-sm">
+    <div class="card border-0 shadow-sm d-none d-md-block">
         <div class="card-header bg-white py-3">
             <h6 class="fw-bold mb-0"><i class="bi bi-people me-2"></i>Customers with Outstanding Dues</h6>
         </div>
@@ -158,9 +195,70 @@
             </div>
         </div>
     </div>
+    
+    {{-- Customer List - Mobile --}}
+    <div class="d-md-none">
+        <div class="d-flex align-items-center mb-3 px-1 mt-2">
+            <h6 class="fw-bold text-dark mb-0"><i class="bi bi-people me-2"></i>Customers with Dues</h6>
+        </div>
+        @forelse($customers as $customer)
+        @php
+        $dueInvoices = $customer->sales->whereIn('payment_status', ['pending', 'partial'])->count();
+        $salesDue = $customer->sales->sum(function($sale) {
+            $returnAmount = $sale->returns ? $sale->returns->sum('total_amount') : 0;
+            return max(0, $sale->due_amount - $returnAmount);
+        });
+        $totalDue = ($customer->opening_balance ?? 0) + $salesDue;
+        $pendingAmount = $pendingAllocationsPerCustomer[$customer->id] ?? 0;
+        $effectiveDue = max(0, $totalDue - $pendingAmount);
+        @endphp
+        @if($effectiveDue > 0.01)
+        <div class="card border-0 shadow-sm mb-3">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start mb-3">
+                    <div>
+                        <h6 class="fw-bold text-dark mb-1">{{ $customer->name }}</h6>
+                        <small class="text-muted d-block">Distributor</small>
+                    </div>
+                    <div class="text-end">
+                        <span class="badge bg-warning">{{ $dueInvoices }} Invoices</span>
+                        @if($customer->opening_balance > 0)
+                        <span class="badge bg-info ms-1">+ OB</span>
+                        @endif
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <div class="text-dark"><i class="bi bi-telephone me-2"></i>{{ $customer->phone }}</div>
+                    @if($customer->email)
+                    <small class="text-muted d-block"><i class="bi bi-envelope me-2"></i>{{ $customer->email }}</small>
+                    @endif
+                </div>
+                <div class="mb-3">
+                    <small class="text-muted d-block">Total Due</small>
+                    <span class="fw-bold text-danger">Rs. {{ number_format($effectiveDue, 2) }}</span>
+                    @if($pendingAmount > 0)
+                    <small class="d-block text-warning"><i class="bi bi-hourglass-split"></i> Rs. {{ number_format($pendingAmount, 2) }} pending</small>
+                    @endif
+                </div>
+                <div class="d-grid">
+                    <button wire:click="selectCustomer({{ $customer->id }})" class="btn btn-sm btn-primary py-2">
+                        <i class="bi bi-cash me-1"></i> Collect Payment
+                    </button>
+                </div>
+            </div>
+        </div>
+        @endif
+        @empty
+        <div class="text-center py-5 text-muted bg-white rounded shadow-sm">
+            <i class="bi bi-check-circle fs-1 text-success d-block mb-2"></i>
+            <p class="mb-0">No outstanding dues! All payments collected.</p>
+        </div>
+        @endforelse
+    </div>
 
+  {{-- Pagination --}}
     <div class="mt-4">
-        {{ $customers->links() }}
+        {{ $customers->links('livewire.custom-pagination') }}
     </div>
     @endif
 
@@ -169,7 +267,7 @@
     <div class="row">
         {{-- Due Invoices List --}}
         <div class="col-lg-8">
-            <div class="card mb-4">
+            <div class="card mb-4 d-none d-md-block">
                 <div class="card-header bg-warning text-white">
                     <h5 class="fw-bold mb-0">
                         <i class="bi bi-receipt me-2"></i> Due Invoices - {{ $selectedCustomer->name }}
@@ -232,6 +330,56 @@
                         </table>
                     </div>
                 </div>
+            </div>
+            
+            {{-- Due Invoices List - Mobile --}}
+            <div class="d-md-none mb-4">
+                <div class="d-flex justify-content-between align-items-center mb-3 px-1 mt-2">
+                    <h5 class="fw-bold mb-0">
+                        <i class="bi bi-receipt text-warning me-2"></i> Due Invoices
+                    </h5>
+                    <div class="form-check form-switch mb-0">
+                        <input class="form-check-input" type="checkbox" id="selectAllSwitch" wire:click="selectAllInvoices" @if(count($selectedInvoices) == count($customerSales)) checked @endif>
+                        <label class="form-check-label text-muted small" for="selectAllSwitch">Select All</label>
+                    </div>
+                </div>
+                
+                @foreach($customerSales as $sale)
+                <div class="card border-0 shadow-sm mb-3 @if(in_array($sale['id'], $selectedInvoices)) border-success bg-success bg-opacity-10 @endif" style="cursor:pointer;" wire:click="toggleInvoiceSelection('{{ $sale['id'] }}')">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <div class="d-flex align-items-center">
+                                <input type="checkbox" class="form-check-input me-3" style="transform: scale(1.2);" @if(in_array($sale['id'], $selectedInvoices)) checked @endif>
+                                <div>
+                                    <h6 class="fw-bold mb-1">{{ $sale['invoice_number'] }}</h6>
+                                    @if(isset($sale['is_opening_balance']) && $sale['is_opening_balance'])
+                                    <span class="badge bg-info">Opening Balance</span>
+                                    @else
+                                    <small class="text-muted d-block">{{ $sale['sale_date'] }}</small>
+                                    @endif
+                                </div>
+                            </div>
+                            <div class="text-end">
+                                @if($sale['payment_status'] === 'pending')
+                                <span class="badge bg-warning">Pending</span>
+                                @else
+                                <span class="badge bg-info">Partial</span>
+                                @endif
+                            </div>
+                        </div>
+                        <div class="row g-2 mt-3">
+                            <div class="col-6">
+                                <small class="text-muted d-block">Total</small>
+                                <span class="fw-medium">Rs. {{ number_format($sale['total_amount'], 2) }}</span>
+                            </div>
+                            <div class="col-6 text-end">
+                                <small class="text-muted d-block">Due Amount</small>
+                                <span class="fw-bold text-danger">Rs. {{ number_format($sale['due_amount'], 2) }}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                @endforeach
             </div>
         </div>
 

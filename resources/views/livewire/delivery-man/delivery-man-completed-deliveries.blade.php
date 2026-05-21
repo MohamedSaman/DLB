@@ -1,4 +1,20 @@
 <div class="container-fluid py-3">
+    <style>
+        /* Mobile Responsiveness Tweaks */
+        @media (max-width: 767.98px) {
+            .container-fluid { padding-left: 10px !important; padding-right: 10px !important; padding-top: 10px !important; }
+            .card-body { padding: 12px !important; }
+            .table { font-size: 0.8rem !important; }
+            .table th, .table td { padding: 8px 6px !important; }
+            h2.fw-bold { font-size: 1.4rem !important; }
+            h3.fw-bold { font-size: 1.2rem !important; }
+            .mb-4 { margin-bottom: 1rem !important; }
+            .g-4, .row { --bs-gutter-y: 1rem; --bs-gutter-x: 1rem; }
+            .card-header { padding: 10px 12px !important; }
+            .card-header h5 { font-size: 1.1rem !important; }
+            .badge { font-size: 0.7rem !important; padding: 0.35em 0.5em !important; }
+        }
+    </style>
     {{-- Header --}}
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
@@ -7,9 +23,7 @@
             </h3>
             <p class="text-muted mb-0">View your delivery history</p>
         </div>
-        <a href="{{ route('delivery.dashboard') }}" class="btn btn-outline-secondary">
-            <i class="bi bi-arrow-left me-2"></i> Back to Dashboard
-        </a>
+        
     </div>
 
     {{-- Stats --}}
@@ -54,8 +68,8 @@
         </div>
     </div>
 
-    {{-- Deliveries List --}}
-    <div class="card border-0 shadow-sm">
+    {{-- Deliveries List - Desktop View --}}
+    <div class="card border-0 shadow-sm d-none d-md-block">
         <div class="card-body p-0">
             <div class="table-responsive">
                 <table class="table table-hover mb-0">
@@ -106,9 +120,58 @@
         </div>
     </div>
 
-    {{-- Pagination --}}
+    {{-- Deliveries List - Mobile View --}}
+    <div class="d-md-none">
+        @forelse($sales as $sale)
+        <div class="card border-0 shadow-sm mb-3">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start mb-3">
+                    <div>
+                        <h6 class="fw-bold mb-1">{{ $sale->invoice_number }}</h6>
+                        <small class="text-muted d-block">{{ $sale->sale_id }}</small>
+                    </div>
+                    <div class="text-end">
+                        <span class="badge bg-success">Delivered</span>
+                    </div>
+                </div>
+                
+                <div class="mb-3">
+                    <p class="mb-1"><strong><i class="bi bi-person me-2"></i>{{ $sale->customer->name ?? 'N/A' }}</strong></p>
+                    @if($sale->customer->phone ?? false)
+                    <p class="mb-1 text-muted"><i class="bi bi-telephone me-2"></i>{{ $sale->customer->phone }}</p>
+                    @endif
+                </div>
+                
+                <div class="row g-2 mb-3">
+                    <div class="col-6">
+                        <small class="text-muted d-block">Amount</small>
+                        <span class="fw-bold">Rs. {{ number_format($sale->total_amount, 2) }}</span>
+                    </div>
+                    <div class="col-6">
+                        <small class="text-muted d-block">Delivered At</small>
+                        <span class="text-success fw-medium">{{ $sale->delivered_at?->format('M d, Y') }}</span>
+                        <small class="d-block text-muted">{{ $sale->delivered_at?->format('h:i A') }}</small>
+                    </div>
+                </div>
+                
+                <div class="d-grid gap-2">
+                    <button wire:click="viewDetails({{ $sale->id }})" class="btn btn-sm btn-outline-primary">
+                        <i class="bi bi-eye me-2"></i> View Details
+                    </button>
+                </div>
+            </div>
+        </div>
+        @empty
+        <div class="text-center py-5 text-muted">
+            <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+            <p>No completed deliveries found.</p>
+        </div>
+        @endforelse
+    </div>
+
+      {{-- Pagination --}}
     <div class="mt-4">
-        {{ $sales->links() }}
+        {{ $sales->links('livewire.custom-pagination') }}
     </div>
 
     {{-- Details Modal --}}
