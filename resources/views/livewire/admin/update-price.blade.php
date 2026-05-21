@@ -174,19 +174,27 @@
                         </div>
 
                         <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
-                            <table class="table table-sm table-hover">
+                            <table class="table table-sm table-hover align-middle">
                                 <thead class="table-light sticky-top">
                                     <tr>
-                                        <th style="width: 30px;">Row</th>
+                                        <th style="width: 50px;">Row</th>
                                         <th>Code</th>
-                                        <th>Status</th>
+                                        <th>Product Name / Variant</th>
+                                        <th class="text-end" style="width: 100px;">Wholesale</th>
+                                        <th class="text-end" style="width: 100px;">Distributor</th>
+                                        <th class="text-end" style="width: 100px;">Retail</th>
+                                        <th style="width: 150px;">Status</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     @foreach($importedData as $item)
                                         <tr class="@if($item['status'] === 'error') table-danger @elseif($item['status'] === 'ready') table-success @endif">
                                             <td>{{ $item['row_number'] }}</td>
-                                            <td>{{ $item['product_code'] }}</td>
+                                            <td class="fw-semibold">{{ $item['product_code'] }}</td>
+                                            <td>{{ $item['product_name_variant'] }}</td>
+                                            <td class="text-end text-muted">{{ number_format($item['wholesale_price'], 2) }}</td>
+                                            <td class="text-end text-muted">{{ number_format($item['distributor_price'], 2) }}</td>
+                                            <td class="text-end text-muted">{{ number_format($item['retail_price'], 2) }}</td>
                                             <td>
                                                 @if($item['status'] === 'error')
                                                     <span class="badge bg-danger">
@@ -248,8 +256,9 @@
                             </div>
 
                             <div class="alert alert-info" role="alert">
-                                <strong><i class="bi bi-info-circle"></i> Required Columns:</strong>
+                                <strong><i class="bi bi-info-circle"></i> Column Format:</strong>
                                 <ol class="mb-0 mt-2">
+                                    <li>Price ID <span class="badge bg-secondary font-monospace" style="font-size: 10px;">Optional (Direct Match)</span></li>
                                     <li>Product Code</li>
                                     <li>Product Name + Variant Value</li>
                                     <li>Wholesale Price</li>

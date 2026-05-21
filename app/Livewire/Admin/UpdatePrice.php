@@ -137,6 +137,7 @@ class UpdatePrice extends Component
     }
 
     /**
+    /**
      * Export current prices to CSV
      */
     public function exportCSV()
@@ -147,7 +148,7 @@ class UpdatePrice extends Component
             ->get();
 
         $csvData = [];
-        $csvData[] = ['Product Code', 'Product Name + Variant Value', 'Wholesale Price', 'Distributor Price', 'Retail Price'];
+        $csvData[] = ['Price ID', 'Product Code', 'Product Name + Variant Value', 'Wholesale Price', 'Distributor Price', 'Retail Price'];
 
         foreach ($products as $product) {
             if ($product->hasVariants() && $product->variant) {
@@ -157,6 +158,7 @@ class UpdatePrice extends Component
                 foreach ($variantPrices as $price) {
                     $productNameWithVariant = $product->name . ' - ' . ($product->variant->variant_name ?? '') . ': ' . ($price->variant_value ?? '');
                     $csvData[] = [
+                        $price->id,
                         $product->code,
                         $productNameWithVariant,
                         $price->wholesale_price ?? 0,
@@ -169,6 +171,7 @@ class UpdatePrice extends Component
                 $price = $product->prices()->where('variant_id', null)->first();
                 if ($price) {
                     $csvData[] = [
+                        $price->id,
                         $product->code,
                         $product->name,
                         $price->wholesale_price ?? 0,
@@ -181,6 +184,9 @@ class UpdatePrice extends Component
 
         $filename = 'product-prices-' . date('Y-m-d-His') . '.csv';
         $handle = fopen('php://memory', 'w');
+
+        // Add UTF-8 BOM so Excel opens it correctly
+        fprintf($handle, chr(0xEF).chr(0xBB).chr(0xBF));
 
         foreach ($csvData as $row) {
             fputcsv($handle, $row);
@@ -232,16 +238,32 @@ class UpdatePrice extends Component
     }
 
     /**
-     * Parse CSV file
+     * Parse CSV file with auto-detect delimiter
      */
     private function parseCSVFile($file)
     {
         $data = [];
-        $handle = fopen($file->getRealPath(), 'r');
+        $filePath = $file->getRealPath();
+
+        // Auto-detect delimiter
+        $delimiter = ',';
+        $fileHeader = file_get_contents($filePath, false, null, 0, 2048);
+        if ($fileHeader !== false) {
+            $semicolons = substr_count($fileHeader, ';');
+            $commas = substr_count($fileHeader, ',');
+            $tabs = substr_count($fileHeader, "\t");
+            if ($semicolons > $commas && $semicolons > $tabs) {
+                $delimiter = ';';
+            } elseif ($tabs > $commas && $tabs > $semicolons) {
+                $delimiter = "\t";
+            }
+        }
+
+        $handle = fopen($filePath, 'r');
         $headers = null;
         $rowNumber = 0;
 
-        while (($row = fgetcsv($handle)) !== false) {
+        while (($row = fgetcsv($handle, 0, $delimiter)) !== false) {
             $rowNumber++;
 
             if ($rowNumber === 1) {
@@ -290,16 +312,112 @@ class UpdatePrice extends Component
     }
 
     /**
+     * Helper to normalize encoding corruptions (e.g. from Excel reading UTF-8 as ANSI)
+     */
+    private function normalizeEncodingCorruptions($str)
+    {
+        $corruptions = [
+            'Ï†' => 'φ',
+            'Î†' => 'φ',
+            'Î¦' => 'Φ',
+            'Ï' => 'φ',
+            'Î' => 'φ',
+            'Ã¸' => 'ø',
+            'Ã˜' => 'Ø',
+        ];
+        return str_replace(array_keys($corruptions), array_values($corruptions), $str);
+    }
+
+    /**
+     * Helper to normalize quotes
+     */
+    private function normalizeQuotes($str)
+    {
+        $smartQuotes = [
+            '“' => '"',
+            '”' => '"',
+            '‘' => "'",
+            '’' => "'",
+            '„' => '"',
+            '‹' => "'",
+            '›' => "'",
+        ];
+        return str_replace(array_keys($smartQuotes), array_values($smartQuotes), $str);
+    }
+
+    /**
+     * Helper to clean string input
+     */
+    private function cleanString($str)
+    {
+        if ($str === null || $str === '') {
+            return '';
+        }
+        $str = preg_replace('/^\xEF\xBB\xBF/', '', $str); // Remove BOM
+        $str = $this->normalizeEncodingCorruptions($str); // Fix encoding corruptions
+        $str = $this->normalizeQuotes($str);
+        $str = preg_replace('/\s+/u', ' ', $str); // Normalize all spaces (including non-breaking spaces)
+        return trim($str);
+    }
+
+    /**
+     * Helper to clean price strings (handling thousands separators, currency symbols, spaces)
+     */
+    private function cleanPrice($value)
+    {
+        if (is_numeric($value)) {
+            return (float) $value;
+        }
+        $str = str_replace(',', '', (string) $value);
+        if (preg_match('/-?\d+(?:\.\d+)?/', $str, $matches)) {
+            return (float) $matches[0];
+        }
+        return 0.0;
+    }
+
+    /**
      * Process a single row and validate/map data
      */
     private function processRow($row, $headers, $rowNumber)
     {
-        $productCode = trim((string) ($row[0] ?? ''));
-        $productCode = preg_replace('/^\xEF\xBB\xBF/', '', $productCode);
-        $productNameVariant = trim((string) ($row[1] ?? ''));
-        $wholesalePrice = (float) ($row[2] ?? 0);
-        $distributorPrice = (float) ($row[3] ?? 0);
-        $retailPrice = (float) ($row[4] ?? 0);
+        // Default column indices (assuming no headers match)
+        $priceIdIndex = -1;
+        $productCodeIndex = 0;
+        $productNameVariantIndex = 1;
+        $wholesalePriceIndex = 2;
+        $distributorPriceIndex = 3;
+        $retailPriceIndex = 4;
+
+        // Map column indices dynamically based on headers
+        if (!empty($headers)) {
+            foreach ($headers as $index => $header) {
+                $headerClean = mb_strtolower($this->cleanString($header));
+                if (str_contains($headerClean, 'price id') || str_contains($headerClean, 'price_id')) {
+                    $priceIdIndex = $index;
+                } elseif (str_contains($headerClean, 'product code') || str_contains($headerClean, 'code')) {
+                    $productCodeIndex = $index;
+                } elseif (str_contains($headerClean, 'product name') || str_contains($headerClean, 'name')) {
+                    $productNameVariantIndex = $index;
+                } elseif (str_contains($headerClean, 'wholesale')) {
+                    $wholesalePriceIndex = $index;
+                } elseif (str_contains($headerClean, 'distributor')) {
+                    $distributorPriceIndex = $index;
+                } elseif (str_contains($headerClean, 'retail')) {
+                    $retailPriceIndex = $index;
+                }
+            }
+        }
+
+        $priceIdVal = null;
+        if ($priceIdIndex !== -1) {
+            $priceIdVal = $this->cleanString($row[$priceIdIndex] ?? '');
+        }
+
+        $productCode = $this->cleanString($row[$productCodeIndex] ?? '');
+        $productNameVariant = $this->cleanString($row[$productNameVariantIndex] ?? '');
+        $wholesalePrice = $this->cleanPrice($row[$wholesalePriceIndex] ?? 0);
+        $distributorPrice = $this->cleanPrice($row[$distributorPriceIndex] ?? 0);
+        $retailPrice = $this->cleanPrice($row[$retailPriceIndex] ?? 0);
 
         $result = [
             'product_code' => $productCode,
@@ -314,39 +432,85 @@ class UpdatePrice extends Component
             'product_id' => null,
         ];
 
-        // Validate product code exists
+        // 1. Check if we can map directly by Price ID
+        if ($priceIdVal !== '' && is_numeric($priceIdVal)) {
+            $priceId = (int) $priceIdVal;
+            $price = ProductPrice::with(['product', 'variant'])->find($priceId);
+
+            if ($price) {
+                $result['price_id'] = $price->id;
+                $result['product_id'] = $price->product_id;
+                // Update product_code and product_name_variant to match database value for cleaner preview
+                if ($price->product) {
+                    $result['product_code'] = $price->product->code;
+                    if ($price->isVariantBased()) {
+                        $result['product_name_variant'] = $price->product->name . ' - ' . ($price->variant->variant_name ?? 'Variant') . ': ' . $price->variant_value;
+                    } else {
+                        $result['product_name_variant'] = $price->product->name;
+                    }
+                }
+                $result['status'] = 'ready';
+                return $result;
+            } else {
+                $result['error'] = 'Price ID not found: ' . $priceId;
+                $result['status'] = 'error';
+                return $result;
+            }
+        }
+
+        // 2. Fallback matching logic by Code and Name
         if ($productCode === '') {
             $result['error'] = 'Product code is required';
             $result['status'] = 'error';
             return $result;
         }
 
-        $product = ProductDetail::whereRaw('LOWER(TRIM(code)) = ?', [mb_strtolower(trim($productCode))])->first();
+        // Normalize product code if it looks like a float but is integer code (e.g. 123.0 -> 123)
+        if (is_numeric($productCode) && str_contains($productCode, '.')) {
+            $parts = explode('.', $productCode);
+            if (count($parts) === 2 && (int) $parts[1] === 0) {
+                $productCode = $parts[0];
+            }
+        }
+
+        // Find active product detail
+        $product = ProductDetail::whereRaw('LOWER(TRIM(code)) = ?', [mb_strtolower($productCode)])
+            ->where('status', 'active')
+            ->first();
 
         // Excel often strips leading zeros (e.g. 000 -> 0), so match numeric codes by numeric value.
         if (!$product && preg_match('/^\d+$/', $productCode)) {
-            $product = ProductDetail::whereRaw('TRIM(code) REGEXP "^[0-9]+$"')
+            $product = ProductDetail::where('status', 'active')
+                ->whereRaw('TRIM(code) REGEXP "^[0-9]+$"')
                 ->whereRaw('CAST(TRIM(code) AS UNSIGNED) = ?', [(int) $productCode])
                 ->first();
         }
 
-        // Fallback lookup by product name in "Product Name - Variant: Value" format.
+        // Fallback lookup by product name
         if (!$product) {
             $namePart = $productNameVariant;
-            if (str_contains($namePart, ':')) {
+            $hasVariantInName = str_contains($namePart, ':');
+            if ($hasVariantInName) {
                 $namePart = trim((string) explode(':', $namePart)[0]);
-            }
-            if (str_contains($namePart, ' - ')) {
-                $namePart = trim((string) explode(' - ', $namePart)[0]);
+                if (str_contains($namePart, ' - ')) {
+                    $parts = explode(' - ', $namePart);
+                    if (count($parts) > 1) {
+                        array_pop($parts); // Remove the last part which is the variant name (e.g., SIZE)
+                        $namePart = implode(' - ', $parts);
+                    }
+                }
             }
 
+            $namePart = trim($namePart);
             if ($namePart !== '') {
-                $product = ProductDetail::whereRaw('LOWER(TRIM(name)) = ?', [mb_strtolower($namePart)])->first();
+                $product = ProductDetail::whereRaw('LOWER(TRIM(name)) = ?', [mb_strtolower($namePart)])
+                    ->where('status', 'active')
+                    ->first();
             }
         }
 
         if (!$product) {
-            $result['error'] = 'Product code not found: ' . $productCode;
+            $result['error'] = 'Active product code or name not found: ' . $productCode;
             $result['status'] = 'error';
             return $result;
         }
@@ -357,7 +521,7 @@ class UpdatePrice extends Component
         if ($product->hasVariants()) {
             // Extract variant value from product name if it contains variant info
             $variantValue = $this->extractVariantValue($productNameVariant, $product);
-            if ($variantValue) {
+            if ($variantValue !== null && $variantValue !== '') {
                 $price = $product->prices()
                     ->where('variant_id', $product->variant_id)
                     ->whereRaw('LOWER(TRIM(variant_value)) = ?', [mb_strtolower(trim($variantValue))])
