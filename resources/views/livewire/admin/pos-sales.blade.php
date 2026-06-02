@@ -12,6 +12,18 @@ use App\Models\Sale;
             <p class="text-muted mb-0">View and manage POS sales</p>
         </div>
         <div class="d-flex gap-2">
+            <button wire:click="exportCsv"
+                    wire:loading.attr="disabled"
+                    wire:target="exportCsv"
+                    class="btn btn-success">
+                <span wire:loading.remove wire:target="exportCsv">
+                    <i class="bi bi-file-earmark-arrow-down me-2"></i>Export CSV
+                </span>
+                <span wire:loading wire:target="exportCsv">
+                    <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                    Exporting...
+                </span>
+            </button>
             <a href="{{ route('admin.quotation-system') }}" class="btn btn-outline-primary">
                 <i class="bi bi-file-earmark-text me-2"></i> Create Quotation
             </a>
@@ -100,7 +112,7 @@ use App\Models\Sale;
     <div class="card mb-4">
         <div class="card-body">
             <div class="row g-3">
-                <div class="col-md-4">
+                <div class="col-md-3">
                     <label class="form-label fw-semibold">Search</label>
                     <div class="input-group">
                         <span class="input-group-text">
@@ -119,13 +131,17 @@ use App\Models\Sale;
                         <option value="pending">Pending</option>
                     </select>
                 </div>
-                <div class="col-md-3">
-                    <label class="form-label fw-semibold">Date</label>
-                    <input type="date" class="form-control" wire:model.live="dateFilter">
+                <div class="col-md-2">
+                    <label class="form-label fw-semibold">From Date</label>
+                    <input type="date" class="form-control" wire:model.live="dateFrom">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label fw-semibold">To Date</label>
+                    <input type="date" class="form-control" wire:model.live="dateTo">
                 </div>
                 <div class="col-md-2">
                     <label class="form-label fw-semibold invisible">Actions</label>
-                    <button class="btn btn-outline-secondary w-100" wire:click="$set('dateFilter', '')">
+                    <button class="btn btn-outline-secondary w-100" wire:click="$set('dateFrom', ''); $set('dateTo', '')">
                         <i class="bi bi-arrow-clockwise me-1"></i> Reset
                     </button>
                 </div>

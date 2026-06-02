@@ -822,6 +822,87 @@ class SaleApproval extends Component
         ");
     }
 
+    public function exportCsv()
+    {
+        $query = Sale::with(['customer', 'user']);
+
+        $isAdmin = Auth::user()->role === 'admin';
+
+        $query->whereHas('user', function ($q) {
+            $q->where('role', '!=', 'admin');
+        });
+
+        if (!$isAdmin) {
+            $query->where('user_id', Auth::id());
+        }
+
+        if ($this->staffFilter !== '') {
+            $query->where('user_id', $this->staffFilter);
+        }
+
+        if ($this->dateFrom) {
+            $query->whereDate('created_at', '>=', $this->dateFrom);
+        }
+        if ($this->dateTo) {
+            $query->whereDate('created_at', '<=', $this->dateTo);
+        }
+
+        if ($this->statusFilter !== '') {
+            $query->where('status', $this->statusFilter);
+        }
+
+        $query->when($this->search, function ($q) {
+            $q->where(function ($sq) {
+                $sq->where('sale_id', 'like', '%' . $this->search . '%')
+                    ->orWhere('invoice_number', 'like', '%' . $this->search . '%')
+                    ->orWhereHas('customer', function ($cq) {
+                        $cq->where('name', 'like', '%' . $this->search . '%');
+                    });
+            });
+        })->orderBy('created_at', 'desc');
+
+        $sales = $query->get();
+
+        $filename = 'sales_' . now()->format('Y-m-d_H-i-s') . '.csv';
+
+        return response()->streamDownload(function () use ($sales) {
+            $handle = fopen('php://output', 'w');
+
+            // CSV Headers
+            fputcsv($handle, [
+                'Invoice Number',
+                'Sale ID',
+                'Staff',
+                'Customer',
+                'Customer Phone',
+                'Total Amount (Rs.)',
+                'Due Amount (Rs.)',
+                'Payment Status',
+                'Sale Status',
+                'Date',
+            ]);
+
+            foreach ($sales as $sale) {
+                fputcsv($handle, [
+                    $sale->invoice_number ?? '',
+                    $sale->sale_id ?? '',
+                    $sale->user->name ?? 'N/A',
+                    $sale->customer->name ?? 'Walk-in',
+                    $sale->customer->phone ?? 'N/A',
+                    number_format($sale->total_amount, 2),
+                    number_format($sale->due_amount ?? 0, 2),
+                    ucfirst($sale->payment_status ?? 'pending'),
+                    ucfirst($sale->status ?? ''),
+                    $sale->created_at ? $sale->created_at->format('Y-m-d H:i') : '',
+                ]);
+            }
+
+            fclose($handle);
+        }, $filename, [
+            'Content-Type' => 'text/csv',
+        ]);
+    }
+
     public function render()
     {
         $query = Sale::with(['customer', 'user']);

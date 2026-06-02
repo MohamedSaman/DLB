@@ -24,7 +24,8 @@ class PosSales extends Component
     public $search = '';
     public $selectedSale = null;
     public $paymentStatusFilter = 'all';
-    public $dateFilter = '';
+    public $dateFrom = '';
+    public $dateTo = '';
     public $showViewModal = false;
     public $showEditModal = false;
     public $showDeleteModal = false;
@@ -56,7 +57,12 @@ class PosSales extends Component
         $this->resetPage();
     }
 
-    public function updatedDateFilter()
+    public function updatedDateFrom()
+    {
+        $this->resetPage();
+    }
+
+    public function updatedDateTo()
     {
         $this->resetPage();
     }
@@ -507,8 +513,11 @@ class PosSales extends Component
             ->when($this->paymentStatusFilter !== 'all', function ($query) {
                 $query->where('payment_status', $this->paymentStatusFilter);
             })
-            ->when($this->dateFilter, function ($query) {
-                $query->whereDate('created_at', $this->dateFilter);
+            ->when($this->dateFrom, function ($query) {
+                $query->whereDate('created_at', '>=', $this->dateFrom);
+            })
+            ->when($this->dateTo, function ($query) {
+                $query->whereDate('created_at', '<=', $this->dateTo);
             })
             ->orderBy('created_at', 'desc')
             ->paginate($this->perPage);
@@ -594,6 +603,69 @@ class PosSales extends Component
         } catch (\Exception $e) {
             $this->dispatch('showToast', ['type' => 'error', 'message' => 'Error updating sale: ' . $e->getMessage()]);
         }
+    }
+
+    public function exportCsv()
+    {
+        $query = Sale::with(['customer', 'user'])
+            ->where('sale_type', 'pos')
+            ->when($this->search, function ($q) {
+                $q->where(function ($sq) {
+                    $sq->where('invoice_number', 'like', '%' . $this->search . '%')
+                        ->orWhere('sale_id', 'like', '%' . $this->search . '%')
+                        ->orWhereHas('customer', function ($cq) {
+                            $cq->where('name', 'like', '%' . $this->search . '%')
+                                ->orWhere('phone', 'like', '%' . $this->search . '%');
+                        });
+                });
+            })
+            ->when($this->paymentStatusFilter !== 'all', function ($query) {
+                $query->where('payment_status', $this->paymentStatusFilter);
+            })
+            ->when($this->dateFrom, function ($query) {
+                $query->whereDate('created_at', '>=', $this->dateFrom);
+            })
+            ->when($this->dateTo, function ($query) {
+                $query->whereDate('created_at', '<=', $this->dateTo);
+            })
+            ->orderBy('created_at', 'desc');
+
+        $sales = $query->get();
+
+        $filename = 'pos_sales_' . now()->format('Y-m-d_H-i-s') . '.csv';
+
+        return response()->streamDownload(function () use ($sales) {
+            $handle = fopen('php://output', 'w');
+
+            // CSV Headers
+            fputcsv($handle, [
+                'Invoice Number',
+                'Sale ID',
+                'Customer',
+                'Customer Phone',
+                'Total Amount (Rs.)',
+                'Due Amount (Rs.)',
+                'Payment Status',
+                'Date',
+            ]);
+
+            foreach ($sales as $sale) {
+                fputcsv($handle, [
+                    $sale->invoice_number ?? '',
+                    $sale->sale_id ?? '',
+                    $sale->customer->name ?? 'Walk-in',
+                    $sale->customer->phone ?? 'N/A',
+                    number_format($sale->total_amount, 2),
+                    number_format($sale->due_amount ?? 0, 2),
+                    ucfirst($sale->payment_status ?? 'pending'),
+                    $sale->created_at ? $sale->created_at->format('Y-m-d H:i') : '',
+                ]);
+            }
+
+            fclose($handle);
+        }, $filename, [
+            'Content-Type' => 'text/csv',
+        ]);
     }
 
     public function render()
