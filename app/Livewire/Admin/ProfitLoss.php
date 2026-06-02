@@ -138,7 +138,19 @@ class ProfitLoss extends Component
         // Using left join to ensure we get all sale items even if price is missing
         $cogsQuery = DB::table('sale_items')
             ->join('sales', 'sale_items.sale_id', '=', 'sales.id')
-            ->leftJoin('product_prices', 'sale_items.product_id', '=', 'product_prices.product_id')
+            ->leftJoin('product_prices', function ($join) {
+                $join->on('sale_items.product_id', '=', 'product_prices.product_id')
+                     ->where(function ($query) {
+                         $query->where(function ($q) {
+                             $q->whereNotNull('sale_items.variant_id')
+                               ->whereRaw('sale_items.variant_id = product_prices.variant_id')
+                               ->whereRaw('sale_items.variant_value = product_prices.variant_value');
+                         })->orWhere(function ($q) {
+                             $q->whereNull('sale_items.variant_id')
+                               ->where('product_prices.pricing_mode', 'single');
+                         });
+                     });
+            })
             ->where('sales.status', 'confirm')
             ->select(DB::raw('SUM(COALESCE(product_prices.supplier_price, 0) * sale_items.quantity) as total_cost'));
 
@@ -169,7 +181,19 @@ class ProfitLoss extends Component
         // Calculate COGS for returned products
         $returnsCOGSQuery = DB::table('returns_products')
             ->join('sales', 'returns_products.sale_id', '=', 'sales.id')
-            ->leftJoin('product_prices', 'returns_products.product_id', '=', 'product_prices.product_id')
+            ->leftJoin('product_prices', function ($join) {
+                $join->on('returns_products.product_id', '=', 'product_prices.product_id')
+                     ->where(function ($query) {
+                         $query->where(function ($q) {
+                             $q->whereNotNull('returns_products.variant_id')
+                               ->whereRaw('returns_products.variant_id = product_prices.variant_id')
+                               ->whereRaw('returns_products.variant_value = product_prices.variant_value');
+                         })->orWhere(function ($q) {
+                             $q->whereNull('returns_products.variant_id')
+                               ->where('product_prices.pricing_mode', 'single');
+                         });
+                     });
+            })
             ->where('sales.status', 'confirm')
             ->select(DB::raw('SUM(COALESCE(product_prices.supplier_price, 0) * returns_products.return_quantity) as total_cost'));
 
@@ -344,7 +368,19 @@ class ProfitLoss extends Component
 
             // Calculate COGS for this month (only confirmed sales)
             $monthCOGSValue = SaleItem::join('sales', 'sale_items.sale_id', '=', 'sales.id')
-                ->join('product_prices', 'sale_items.product_id', '=', 'product_prices.product_id')
+                ->leftJoin('product_prices', function ($join) {
+                    $join->on('sale_items.product_id', '=', 'product_prices.product_id')
+                         ->where(function ($query) {
+                             $query->where(function ($q) {
+                                 $q->whereNotNull('sale_items.variant_id')
+                                   ->whereRaw('sale_items.variant_id = product_prices.variant_id')
+                                   ->whereRaw('sale_items.variant_value = product_prices.variant_value');
+                             })->orWhere(function ($q) {
+                                 $q->whereNull('sale_items.variant_id')
+                                   ->where('product_prices.pricing_mode', 'single');
+                             });
+                         });
+                })
                 ->where('sales.status', 'confirm')
                 ->whereBetween('sales.created_at', [$monthStart, $monthEnd])
                 ->selectRaw('SUM(product_prices.supplier_price * sale_items.quantity) as total')
@@ -400,18 +436,29 @@ class ProfitLoss extends Component
         $data = [
             'startDate' => $this->startDate,
             'endDate' => $this->endDate,
-            'totalRevenue' => $this->totalRevenue,
+            'incomeTotals' => $this->incomeTotals,
+            'totalReturns' => $this->totalReturns,
+            'totalReturnsCOGS' => $this->totalReturnsCOGS,
             'totalCOGS' => $this->totalCOGS,
-            'grossProfit' => $this->grossProfit,
+            'totalRevenue' => $this->totalRevenue, // This acts as Gross Profit
+            'grossProfitPercentage' => $this->grossProfitPercentage,
             'totalExpenses' => $this->totalExpenses,
-            'totalSalaries' => $this->totalSalaries,
-            'netProfit' => $this->netProfit,
-            'revenueBreakdown' => $this->revenueBreakdown,
             'expenseBreakdown' => $this->expenseBreakdown,
-            'monthlyTrends' => $this->monthlyTrends,
+            'netProfit' => $this->netProfit,
+            'netProfitPercentage' => $this->netProfitPercentage,
         ];
 
-        return view('exports.profit-loss-pdf', $data);
+        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('exports.profit-loss-pdf', $data);
+
+        $filename = 'Profit_Loss_Statement';
+        if ($this->startDate && $this->endDate) {
+            $filename .= '_' . $this->startDate . '_to_' . $this->endDate;
+        }
+        $filename .= '.pdf';
+
+        return response()->streamDownload(function () use ($pdf) {
+            echo $pdf->output();
+        }, $filename);
     }
 
     public function render()
