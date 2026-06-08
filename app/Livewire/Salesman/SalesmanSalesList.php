@@ -137,6 +137,10 @@ class SalesmanSalesList extends Component
 
             $rawAvailable = $stockRecord ? ($stockRecord->available_stock ?? 0) : 0;
 
+            if ($sale->status === 'confirm') {
+                $rawAvailable += $item->quantity;
+            }
+
             // Subtract OTHER pending sales' quantities
             $otherPending = SaleItem::whereHas('sale', function ($q) use ($sale) {
                 $q->where('status', 'pending')->where('id', '!=', $sale->id);
@@ -225,7 +229,7 @@ class SalesmanSalesList extends Component
 
     public function saveEditedSale()
     {
-        if (!$this->editingSale || $this->editingSale->status !== 'pending') {
+        if (!$this->editingSale || !in_array($this->editingSale->status, ['pending', 'confirm'])) {
             $this->showToast('error', 'Cannot update this sale.');
             return;
         }
@@ -237,9 +241,57 @@ class SalesmanSalesList extends Component
             foreach ($this->editItems as $editItem) {
                 $saleItem = SaleItem::find($editItem['id']);
                 if ($saleItem) {
-                    $newTotal = ($editItem['unit_price'] - ($editItem['discount'] ?? 0)) * $editItem['quantity'];
+                    $oldQty = $saleItem->quantity;
+                    $newQty = $editItem['quantity'];
+                    $quantityDelta = $newQty - $oldQty;
+
+                    if ($this->editingSale->status === 'confirm' && $quantityDelta !== 0) {
+                        if ($quantityDelta > 0) {
+                            \App\Services\FIFOStockService::deductStock($saleItem->product_id, $quantityDelta, $saleItem->variant_id, $saleItem->variant_value);
+                        } else {
+                            $restoreQty = abs($quantityDelta);
+                            
+                            $batchQuery = \App\Models\ProductBatch::where('product_id', $saleItem->product_id)
+                                ->where('status', 'active');
+                            if ($saleItem->variant_id) $batchQuery->where('variant_id', $saleItem->variant_id);
+                            if ($saleItem->variant_value) $batchQuery->where('variant_value', $saleItem->variant_value);
+                            
+                            $batch = $batchQuery->orderBy('received_date', 'desc')->orderBy('id', 'desc')->first();
+                            
+                            if ($batch) {
+                                $batch->remaining_quantity += $restoreQty;
+                                $batch->save();
+                            }
+                            
+                            $stockQuery = \App\Models\ProductStock::where('product_id', $saleItem->product_id);
+                            if ($saleItem->variant_id) {
+                                $stockQuery->where('variant_id', $saleItem->variant_id);
+                            } else {
+                                $stockQuery->whereNull('variant_id');
+                            }
+                            if ($saleItem->variant_value) {
+                                $stockQuery->where('variant_value', $saleItem->variant_value);
+                            } else {
+                                $stockQuery->where(function ($q) {
+                                    $q->whereNull('variant_value')->orWhere('variant_value', '')->orWhere('variant_value', 'null');
+                                });
+                            }
+                            $stockRecord = $stockQuery->first();
+                            if (!$stockRecord) {
+                                $stockRecord = \App\Models\ProductStock::where('product_id', $saleItem->product_id)->first();
+                            }
+                            
+                            if ($stockRecord) {
+                                $stockRecord->available_stock += $restoreQty;
+                                $stockRecord->sold_count = max(0, (int) $stockRecord->sold_count - $restoreQty);
+                                $stockRecord->updateTotals();
+                            }
+                        }
+                    }
+
+                    $newTotal = ($editItem['unit_price'] - ($editItem['discount'] ?? 0)) * $newQty;
                     $saleItem->update([
-                        'quantity' => $editItem['quantity'],
+                        'quantity' => $newQty,
                         'discount_per_unit' => $editItem['discount'] ?? 0,
                         'total' => $newTotal,
                     ]);
