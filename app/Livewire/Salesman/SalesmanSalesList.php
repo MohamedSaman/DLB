@@ -552,6 +552,27 @@ class SalesmanSalesList extends Component
             ->with(['customer'])
             ->orderBy('created_at', 'desc');
 
+        $statsQuery = Sale::where('user_id', Auth::id())
+            ->when($this->selectedMonth, function ($q) {
+                $q->whereYear('created_at', substr($this->selectedMonth, 0, 4))
+                    ->whereMonth('created_at', substr($this->selectedMonth, 5, 2));
+            })
+            ->when($this->search, function ($q) {
+                $q->where(function ($sq) {
+                    $sq->where('sale_id', 'like', '%' . $this->search . '%')
+                        ->orWhere('invoice_number', 'like', '%' . $this->search . '%')
+                        ->orWhereHas('customer', function ($cq) {
+                            $cq->where('name', 'like', '%' . $this->search . '%');
+                        });
+                });
+            })
+            ->when($this->statusFilter, function ($q) {
+                $q->where('status', $this->statusFilter);
+            })
+            ->when($this->deliveryFilter, function ($q) {
+                $q->where('delivery_status', $this->deliveryFilter);
+            });
+
         $monthOptions = Sale::where('user_id', Auth::id())
             ->selectRaw("DATE_FORMAT(created_at, '%Y-%m') as month_key")
             ->selectRaw("DATE_FORMAT(created_at, '%b %Y') as month_label")
@@ -561,8 +582,8 @@ class SalesmanSalesList extends Component
 
         return view('livewire.salesman.salesman-sales-list', [
             'sales' => $query->paginate(10),
-            'totalSaleAmount' => (float) (clone $baseQuery)->sum('total_amount'),
-            'totalDueAmount' => (float) (clone $baseQuery)->sum('due_amount'),
+            'totalSaleAmount' => (float) (clone $statsQuery)->sum('total_amount'),
+            'totalDueAmount' => (float) (clone $statsQuery)->sum('due_amount'),
             'monthOptions' => $monthOptions,
         ]);
     }

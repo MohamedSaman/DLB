@@ -50,8 +50,8 @@ class SaleApproval extends Component
 
     public function mount()
     {
-        $this->dateFrom = Carbon::now()->startOfMonth()->format('Y-m-d');
-        $this->dateTo = Carbon::now()->format('Y-m-d');
+        // $this->dateFrom = Carbon::now()->startOfMonth()->format('Y-m-d');
+        // $this->dateTo = Carbon::now()->format('Y-m-d');
     }
 
     // Computed property to get selected sale

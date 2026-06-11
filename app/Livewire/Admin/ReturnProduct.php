@@ -131,7 +131,8 @@ class ReturnProduct extends Component
                         'original_qty' => $item->quantity,
                         'already_returned' => $alreadyReturned,
                         'max_qty' => $remainingQty,
-                        'return_qty' => 0,
+                        'usable_qty' => 0,
+                        'damage_qty' => 0,
                         'variant_id' => $item->variant_id ?? null,
                         'variant_value' => $item->variant_value ?? null,
                     ];
@@ -315,7 +316,7 @@ class ReturnProduct extends Component
     private function calculateTotalReturnValue()
     {
         $this->totalReturnValue = collect($this->returnItems)->sum(
-            fn($item) => $item['return_qty'] * $item['selling_price']
+            fn($item) => ((int)($item['usable_qty'] ?? 0) + (int)($item['damage_qty'] ?? 0)) * $item['selling_price']
         );
     }
 
@@ -331,13 +332,17 @@ class ReturnProduct extends Component
 
         $hasReturnItems = false;
         foreach ($this->returnItems as $item) {
-            if ($item['return_qty'] < 0) {
+            $usable = (int)($item['usable_qty'] ?? 0);
+            $damage = (int)($item['damage_qty'] ?? 0);
+            $totalReturn = $usable + $damage;
+
+            if ($usable < 0 || $damage < 0) {
                 $this->js("Swal.fire('Error!', 'Return quantity cannot be negative for " . $item['name'] . "', 'error')");
                 return;
             }
 
-            if (isset($item['return_qty']) && $item['return_qty'] > 0) {
-                if ($item['return_qty'] > $item['max_qty']) {
+            if ($totalReturn > 0) {
+                if ($totalReturn > $item['max_qty']) {
                     $this->js("Swal.fire('Error!', 'Invalid return quantity for " . $item['name'] . ". Maximum available: " . $item['max_qty'] . "', 'error')");
                     return;
                 }
@@ -361,7 +366,7 @@ class ReturnProduct extends Component
         if (empty($this->returnItems) || !$this->selectedCustomer || !$this->selectedInvoice) return;
 
         $itemsToReturn = array_filter($this->returnItems, function ($item) {
-            return isset($item['return_qty']) && $item['return_qty'] > 0;
+            return ((int)($item['usable_qty'] ?? 0) + (int)($item['damage_qty'] ?? 0)) > 0;
         });
 
         if (empty($itemsToReturn)) {
@@ -373,23 +378,36 @@ class ReturnProduct extends Component
             $totalReturnAmount = 0;
 
             foreach ($itemsToReturn as $item) {
-                $returnAmount = $item['return_qty'] * $item['selling_price'];
+                $usable = (int)($item['usable_qty'] ?? 0);
+                $damage = (int)($item['damage_qty'] ?? 0);
+                $totalReturn = $usable + $damage;
+                $returnAmount = $totalReturn * $item['selling_price'];
                 $totalReturnAmount += $returnAmount;
+
+                $notes = 'Customer return processed via system';
+                if ($usable > 0 && $damage > 0) {
+                    $notes = "Usable: {$usable}, Damaged: {$damage}. " . $notes;
+                } elseif ($usable > 0) {
+                    $notes = "Usable: {$usable}. " . $notes;
+                } elseif ($damage > 0) {
+                    $notes = "Damaged: {$damage}. " . $notes;
+                }
 
                 ReturnsProduct::create([
                     'sale_id' => $this->selectedInvoice->id,
                     'product_id' => $item['product_id'],
                     'variant_id' => $item['variant_id'] ?? null,
                     'variant_value' => $item['variant_value'] ?? null,
-                    'return_quantity' => $item['return_qty'],
+                    'return_quantity' => $totalReturn,
                     'selling_price' => $item['selling_price'],
                     'total_amount' => $returnAmount,
-                    'notes' => 'Customer return processed via system',
+                    'notes' => $notes,
                 ]);
 
                 $this->updateProductStock(
                     $item['product_id'],
-                    $item['return_qty'],
+                    $usable,
+                    $damage,
                     $item['variant_id'] ?? null,
                     $item['variant_value'] ?? null
                 );
@@ -450,7 +468,7 @@ class ReturnProduct extends Component
     }
 
     /** 📈 Update Product Stock */
-    private function updateProductStock($productId, $quantity, $variantId = null, $variantValue = null)
+    private function updateProductStock($productId, $usableQty, $damageQty, $variantId = null, $variantValue = null)
     {
         $stock = null;
 
@@ -481,18 +499,21 @@ class ReturnProduct extends Component
             }
         }
 
+        $totalQty = $usableQty + $damageQty;
+
         if ($stock) {
-            $stock->available_stock += $quantity;
-            if ($stock->sold_count >= $quantity) {
-                $stock->sold_count -= $quantity;
+            $stock->available_stock += $usableQty;
+            $stock->damage_stock += $damageQty;
+            if ($stock->sold_count >= $totalQty) {
+                $stock->sold_count -= $totalQty;
             }
             $stock->updateTotals();
         } else {
             ProductStock::create([
                 'product_id' => $productId,
-                'available_stock' => $quantity,
-                'damage_stock' => 0,
-                'total_stock' => $quantity,
+                'available_stock' => $usableQty,
+                'damage_stock' => $damageQty,
+                'total_stock' => $totalQty,
                 'sold_count' => 0,
                 'restocked_quantity' => 0,
                 'variant_id' => $variantId,

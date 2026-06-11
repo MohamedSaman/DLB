@@ -336,10 +336,10 @@ class ListCustomerReceipt extends Component
             ]);
 
             // Do not allow editing payment to a lower value than originally paid.
-            if ($newAmount < $oldAmount) {
-                $this->addError('editPaymentData.amount', 'Edited amount cannot be less than the original paid amount.');
-                return;
-            }
+            // if ($newAmount < $oldAmount) {
+            //     $this->addError('editPaymentData.amount', 'Edited amount cannot be less than the original paid amount.');
+            //     return;
+            // }
 
             if ($this->editPaymentData['payment_method'] === 'cheque') {
                 $this->validate([
