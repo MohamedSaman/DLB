@@ -153,7 +153,7 @@ class ManageCustomer extends Component
             'opening_balance' => $customer->opening_balance ?? 0,
             'due_amount' => $customer->due_amount ?? 0,
             'overpaid_amount' => $customer->overpaid_amount ?? 0,
-            'total_due' => $customer->total_due ?? 0,
+            'total_due' => floatval($customer->opening_balance ?? 0) + floatval($customer->due_amount ?? 0) - floatval($customer->overpaid_amount ?? 0),
             'created_at' => $customer->created_at,
             'updated_at' => $customer->updated_at,
         ];
@@ -290,7 +290,42 @@ class ManageCustomer extends Component
         }
 
         // Sort by date
-        $this->viewCustomerLedger = $ledgerEntries->sortBy('date')->values()->toArray();
+        $sortedLedger = $ledgerEntries->sortBy('date')->values();
+
+        // Calculate discrepancy
+        $calculatedLedgerBalance = $sortedLedger->sum('debit') - $sortedLedger->sum('credit');
+        $actualTotalDue = floatval($customer->opening_balance ?? 0) + floatval($customer->due_amount ?? 0) - floatval($customer->overpaid_amount ?? 0);
+
+        if (abs($calculatedLedgerBalance - $actualTotalDue) > 0.01) {
+            $adjustment = $calculatedLedgerBalance - $actualTotalDue;
+            
+            if ($adjustment > 0) {
+                // Calculated balance is higher than true due (missing credit/advance)
+                $sortedLedger->push([
+                    'date' => $customer->created_at ? $customer->created_at->format('M d, Y h:i A') : '-',
+                    'description' => 'Advance Payment / Balance Adjustment',
+                    'reference' => 'ADJ-CREDIT',
+                    'debit' => 0,
+                    'credit' => $adjustment,
+                    'type' => 'adjustment',
+                ]);
+            } else {
+                // Calculated balance is lower than true due (missing debit)
+                $sortedLedger->push([
+                    'date' => $customer->created_at ? $customer->created_at->format('M d, Y h:i A') : '-',
+                    'description' => 'Manual Balance Adjustment',
+                    'reference' => 'ADJ-DEBIT',
+                    'debit' => abs($adjustment),
+                    'credit' => 0,
+                    'type' => 'adjustment',
+                ]);
+            }
+            
+            // Re-sort after pushing adjustment
+            $sortedLedger = $sortedLedger->sortBy('date')->values();
+        }
+
+        $this->viewCustomerLedger = $sortedLedger->toArray();
 
         $this->showViewModal = true;
     }
@@ -316,7 +351,7 @@ class ManageCustomer extends Component
         try {
             $openingBalance = floatval($this->openingBalance ?? 0);
             $overpaidAmount = floatval($this->overpaidAmount ?? 0);
-            $totalDue = $openingBalance;
+            $totalDue = $openingBalance - $overpaidAmount;
 
             Customer::create([
                 'name' => $this->name,
@@ -388,7 +423,7 @@ class ManageCustomer extends Component
             $openingBalance = floatval($this->editOpeningBalance ?? 0);
             $overpaidAmount = floatval($this->editOverpaidAmount ?? 0);
             $dueAmount = floatval($customer->due_amount ?? 0);
-            $totalDue = $openingBalance + $dueAmount;
+            $totalDue = $openingBalance + $dueAmount - $overpaidAmount;
 
             $customer->update([
                 'name' => $this->editName,

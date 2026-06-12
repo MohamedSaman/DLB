@@ -631,6 +631,10 @@ class AddCustomerReceipt extends Component
                 ]);
             }
 
+            // Recalculate total_due before commit
+            $this->selectedCustomer->total_due = ($this->selectedCustomer->opening_balance ?? 0) + ($this->selectedCustomer->due_amount ?? 0) - ($this->selectedCustomer->overpaid_amount ?? 0);
+            $this->selectedCustomer->save();
+
             DB::commit();
 
             Log::info('Payment processed successfully', [

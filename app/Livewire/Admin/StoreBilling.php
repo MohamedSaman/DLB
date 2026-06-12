@@ -2274,7 +2274,7 @@ class StoreBilling extends Component
                         // Customer changed: remove old due from old customer (only if it was added)
                         if ($oldDueAmount > 0) {
                             $oldCustomer->due_amount = max(0, ($oldCustomer->due_amount ?? 0) - $oldDueAmount);
-                            $oldCustomer->total_due = ($oldCustomer->opening_balance ?? 0) + $oldCustomer->due_amount;
+                            $oldCustomer->total_due = ($oldCustomer->opening_balance ?? 0) + $oldCustomer->due_amount - ($oldCustomer->overpaid_amount ?? 0);
                             $oldCustomer->save();
                         }
                     }
@@ -2297,7 +2297,7 @@ class StoreBilling extends Component
                         $customer->due_amount = ($customer->due_amount ?? 0) + $this->dueAmount;
                     }
                 }
-                $customer->total_due = ($customer->opening_balance ?? 0) + $customer->due_amount;
+                $customer->total_due = ($customer->opening_balance ?? 0) + $customer->due_amount - ($customer->overpaid_amount ?? 0);
                 $customer->save();
 
                 // Update sale
@@ -2497,8 +2497,8 @@ class StoreBilling extends Component
                     // Add due amount to customer's due_amount column
                     $customer->due_amount = ($customer->due_amount ?? 0) + $dueAmount;
 
-                    // Recalculate total_due = opening_balance + due_amount
-                    $customer->total_due = ($customer->opening_balance ?? 0) + $customer->due_amount;
+                    // Recalculate total_due
+                    $customer->total_due = ($customer->opening_balance ?? 0) + $customer->due_amount - ($customer->overpaid_amount ?? 0);
                 }
 
                 // Handle Overpayments (payment exceeds grand total)
@@ -2518,12 +2518,40 @@ class StoreBilling extends Component
 
                     // If still excess, reduce due_amount
                     if ($excessAmount > 0) {
+                        $amountToDistribute = 0;
                         if ($excessAmount >= ($customer->due_amount ?? 0)) {
+                            $amountToDistribute = ($customer->due_amount ?? 0);
                             $excessAmount -= ($customer->due_amount ?? 0);
                             $customer->due_amount = 0;
                         } else {
+                            $amountToDistribute = $excessAmount;
                             $customer->due_amount = ($customer->due_amount ?? 0) - $excessAmount;
                             $excessAmount = 0;
+                        }
+
+                        // Distribute the amount among old pending sales
+                        if ($amountToDistribute > 0) {
+                            $oldSales = \App\Models\Sale::where('customer_id', $customer->id)
+                                ->where('id', '!=', $sale->id)
+                                ->whereIn('payment_status', ['pending', 'partial'])
+                                ->where('due_amount', '>', 0)
+                                ->orderBy('created_at', 'asc')
+                                ->get();
+
+                            foreach ($oldSales as $oldSale) {
+                                if ($amountToDistribute <= 0) break;
+                                
+                                $oldSaleDue = floatval($oldSale->due_amount);
+                                $payAmount = min($oldSaleDue, $amountToDistribute);
+                                
+                                $newDue = $oldSaleDue - $payAmount;
+                                $oldSale->due_amount = $newDue;
+                                $oldSale->payment_status = $newDue <= 0.01 ? 'paid' : 'partial';
+                                $oldSale->payment_type = $newDue <= 0.01 ? 'full' : 'partial';
+                                $oldSale->save();
+                                
+                                $amountToDistribute -= $payAmount;
+                            }
                         }
                     }
 
@@ -2533,7 +2561,7 @@ class StoreBilling extends Component
                     }
 
                     // Recalculate total_due
-                    $customer->total_due = ($customer->opening_balance ?? 0) + ($customer->due_amount ?? 0);
+                    $customer->total_due = ($customer->opening_balance ?? 0) + ($customer->due_amount ?? 0) - ($customer->overpaid_amount ?? 0);
                 }
 
                 // Apply existing overpaid_amount to reduce any remaining due on this sale
@@ -2553,7 +2581,7 @@ class StoreBilling extends Component
 
                     // Also reduce customer's due_amount by the overpaid portion used
                     $customer->due_amount = max(0, ($customer->due_amount ?? 0) - $overpaidToUse);
-                    $customer->total_due = ($customer->opening_balance ?? 0) + ($customer->due_amount ?? 0);
+                    $customer->total_due = ($customer->opening_balance ?? 0) + ($customer->due_amount ?? 0) - ($customer->overpaid_amount ?? 0);
 
                     Log::info('Existing overpaid balance applied to sale', [
                         'customer_id' => $customer->id,

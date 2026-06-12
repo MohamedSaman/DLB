@@ -381,6 +381,21 @@ class ListCustomerReceipt extends Component
 
             $increaseAmount = $newAmount - $oldAmount;
 
+            if ($increaseAmount > 0) {
+                // Find all sale IDs this payment is allocated to
+                $allocatedSaleIds = \App\Models\PaymentAllocation::where('payment_id', $this->editingPayment->id)
+                    ->pluck('sale_id');
+                
+                // Calculate total due amount available across these specific sales
+                $totalDueOnAllocated = \App\Models\Sale::whereIn('id', $allocatedSaleIds)
+                    ->sum('due_amount');
+                    
+                if ($increaseAmount > $totalDueOnAllocated) {
+                    $this->addError('editPaymentData.amount', "Cannot increase payment by Rs. {$increaseAmount}. The allocated invoices only have a total remaining due balance of Rs. {$totalDueOnAllocated}.");
+                    return;
+                }
+            }
+
             DB::transaction(function () use ($increaseAmount) {
                 $this->editingPayment->update([
                     'amount' => $this->editPaymentData['amount'],
@@ -407,12 +422,99 @@ class ListCustomerReceipt extends Component
                     Cheque::where('payment_id', $this->editingPayment->id)->delete();
                 }
 
-                // If edited amount is increased, move extra into customer overpaid amount.
-                if ($increaseAmount > 0 && $this->editingPayment->customer_id) {
-                    $customer = Customer::find($this->editingPayment->customer_id);
-                    if ($customer) {
-                        $customer->overpaid_amount = (float) ($customer->overpaid_amount ?? 0) + $increaseAmount;
-                        $customer->save();
+                // If edited amount is increased, allocate it to the invoices
+                if ($increaseAmount > 0) {
+                    $addAmount = $increaseAmount;
+                    
+                    // Get allocations starting with the oldest to fulfill oldest invoices first
+                    $allocations = \App\Models\PaymentAllocation::where('payment_id', $this->editingPayment->id)
+                        ->orderBy('id', 'asc')
+                        ->get();
+
+                    foreach ($allocations as $allocation) {
+                        if ($addAmount <= 0) break;
+
+                        $sale = \App\Models\Sale::find($allocation->sale_id);
+                        if ($sale && $sale->due_amount > 0) {
+                            $canAdd = min($sale->due_amount, $addAmount);
+                            
+                            $allocation->allocated_amount += $canAdd;
+                            $allocation->save();
+
+                            $sale->due_amount -= $canAdd;
+                            
+                            if ($sale->due_amount <= 0.01) {
+                                $sale->payment_status = 'paid';
+                                $sale->due_amount = 0;
+                            } else {
+                                $sale->payment_status = 'partial';
+                            }
+                            $sale->save();
+
+                            // Update customer's overall due_amount and total_due
+                            $customer = Customer::find($this->editingPayment->customer_id);
+                            if ($customer && $customer->due_amount > 0) {
+                                $customer->due_amount = max(0, $customer->due_amount - $canAdd);
+                                $customer->total_due = ($customer->opening_balance ?? 0) + ($customer->due_amount ?? 0) - ($customer->overpaid_amount ?? 0);
+                                $customer->save();
+                            }
+
+                            $addAmount -= $canAdd;
+                        }
+                    }
+                } elseif ($increaseAmount < 0) {
+                    $reduceAmount = abs($increaseAmount);
+                    
+                    // Get allocations starting with the latest to reduce from the most recently allocated invoice
+                    $allocations = \App\Models\PaymentAllocation::where('payment_id', $this->editingPayment->id)
+                        ->orderBy('id', 'desc')
+                        ->get();
+
+                    foreach ($allocations as $allocation) {
+                        if ($reduceAmount <= 0) break;
+
+                        $takeBack = min($allocation->allocated_amount, $reduceAmount);
+                        $allocation->allocated_amount -= $takeBack;
+                        
+                        if ($allocation->allocated_amount > 0) {
+                            $allocation->save();
+                        } else {
+                            $allocation->delete();
+                        }
+
+                        $sale = \App\Models\Sale::find($allocation->sale_id);
+                        if ($sale) {
+                            $sale->due_amount += $takeBack;
+                            
+                            // Update payment status based on new due amount
+                            if ($sale->due_amount >= $sale->total_amount) {
+                                $sale->payment_status = 'pending';
+                            } elseif ($sale->due_amount > 0) {
+                                $sale->payment_status = 'partial';
+                            }
+                            
+                            $sale->save();
+
+                            // Update customer's overall due_amount and total_due
+                            $customer = Customer::find($this->editingPayment->customer_id);
+                            if ($customer) {
+                                $customer->due_amount += $takeBack;
+                                $customer->total_due = ($customer->opening_balance ?? 0) + ($customer->due_amount ?? 0) - ($customer->overpaid_amount ?? 0);
+                                $customer->save();
+                            }
+                        }
+
+                        $reduceAmount -= $takeBack;
+                    }
+
+                    // If reduction amount is still left, reduce customer overpaid amount
+                    if ($reduceAmount > 0 && $this->editingPayment->customer_id) {
+                        $customer = Customer::find($this->editingPayment->customer_id);
+                        if ($customer && $customer->overpaid_amount > 0) {
+                            $customer->overpaid_amount = max(0, $customer->overpaid_amount - $reduceAmount);
+                            $customer->total_due = ($customer->opening_balance ?? 0) + ($customer->due_amount ?? 0) - ($customer->overpaid_amount ?? 0);
+                            $customer->save();
+                        }
                     }
                 }
             });

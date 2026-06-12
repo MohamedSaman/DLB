@@ -1018,7 +1018,7 @@ class SalesmanBilling extends Component
                     if ($newDueAmount > 0) {
                         $customer->due_amount = ($customer->due_amount ?? 0) + $newDueAmount;
                     }
-                    $customer->total_due = ($customer->opening_balance ?? 0) + $customer->due_amount;
+                    $customer->total_due = ($customer->opening_balance ?? 0) + $customer->due_amount - ($customer->overpaid_amount ?? 0);
                     $customer->save();
                 }
 
@@ -1176,7 +1176,7 @@ class SalesmanBilling extends Component
                 // Update customer due_amount (only add the remaining due after overpaid deduction)
                 if ($customer && $saleDueAmount > 0) {
                     $customer->due_amount = ($customer->due_amount ?? 0) + $saleDueAmount;
-                    $customer->total_due = ($customer->opening_balance ?? 0) + $customer->due_amount;
+                    $customer->total_due = ($customer->opening_balance ?? 0) + $customer->due_amount - ($customer->overpaid_amount ?? 0);
                 }
                 if ($customer) {
                     $customer->save();
