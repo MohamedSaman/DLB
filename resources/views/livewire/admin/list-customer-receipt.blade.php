@@ -239,10 +239,13 @@
                                         <td class="text-center">
                                             <div class="payment-actions">
                                                 <button class="btn btn-sm btn-info" wire:click="viewPaymentReceipt({{ $payment->id }})">
-                                                    <i class="bi bi-receipt me-1"></i> View Receipt
+                                                    <i class="bi bi-receipt me-1"></i>
                                                 </button>
                                                 <button class="btn btn-sm btn-warning" wire:click="editPayment({{ $payment->id }})">
-                                                    <i class="bi bi-pencil me-1"></i> Edit
+                                                    <i class="bi bi-pencil me-1"></i>
+                                                </button>
+                                                <button class="btn btn-sm btn-danger" wire:click="deletePayment({{ $payment->id }})" wire:confirm="Are you sure you want to delete this payment? This will revert the balances for the customer and sales.">
+                                                    <i class="bi bi-trash me-1"></i>
                                                 </button>
                                             </div>
                                         </td>
@@ -664,9 +667,6 @@
             gap: 0.5rem;
         }
 
-        .payment-actions .btn {
-            min-width: 132px;
-        }
 
         @media (min-width: 768px) {
             .payment-actions {

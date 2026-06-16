@@ -429,6 +429,86 @@ class ListCustomerReceipt extends Component
         }
     }
 
+    public function deletePayment($paymentId)
+    {
+        try {
+            DB::beginTransaction();
+
+            $payment = Payment::with(['allocations', 'cheques'])->find($paymentId);
+            if (!$payment) {
+                $this->dispatch('show-toast', type: 'error', message: 'Payment not found.');
+                return;
+            }
+
+            $customer = Customer::find($payment->customer_id);
+
+            $totalAllocatedToSales = 0;
+            $totalAllocatedAmount = 0;
+            // Revert allocations
+            foreach ($payment->allocations as $allocation) {
+                $totalAllocatedAmount += $allocation->allocated_amount;
+                if ($allocation->sale_id) {
+                    $sale = Sale::find($allocation->sale_id);
+                    if ($sale) {
+                        $sale->due_amount += $allocation->allocated_amount;
+                        if ($sale->due_amount >= $sale->total_amount) {
+                            $sale->payment_status = 'pending';
+                        } else {
+                            $sale->payment_status = 'partial';
+                        }
+                        $sale->save();
+                        $totalAllocatedToSales += $allocation->allocated_amount;
+                    }
+                } else {
+                    // Opening balance allocation case
+                    if ($customer) {
+                        $customer->opening_balance_paid = max(0, ($customer->opening_balance_paid ?? 0) - $allocation->allocated_amount);
+                        $customer->save();
+                        // Do not add to totalAllocatedToSales, because totalAllocatedToSales is used to recalculate due_amount of sales
+                    }
+                }
+            }
+
+            $unallocatedAmount = $payment->amount - $totalAllocatedAmount;
+
+            if ($customer) {
+                // Approximate reverting overpaid amount
+                if ($unallocatedAmount > 0) {
+                    $customer->overpaid_amount = max(0, $customer->overpaid_amount - $unallocatedAmount);
+                }
+
+                // Recalculate customer's total due_amount based on all sales
+                $salesDue = $customer->sales()
+                    ->whereIn('payment_status', ['pending', 'partial'])
+                    ->get()
+                    ->sum('due_amount');
+                
+                $customer->due_amount = $salesDue;
+                $customer->save();
+            }
+
+            // Delete associated records
+            DB::table('payment_allocations')->where('payment_id', $payment->id)->delete();
+            Cheque::where('payment_id', $payment->id)->delete();
+            $payment->delete();
+
+            DB::commit();
+
+            // Refresh the payments list
+            if ($this->selectedCustomer) {
+                $this->showCustomerPayments($this->selectedCustomer->id);
+            }
+            
+            // Refresh customer list
+            $this->resetPage();
+
+            $this->dispatch('show-toast', type: 'success', message: 'Payment deleted successfully!');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            $this->dispatch('show-toast', type: 'error', message: 'Error deleting payment: ' . $e->getMessage());
+        }
+    }
+
     public function render()
     {
         return view('livewire.admin.list-customer-receipt', [

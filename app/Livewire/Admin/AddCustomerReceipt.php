@@ -227,16 +227,20 @@ class AddCustomerReceipt extends Component
 
         // Start with opening balance if customer has one
         $salesList = [];
-        if ($this->selectedCustomer->opening_balance > 0) {
+        $openingBalance = $this->selectedCustomer->opening_balance ?? 0;
+        $openingBalancePaid = $this->selectedCustomer->opening_balance_paid ?? 0;
+        $openingBalanceDue = max(0, $openingBalance - $openingBalancePaid);
+
+        if ($openingBalanceDue > 0) {
             $salesList[] = [
                 'id' => 'opening_balance_' . $this->selectedCustomer->id,
                 'invoice_number' => 'Opening Balance',
                 'sale_id' => 'OB',
                 'sale_date' => 'N/A',
-                'total_amount' => $this->selectedCustomer->opening_balance,
-                'due_amount' => $this->selectedCustomer->opening_balance,
-                'paid_amount' => 0,
-                'payment_status' => 'pending',
+                'total_amount' => $openingBalance,
+                'due_amount' => $openingBalanceDue,
+                'paid_amount' => $openingBalancePaid,
+                'payment_status' => $openingBalancePaid > 0 ? 'partial' : 'pending',
                 'items_count' => 0,
                 'is_opening_balance' => true,
             ];
@@ -563,15 +567,23 @@ class AddCustomerReceipt extends Component
 
                 // Check if this is opening balance
                 if (isset($sale['is_opening_balance']) && $sale['is_opening_balance']) {
-                    // Reduce opening balance from customer table
-                    $newOpeningBalance = max(0, $this->selectedCustomer->opening_balance - $paymentAmount);
-                    $this->selectedCustomer->opening_balance = $newOpeningBalance;
+                    // Increase opening_balance_paid in customer table
+                    $this->selectedCustomer->opening_balance_paid = ($this->selectedCustomer->opening_balance_paid ?? 0) + $paymentAmount;
                     $this->selectedCustomer->save();
 
-                    Log::info('Opening balance reduced', [
+                    Log::info('Opening balance paid amount increased', [
                         'customer_id' => $this->selectedCustomer->id,
                         'payment_amount' => $paymentAmount,
-                        'remaining_balance' => $newOpeningBalance
+                        'total_paid' => $this->selectedCustomer->opening_balance_paid
+                    ]);
+
+                    // Still need to track it as an allocation but with null sale_id
+                    DB::table('payment_allocations')->insert([
+                        'payment_id' => $payment->id,
+                        'sale_id' => null,
+                        'allocated_amount' => $paymentAmount,
+                        'created_at' => now(),
+                        'updated_at' => now(),
                     ]);
                 } else {
                     // Update sale with adjusted due amount
@@ -607,12 +619,12 @@ class AddCustomerReceipt extends Component
                             'new_due' => $saleModel->due_amount
                         ]);
                     }
-                }
 
-                // Also reduce customer's due_amount
-                if ($this->selectedCustomer->due_amount > 0) {
-                    $this->selectedCustomer->due_amount = max(0, $this->selectedCustomer->due_amount - $paymentAmount);
-                    $this->selectedCustomer->save();
+                    // Also reduce customer's due_amount (ONLY for sales)
+                    if ($this->selectedCustomer->due_amount > 0) {
+                        $this->selectedCustomer->due_amount = max(0, $this->selectedCustomer->due_amount - $paymentAmount);
+                        $this->selectedCustomer->save();
+                    }
                 }
 
                 $totalProcessed += $paymentAmount;
@@ -750,7 +762,11 @@ class AddCustomerReceipt extends Component
                 return max(0, $sale->due_amount - $returnAmount);
             });
 
-        return ($customer->opening_balance ?? 0) + $salesDue;
+        $openingBalance = $customer->opening_balance ?? 0;
+        $openingBalancePaid = $customer->opening_balance_paid ?? 0;
+        $openingBalanceDue = max(0, $openingBalance - $openingBalancePaid);
+
+        return $openingBalanceDue + $salesDue;
     }
 
     public function getCustomersProperty()

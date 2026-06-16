@@ -251,6 +251,7 @@ class ManageCustomer extends Component
         if (($customer->opening_balance ?? 0) > 0) {
             $ledgerEntries->push([
                 'date' => $customer->created_at ? $customer->created_at->format('M d, Y h:i A') : '-',
+                'timestamp' => $customer->created_at ? $customer->created_at->timestamp : 0,
                 'description' => 'Opening Balance',
                 'reference' => '-',
                 'debit' => $customer->opening_balance,
@@ -267,6 +268,7 @@ class ManageCustomer extends Component
 
             $ledgerEntries->push([
                 'date' => $sale->created_at ? $sale->created_at->format('M d, Y h:i A') : '-',
+                'timestamp' => $sale->created_at ? $sale->created_at->timestamp : 0,
                 'description' => $isReturned ? 'Sale Invoice Returned' : 'Sale Invoice',
                 'reference' => $sale->invoice_number ?? $sale->sale_id,
                 'debit' => $sale->total_amount ?? 0,
@@ -279,8 +281,13 @@ class ManageCustomer extends Component
         foreach ($payments as $payment) {
             // Only include non-rejected and non-pending payments in ledger
             if ($payment->status === 'rejected' || $payment->status === 'pending') continue;
+            
+            // Use payment_date for sorting if available, otherwise fallback to created_at
+            $paymentTimestamp = $payment->payment_date ? $payment->payment_date->timestamp : ($payment->created_at ? $payment->created_at->timestamp : 0);
+            
             $ledgerEntries->push([
                 'date' => $payment->payment_date ? $payment->payment_date->format('M d, Y h:i A') : ($payment->created_at ? $payment->created_at->format('M d, Y h:i A') : '-'),
+                'timestamp' => $paymentTimestamp,
                 'description' => 'Payment Received (' . ucfirst($payment->payment_method ?? 'N/A') . ')',
                 'reference' => $payment->payment_reference ?? ($payment->sale ? $payment->sale->invoice_number : '-'),
                 'debit' => 0,
@@ -289,8 +296,8 @@ class ManageCustomer extends Component
             ]);
         }
 
-        // Sort by date
-        $this->viewCustomerLedger = $ledgerEntries->sortBy('date')->values()->toArray();
+        // Sort by timestamp
+        $this->viewCustomerLedger = $ledgerEntries->sortBy('timestamp')->values()->toArray();
 
         $this->showViewModal = true;
     }

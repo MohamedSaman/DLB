@@ -111,6 +111,7 @@ class PaymentApproval extends Component
                 ->get();
 
             // Process each allocation
+            $salesPaymentTotal = 0;
             foreach ($allocations as $allocation) {
                 if ($allocation->sale_id) {
                     // Update sale due amount
@@ -125,19 +126,19 @@ class PaymentApproval extends Component
                             'payment_type' => $newDueAmount > 0 ? 'partial' : 'full',
                         ]);
                     }
+                    $salesPaymentTotal += $allocation->allocated_amount;
                 } else {
                     // Opening balance payment (sale_id is null)
                     if ($customer) {
-                        $newOpeningBalance = max(0, $customer->opening_balance - $allocation->allocated_amount);
-                        $customer->opening_balance = $newOpeningBalance;
+                        $customer->opening_balance_paid = ($customer->opening_balance_paid ?? 0) + $allocation->allocated_amount;
                         $customer->save();
                     }
                 }
             }
 
-            // Reduce customer's total due_amount
-            if ($customer) {
-                $newCustomerDueAmount = max(0, $customer->due_amount - $payment->amount);
+            // Reduce customer's total due_amount ONLY for the portion allocated to sales
+            if ($customer && $salesPaymentTotal > 0) {
+                $newCustomerDueAmount = max(0, $customer->due_amount - $salesPaymentTotal);
                 $customer->update([
                     'due_amount' => $newCustomerDueAmount,
                 ]);
