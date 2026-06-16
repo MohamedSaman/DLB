@@ -169,7 +169,7 @@
             </li>
         </ul>
     </div>
-</td>
+                        </td>
 
                             </tr>
                             @endforeach
@@ -465,7 +465,7 @@
                         <div class="col-6 col-md-3">
                             <div class="p-2 rounded text-center" style="background-color: #e8f4fd; border: 1px solid #cce5ff;">
                                 <div class="text-muted small fw-semibold">Opening Balance</div>
-                                <div class="fw-bold text-primary">{{ number_format($viewCustomerDetail['opening_balance'] ?? 0, 2) }}</div>
+                                <div class="fw-bold text-primary">{{ number_format($viewCustomerDetail['opening_balance'] - $viewCustomerDetail['opening_balance_paid'] ?? 0, 2) }}</div>
                             </div>
                         </div>
                         <div class="col-6 col-md-3">

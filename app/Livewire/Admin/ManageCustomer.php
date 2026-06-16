@@ -151,9 +151,10 @@ class ManageCustomer extends Component
             'type' => $customer->type,
             'address' => $customer->address,
             'opening_balance' => $customer->opening_balance ?? 0,
+            'opening_balance_paid' => $customer->opening_balance_paid ?? 0,
             'due_amount' => $customer->due_amount ?? 0,
             'overpaid_amount' => $customer->overpaid_amount ?? 0,
-            'total_due' => floatval($customer->opening_balance ?? 0) + floatval($customer->due_amount ?? 0) - floatval($customer->overpaid_amount ?? 0),
+            'total_due' => (floatval($customer->opening_balance ?? 0) + floatval($customer->due_amount ?? 0)) - (floatval($customer->opening_balance_paid ?? 0) + floatval($customer->overpaid_amount ?? 0)),
             'created_at' => $customer->created_at,
             'updated_at' => $customer->updated_at,
         ];
