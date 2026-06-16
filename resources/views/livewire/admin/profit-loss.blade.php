@@ -235,8 +235,14 @@
                 <p class="subtitle">📊 Financial overview and performance analysis</p>
             </div>
             <div class="col-md-4 text-end">
-                <button class="btn btn-success btn-lg shadow-lg" title="Export PDF">
-                    <i class="fas fa-file-pdf me-2"></i>Export PDF
+                <button wire:click="exportPDF" wire:loading.attr="disabled" wire:target="exportPDF" class="btn btn-success btn-lg shadow-lg" title="Export PDF">
+                    <span wire:loading.remove wire:target="exportPDF">
+                        <i class="fas fa-file-pdf me-2"></i>Export PDF
+                    </span>
+                    <span wire:loading wire:target="exportPDF">
+                        <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                        Exporting...
+                    </span>
                 </button>
             </div>
         </div>
@@ -363,13 +369,44 @@
 
                             <tr style="height: 8px; background: transparent;"></tr>
 
+                            <!-- Returns Section -->
+                            <tr style="background: linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%); border-left: 4px solid #dc3545;">
+                                <td colspan="2" class="fw-bold text-danger fs-5">🔄 PRODUCT RETURNS</td>
+                            </tr>
+                            <tr>
+                                <td class="ps-4">Return Amount (Selling Price)</td>
+                                <td class="text-end fw-bold text-danger">
+                                    ({{ number_format($totalReturns, 2) }})
+                                </td>
+                            </tr>
+                            <tr style="background: #e9ecef; border-left: 4px solid #6c757d;">
+                                <td class="ps-4 fw-bold">NET SALES REVENUE</td>
+                                <td class="text-end fw-bold fs-6">
+                                    {{ number_format($incomeTotals['Net Sales Revenue'] ?? 0, 2) }}
+                                </td>
+                            </tr>
+
+                            <tr style="height: 8px; background: transparent;"></tr>
+
                             <!-- Cost of Goods Sold Section -->
                             <tr style="background: linear-gradient(135deg, #ffe7e7 0%, #f5c6cb 100%); border-left: 4px solid #dc3545;">
                                 <td colspan="2" class="fw-bold text-danger fs-5">📦 COST OF GOODS SOLD (COGS)</td>
                             </tr>
                             <tr>
-                                <td class="ps-4">Product Cost</td>
+                                <td class="ps-4">Gross Product Cost</td>
                                 <td class="text-end fw-bold text-danger">
+                                    ({{ number_format(($incomeTotals['Total COGS'] ?? 0) + $totalReturnsCOGS, 2) }})
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="ps-4">Less: Return COGS</td>
+                                <td class="text-end fw-bold text-success">
+                                    +{{ number_format($totalReturnsCOGS, 2) }}
+                                </td>
+                            </tr>
+                            <tr style="background: #ffe7e7; border-left: 4px solid #dc3545;">
+                                <td class="ps-4 fw-bold text-danger">Net COGS</td>
+                                <td class="text-end fw-bold text-danger fs-6">
                                     ({{ number_format($totalCOGS, 2) }})
                                 </td>
                             </tr>
@@ -378,7 +415,7 @@
 
                             <!-- Net Revenue (Gross Profit) -->
                             <tr style="background: linear-gradient(135deg, #fff3cd 0%, #fce4a6 100%); border-left: 4px solid #ffc107;">
-                                <td class="fw-bold text-warning fs-5">✅ NET REVENUE (Gross Sales - COGS)</td>
+                                <td class="fw-bold text-warning fs-5">✅ GROSS PROFIT (Net Sales - Net COGS)</td>
                                 <td class="text-end fw-bold text-warning" style="font-size: 1.1rem;">
                                     {{ number_format($totalRevenue, 2) }}
                                 </td>
@@ -386,31 +423,6 @@
                             <tr class="table-light">
                                 <td class="ps-5 text-muted small">Gross Profit Margin</td>
                                 <td class="text-end text-muted small">{{ $grossProfitPercentage }}%</td>
-                            </tr>
-
-                            <tr style="height: 8px; background: transparent;"></tr>
-
-                            <!-- Returns Section -->
-                            <tr style="background: linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%); border-left: 4px solid #dc3545;">
-                                <td colspan="2" class="fw-bold text-danger fs-5">🔄 PRODUCT RETURNS IMPACT</td>
-                            </tr>
-                            <tr>
-                                <td class="ps-4">Return Amount (Selling Price)</td>
-                                <td class="text-end fw-bold text-danger">
-                                    ({{ number_format($totalReturns, 2) }})
-                                </td>
-                            </tr>
-                            <tr>
-                                <td class="ps-4">Less: Return COGS</td>
-                                <td class="text-end fw-bold text-danger">
-                                    +{{ number_format($totalReturnsCOGS, 2) }}
-                                </td>
-                            </tr>
-                            <tr style="background: #ffe7e7; border-left: 4px solid #dc3545;">
-                                <td class="ps-4 fw-bold text-danger">Net Loss from Returns</td>
-                                <td class="text-end fw-bold text-danger fs-6">
-                                    ({{ number_format($returnImpact, 2) }})
-                                </td>
                             </tr>
 
                             <tr style="height: 8px; background: transparent;"></tr>

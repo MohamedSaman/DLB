@@ -37,7 +37,13 @@
                         <div>
                             <p class="text-uppercase small fw-bold text-primary mb-1">Total Sale</p>
                             <h3 class="fw-bold text-dark mb-1">Rs. {{ number_format($totalSaleAmount, 2) }}</h3>
-                            <small class="text-muted">Based on selected month</small>
+                            <small class="text-muted">
+                                @if($search)
+                                    Filtered by search
+                                @else
+                                    Based on selected month
+                                @endif
+                            </small>
                         </div>
                         <div class="rounded-circle d-flex align-items-center justify-content-center" style="width:48px;height:48px;background:#dbeafe;">
                             <i class="bi bi-cash-stack text-primary fs-5"></i>
@@ -53,7 +59,13 @@
                         <div>
                             <p class="text-uppercase small fw-bold text-danger mb-1">Total Due</p>
                             <h3 class="fw-bold text-dark mb-1">Rs. {{ number_format($totalDueAmount, 2) }}</h3>
-                            <small class="text-muted">Outstanding due for selected month</small>
+                            <small class="text-muted">
+                                @if($search)
+                                    Filtered by search
+                                @else
+                                    Outstanding due for selected month
+                                @endif
+                            </small>
                         </div>
                         <div class="rounded-circle d-flex align-items-center justify-content-center" style="width:48px;height:48px;background:#fee2e2;">
                             <i class="bi bi-wallet2 text-danger fs-5"></i>

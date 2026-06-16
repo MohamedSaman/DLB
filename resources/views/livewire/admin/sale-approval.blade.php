@@ -1,11 +1,25 @@
 <div class=\"container-fluid py-3\" wire:poll.10s>
     {{-- Header --}}
-    <div class=\"d-flex justify-content-between align-items-center mb-4\">
+    <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
-            <h3 class=\"fw-bold text-dark mb-2\">
-                <i class=\"bi bi-clipboard-check text-primary me-2\"></i> Staff Sales
+            <h3 class="fw-bold text-dark mb-2">
+                <i class="bi bi-clipboard-check text-primary me-2"></i> Staff Sales
             </h3>
-            <p class=\"text-muted mb-0\">View all staff sales with filters and summary <small class=\"text-success\"><i class=\"bi bi-arrow-repeat me-1\"></i>Auto-refreshing</small></p>
+            <p class="text-muted mb-0">View all staff sales with filters and summary <small class="text-success"><i class="bi bi-arrow-repeat me-1"></i>Auto-refreshing</small></p>
+        </div>
+        <div>
+            <button wire:click="exportCsv"
+                    wire:loading.attr="disabled"
+                    wire:target="exportCsv"
+                    class="btn btn-success">
+                <span wire:loading.remove wire:target="exportCsv">
+                    <i class="bi bi-file-earmark-arrow-down me-2"></i>Export CSV
+                </span>
+                <span wire:loading wire:target="exportCsv">
+                    <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                    Exporting...
+                </span>
+            </button>
         </div>
     </div>
 

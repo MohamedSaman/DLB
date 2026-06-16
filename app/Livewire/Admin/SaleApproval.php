@@ -50,8 +50,8 @@ class SaleApproval extends Component
 
     public function mount()
     {
-        $this->dateFrom = Carbon::now()->startOfMonth()->format('Y-m-d');
-        $this->dateTo = Carbon::now()->format('Y-m-d');
+        // $this->dateFrom = Carbon::now()->startOfMonth()->format('Y-m-d');
+        // $this->dateTo = Carbon::now()->format('Y-m-d');
     }
 
     // Computed property to get selected sale
@@ -267,6 +267,18 @@ class SaleApproval extends Component
             $newSubtotal = 0;
             $newDiscountTotal = 0;
 
+            $itemsToKeep = 0;
+            foreach ($sale->items as $item) {
+                $itemId = $item->id;
+                if (array_key_exists($itemId, $this->editQuantities) && (int) ($this->editQuantities[$itemId] ?? 0) > 0) {
+                    $itemsToKeep++;
+                }
+            }
+
+            if ($itemsToKeep === 0) {
+                throw new \Exception("Sale must have at least one item. To remove all items, please delete the sale instead.");
+            }
+
             foreach ($sale->items as $item) {
                 $itemId = $item->id;
 
@@ -278,9 +290,34 @@ class SaleApproval extends Component
                 $newPrice = (float) ($this->editPrices[$itemId] ?? 0);
                 $newDiscountPerUnit = (float) ($this->editDiscounts[$itemId] ?? 0);
 
+                $oldQty = (int) ($item->quantity ?? 0);
+
                 if ($newQty < 1) {
-                    throw new \Exception("Quantity must be at least 1 for {$item->product_name}.");
+                    // Item is removed
+                    if ($sale->status === 'confirm') {
+                        $batchQuery = \App\Models\ProductBatch::where('product_id', $item->product_id)
+                            ->where('status', 'active');
+                        if ($item->variant_id) $batchQuery->where('variant_id', $item->variant_id);
+                        if ($item->variant_value) $batchQuery->where('variant_value', $item->variant_value);
+                        
+                        $batch = $batchQuery->orderBy('received_date', 'desc')->orderBy('id', 'desc')->first();
+                        
+                        if ($batch) {
+                            $batch->remaining_quantity += $oldQty;
+                            $batch->save();
+                        }
+
+                        $productStock = $this->findProductStockForItem($item);
+                        if ($productStock) {
+                            $productStock->available_stock += $oldQty;
+                            $productStock->sold_count = max(0, (int) $productStock->sold_count - $oldQty);
+                            $productStock->updateTotals();
+                        }
+                    }
+                    $item->delete();
+                    continue;
                 }
+
                 if ($newPrice < 0) {
                     throw new \Exception("Price cannot be negative for {$item->product_name}.");
                 }
@@ -291,32 +328,35 @@ class SaleApproval extends Component
                     throw new \Exception("Discount cannot exceed unit price for {$item->product_name}.");
                 }
 
-                $oldQty = (int) ($item->quantity ?? 0);
                 $quantityDelta = $newQty - $oldQty;
 
                 if ($quantityDelta !== 0) {
                     // Only adjust stock for approved sales - pending sales haven't had stock deducted yet
                     if ($sale->status === 'confirm') {
-                        $productStock = $this->findProductStockForItem($item);
-
-                        if (!$productStock) {
-                            throw new \Exception("Stock record not found for {$item->product_name}.");
-                        }
-
                         if ($quantityDelta > 0) {
-                            if ((int) $productStock->available_stock < $quantityDelta) {
-                                throw new \Exception("Insufficient stock for {$item->product_name}. Available: {$productStock->available_stock}, requested additional: {$quantityDelta}.");
-                            }
-
-                            $productStock->available_stock -= $quantityDelta;
-                            $productStock->sold_count += $quantityDelta;
+                            \App\Services\FIFOStockService::deductStock($item->product_id, $quantityDelta, $item->variant_id, $item->variant_value);
                         } else {
                             $restoreQty = abs($quantityDelta);
-                            $productStock->available_stock += $restoreQty;
-                            $productStock->sold_count = max(0, (int) $productStock->sold_count - $restoreQty);
+                            
+                            $batchQuery = \App\Models\ProductBatch::where('product_id', $item->product_id)
+                                ->where('status', 'active');
+                            if ($item->variant_id) $batchQuery->where('variant_id', $item->variant_id);
+                            if ($item->variant_value) $batchQuery->where('variant_value', $item->variant_value);
+                            
+                            $batch = $batchQuery->orderBy('received_date', 'desc')->orderBy('id', 'desc')->first();
+                            
+                            if ($batch) {
+                                $batch->remaining_quantity += $restoreQty;
+                                $batch->save();
+                            }
+                            
+                            $productStock = $this->findProductStockForItem($item);
+                            if ($productStock) {
+                                $productStock->available_stock += $restoreQty;
+                                $productStock->sold_count = max(0, (int) $productStock->sold_count - $restoreQty);
+                                $productStock->updateTotals();
+                            }
                         }
-
-                        $productStock->updateTotals();
                     }
                 }
 
@@ -820,6 +860,87 @@ class SaleApproval extends Component
                 setTimeout(() => toast.remove(), 300);
             }, 3000);
         ");
+    }
+
+    public function exportCsv()
+    {
+        $query = Sale::with(['customer', 'user']);
+
+        $isAdmin = Auth::user()->role === 'admin';
+
+        $query->whereHas('user', function ($q) {
+            $q->where('role', '!=', 'admin');
+        });
+
+        if (!$isAdmin) {
+            $query->where('user_id', Auth::id());
+        }
+
+        if ($this->staffFilter !== '') {
+            $query->where('user_id', $this->staffFilter);
+        }
+
+        if ($this->dateFrom) {
+            $query->whereDate('created_at', '>=', $this->dateFrom);
+        }
+        if ($this->dateTo) {
+            $query->whereDate('created_at', '<=', $this->dateTo);
+        }
+
+        if ($this->statusFilter !== '') {
+            $query->where('status', $this->statusFilter);
+        }
+
+        $query->when($this->search, function ($q) {
+            $q->where(function ($sq) {
+                $sq->where('sale_id', 'like', '%' . $this->search . '%')
+                    ->orWhere('invoice_number', 'like', '%' . $this->search . '%')
+                    ->orWhereHas('customer', function ($cq) {
+                        $cq->where('name', 'like', '%' . $this->search . '%');
+                    });
+            });
+        })->orderBy('created_at', 'desc');
+
+        $sales = $query->get();
+
+        $filename = 'sales_' . now()->format('Y-m-d_H-i-s') . '.csv';
+
+        return response()->streamDownload(function () use ($sales) {
+            $handle = fopen('php://output', 'w');
+
+            // CSV Headers
+            fputcsv($handle, [
+                'Invoice Number',
+                'Sale ID',
+                'Staff',
+                'Customer',
+                'Customer Phone',
+                'Total Amount (Rs.)',
+                'Due Amount (Rs.)',
+                'Payment Status',
+                'Sale Status',
+                'Date',
+            ]);
+
+            foreach ($sales as $sale) {
+                fputcsv($handle, [
+                    $sale->invoice_number ?? '',
+                    $sale->sale_id ?? '',
+                    $sale->user->name ?? 'N/A',
+                    $sale->customer->name ?? 'Walk-in',
+                    $sale->customer->phone ?? 'N/A',
+                    number_format($sale->total_amount, 2),
+                    number_format($sale->due_amount ?? 0, 2),
+                    ucfirst($sale->payment_status ?? 'pending'),
+                    ucfirst($sale->status ?? ''),
+                    $sale->created_at ? $sale->created_at->format('Y-m-d H:i') : '',
+                ]);
+            }
+
+            fclose($handle);
+        }, $filename, [
+            'Content-Type' => 'text/csv',
+        ]);
     }
 
     public function render()

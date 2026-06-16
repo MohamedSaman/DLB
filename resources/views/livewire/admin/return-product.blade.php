@@ -225,7 +225,8 @@
                                     <th>Original Qty</th>
                                     <th>Returned</th>
                                     <th>Available</th>
-                                    <th>Return Qty</th>
+                                    <th>Usable Rtn Qty</th>
+                                    <th>Damage Rtn Qty</th>
                                     <th>Selling Price</th>
                                     <th>Total</th>
                                 </tr>
@@ -249,12 +250,18 @@
                                     <td>
                                         <input type="number" class="form-control form-control-sm" style="width: 80px;" 
                                             min="0" max="{{ $item['max_qty'] }}"
-                                            wire:model.live="returnItems.{{ $index }}.return_qty"
+                                            wire:model.live="returnItems.{{ $index }}.usable_qty"
+                                            @if($item['max_qty'] == 0) disabled @endif>
+                                    </td>
+                                    <td>
+                                        <input type="number" class="form-control form-control-sm border-danger text-danger" style="width: 80px;" 
+                                            min="0" max="{{ $item['max_qty'] }}"
+                                            wire:model.live="returnItems.{{ $index }}.damage_qty"
                                             @if($item['max_qty'] == 0) disabled @endif>
                                     </td>
                                     <td class="fw-bold">Rs.{{ number_format($item['selling_price'], 2) }}</td>
                                     <td class="fw-bold text-success">
-                                        Rs.{{ number_format($item['return_qty'] * $item['selling_price'], 2) }}
+                                        Rs.{{ number_format(((int)($item['usable_qty'] ?? 0) + (int)($item['damage_qty'] ?? 0)) * $item['selling_price'], 2) }}
                                     </td>
                                 </tr>
                                 @endforeach
@@ -293,7 +300,7 @@
                         </div>
                         <div class="col-md-6">
                             <p><strong>Return Value:</strong> <span class="text-success fw-bold">Rs.{{ number_format($totalReturnValue, 2) }}</span></p>
-                            <p><strong>Items:</strong> {{ count(array_filter($returnItems, fn($item) => $item['return_qty'] > 0)) }}</p>
+                            <p><strong>Items:</strong> {{ count(array_filter($returnItems, fn($item) => ((int)($item['usable_qty'] ?? 0) + (int)($item['damage_qty'] ?? 0)) > 0)) }}</p>
                         </div>
                     </div>
 
@@ -303,26 +310,28 @@
                             <thead class="table">
                                 <tr>
                                     <th>Product</th>
-                                    <th>Return Qty</th>
+                                    <th>Usable Qty</th>
+                                    <th>Damage Qty</th>
                                     <th>Selling Price</th>
                                     <th>Total</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 @foreach($returnItems as $item)
-                                @if($item['return_qty'] > 0)
+                                @if(((int)($item['usable_qty'] ?? 0) + (int)($item['damage_qty'] ?? 0)) > 0)
                                 <tr>
                                     <td>{{ $item['name'] }}</td>
-                                    <td>{{ $item['return_qty'] }}</td>
+                                    <td>{{ (int)($item['usable_qty'] ?? 0) }}</td>
+                                    <td class="text-danger fw-bold">{{ (int)($item['damage_qty'] ?? 0) }}</td>
                                     <td>Rs.{{ number_format($item['selling_price'], 2) }}</td>
-                                    <td class="fw-bold">Rs.{{ number_format($item['return_qty'] * $item['selling_price'], 2) }}</td>
+                                    <td class="fw-bold">Rs.{{ number_format(((int)($item['usable_qty'] ?? 0) + (int)($item['damage_qty'] ?? 0)) * $item['selling_price'], 2) }}</td>
                                 </tr>
                                 @endif
                                 @endforeach
                             </tbody>
                             <tfoot class="table">
                                 <tr>
-                                    <td colspan="3" class="text-end fw-bold">Total Return Amount:</td>
+                                    <td colspan="4" class="text-end fw-bold">Total Return Amount:</td>
                                     <td class="fw-bold text-success">Rs.{{ number_format($totalReturnValue, 2) }}</td>
                                 </tr>
                             </tfoot>
