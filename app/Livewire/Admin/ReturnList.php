@@ -75,7 +75,7 @@ class ReturnList extends Component
 
     public function showReturnDetails($saleId)
     {
-        $this->selectedReturnItems = ReturnsProduct::with(['sale.customer', 'product'])
+        $this->selectedReturnItems = ReturnsProduct::with(['sale.customer', 'product.variant'])
             ->where('sale_id', $saleId)
             ->get();
 
@@ -90,7 +90,7 @@ class ReturnList extends Component
 
     public function showReceipt($saleId)
     {
-        $this->selectedReturnItems = ReturnsProduct::with(['sale.customer', 'product'])
+        $this->selectedReturnItems = ReturnsProduct::with(['sale.customer', 'product.variant'])
             ->where('sale_id', $saleId)
             ->get();
 
@@ -108,7 +108,7 @@ class ReturnList extends Component
     public function downloadReturn($saleId)
     {
         // For compatibility, we can generate a PDF of the receipt for this invoice
-        $returns = ReturnsProduct::with(['sale.customer', 'product'])->where('sale_id', $saleId)->get();
+        $returns = ReturnsProduct::with(['sale.customer', 'product.variant'])->where('sale_id', $saleId)->get();
 
         if ($returns->isEmpty()) {
             $this->dispatch('showToast', ['type' => 'error', 'message' => 'Return records not found.']);
@@ -189,7 +189,7 @@ class ReturnList extends Component
             return;
         }
 
-        $returns = ReturnsProduct::with(['product'])->where('sale_id', $saleId)->get();
+        $returns = ReturnsProduct::with(['product.variant'])->where('sale_id', $saleId)->get();
         if ($returns->isEmpty()) {
             $this->dispatch('showToast', ['type' => 'error', 'message' => 'No return records found for this invoice.']);
             return;
@@ -220,9 +220,16 @@ class ReturnList extends Component
 
             $maxQty = $originalQty - $otherReturnsSum;
 
+            $productName = $return->product?->name ?? 'N/A';
+            if ($return->variant_value && $return->product && $return->product->variant) {
+                $productName .= ' (' . $return->product->variant->variant_name . ': ' . $return->variant_value . ')';
+            } elseif ($return->variant_value) {
+                $productName .= ' (' . $return->variant_value . ')';
+            }
+
             $this->editingReturnItems[] = [
                 'id' => $return->id,
-                'product_name' => $return->product?->name ?? 'N/A',
+                'product_name' => $productName,
                 'selling_price' => $return->selling_price,
                 'usable_qty' => $return->usable_quantity,
                 'damage_qty' => $return->damaged_quantity,

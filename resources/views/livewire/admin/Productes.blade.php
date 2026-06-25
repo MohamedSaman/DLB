@@ -1057,13 +1057,14 @@
                                                                 <th>Distributor</th>
                                                                 <th>Retail</th>
                                                                 <th>Available</th>
+                                                                <th>Damage</th>
                                                             </tr>
                                                         </thead>
                                                         <tbody>
                                                             @php
                                                                 // Prefer values prepared by the component (which now preserves DB order)
                                                                 $variantValues = $viewProduct->sorted_variant_values ?? [];
-
+ 
                                                                 if (empty($variantValues)) {
                                                                     if ($viewProduct->variant && is_array($viewProduct->variant->variant_values)) {
                                                                         // Use the variant values as stored in DB (preserve order)
@@ -1076,7 +1077,7 @@
                                                                     }
                                                                 }
                                                             @endphp
-
+ 
                                                             @foreach($variantValues as $value)
                                                             @php
                                                                 $price = $viewProduct->prices->firstWhere('variant_value', $value) ?? null;
@@ -1089,6 +1090,7 @@
                                                                 <td>Rs.{{ number_format($price->distributor_price ?? 0, 2) }}</td>
                                                                 <td>Rs.{{ number_format($price->retail_price ?? 0, 2) }}</td>
                                                                 <td>{{ $stock->available_stock ?? 0 }}</td>
+                                                                <td class="text-danger fw-semibold">{{ $stock->damage_stock ?? 0 }}</td>
                                                             </tr>
                                                             @endforeach
                                                         </tbody>

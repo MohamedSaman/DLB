@@ -193,7 +193,14 @@
                                 <tr>
                                     <td>{{ $idx + 1 }}</td>
                                     <td>{{ $item->product?->code ?? 'N/A' }}</td>
-                                    <td>{{ $item->product?->name ?? 'N/A' }}</td>
+                                    <td>
+                                        {{ $item->product?->name ?? 'N/A' }}
+                                        @if($item->variant_value)
+                                            <span class="text-muted d-block small">
+                                                ({{ $item->product?->variant?->variant_name ?? 'Variant' }}: {{ $item->variant_value }})
+                                            </span>
+                                        @endif
+                                    </td>
                                     <td class="text-center">{{ $item->usable_quantity }} Pc(s)</td>
                                     <td class="text-center">{{ $item->damaged_quantity }} Pc(s)</td>
                                     <td class="text-center">{{ $item->return_quantity }} Pc(s)</td>

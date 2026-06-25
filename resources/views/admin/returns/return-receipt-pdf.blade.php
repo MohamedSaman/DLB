@@ -65,7 +65,14 @@
                 <tr>
                     <td>{{ $idx + 1 }}</td>
                     <td>{{ $item->product?->code ?? 'N/A' }}</td>
-                    <td>{{ $item->product?->name ?? 'N/A' }}</td>
+                    <td>
+                        {{ $item->product?->name ?? 'N/A' }}
+                        @if($item->variant_value)
+                            <div style="font-size: 10px; color: #666; margin-top: 2px;">
+                                ({{ $item->product?->variant?->variant_name ?? 'Variant' }}: {{ $item->variant_value }})
+                            </div>
+                        @endif
+                    </td>
                     <td class="text-center">{{ $item->usable_quantity }}</td>
                     <td class="text-center">{{ $item->damaged_quantity }}</td>
                     <td class="text-center">{{ $item->return_quantity }}</td>
