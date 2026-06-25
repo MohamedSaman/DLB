@@ -252,7 +252,7 @@ class SalesmanSalesList extends Component
                             $restoreQty = abs($quantityDelta);
                             
                             $batchQuery = \App\Models\ProductBatch::where('product_id', $saleItem->product_id)
-                                ->where('status', 'active');
+                                ->whereIn('status', ['active', 'depleted']);
                             if ($saleItem->variant_id) $batchQuery->where('variant_id', $saleItem->variant_id);
                             if ($saleItem->variant_value) $batchQuery->where('variant_value', $saleItem->variant_value);
                             
@@ -260,6 +260,9 @@ class SalesmanSalesList extends Component
                             
                             if ($batch) {
                                 $batch->remaining_quantity += $restoreQty;
+                                if ($batch->status === 'depleted') {
+                                    $batch->status = 'active';
+                                }
                                 $batch->save();
                             }
                             

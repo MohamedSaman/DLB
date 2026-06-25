@@ -399,6 +399,8 @@ class ReturnProduct extends Component
                     'variant_id' => $item['variant_id'] ?? null,
                     'variant_value' => $item['variant_value'] ?? null,
                     'return_quantity' => $totalReturn,
+                    'usable_quantity' => $usable,
+                    'damaged_quantity' => $damage,
                     'selling_price' => $item['selling_price'],
                     'total_amount' => $returnAmount,
                     'notes' => $notes,

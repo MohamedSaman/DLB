@@ -254,6 +254,23 @@ class SalesmanBilling extends Component
         $stockRecord = $stockQuery->first();
         $rawAvailable = $stockRecord ? ($stockRecord->available_stock ?? 0) : 0;
 
+        // If the sale is confirmed, add back the quantity of this product/variant from the current sale
+        if ($this->editMode && $this->editingSale && $this->editingSale->status === 'confirm') {
+            $currentQty = SaleItem::where('sale_id', $this->editingSaleId)
+                ->where('product_id', $productId)
+                ->when($variantValue, function ($q) use ($variantValue) {
+                    return $q->where('variant_value', $variantValue);
+                }, function ($q) {
+                    return $q->where(function ($sq) {
+                        $sq->whereNull('variant_value')
+                            ->orWhere('variant_value', '')
+                            ->orWhere('variant_value', 'null');
+                    })->whereNull('variant_id');
+                })
+                ->sum('quantity');
+            $rawAvailable += $currentQty;
+        }
+
         // Subtract pending quantities from OTHER sales only
         $otherPendingQuery = SaleItem::whereHas('sale', function ($q) {
             $q->where('status', 'pending');
@@ -392,6 +409,14 @@ class SalesmanBilling extends Component
 
                                 $availableStock = max(0, ($variantStock->available_stock ?? 0) - $pendingQuantity);
 
+                                if ($this->editMode && $this->editingSale && $this->editingSale->status === 'confirm') {
+                                    $currentQty = SaleItem::where('sale_id', $this->editingSaleId)
+                                        ->where('product_id', $product->id)
+                                        ->where('variant_value', $variantValue)
+                                        ->sum('quantity');
+                                    $availableStock += $currentQty;
+                                }
+
                                 if ($availableStock > 0) {
                                     // Check for multiple batches with different distributor prices for this variant
                                     $batches = FIFOStockService::getBatchDetails($product->id, $product->variant_id, $variantValue);
@@ -486,6 +511,18 @@ class SalesmanBilling extends Component
                             ->sum('quantity');
 
                         $availableStock = max(0, $availableStockRaw - $pendingQuantity);
+
+                        if ($this->editMode && $this->editingSale && $this->editingSale->status === 'confirm') {
+                            $currentQty = SaleItem::where('sale_id', $this->editingSaleId)
+                                ->where('product_id', $product->id)
+                                ->where(function ($sq) {
+                                    $sq->whereNull('variant_value')
+                                        ->orWhere('variant_value', '')
+                                        ->orWhere('variant_value', 'null');
+                                })
+                                ->sum('quantity');
+                            $availableStock += $currentQty;
+                        }
 
                         // Add to results if there's available stock
                         if ($availableStock > 0) {
@@ -929,13 +966,13 @@ class SalesmanBilling extends Component
                             // Use FIFO service to restore stock (reverse deduction)
                             // Note: We restore by adding back to the most recent batch
                             $batchQuery = ProductBatch::where('product_id', $baseProductId)
-                                ->where('status', 'active');
+                                ->whereIn('status', ['active', 'depleted']);
 
                             if ($variantId) {
-                                $batchQuery->where('variant_id', $variantId);
+                                    $batchQuery->where('variant_id', $variantId);
                             }
                             if ($variantValue) {
-                                $batchQuery->where('variant_value', $variantValue);
+                                    $batchQuery->where('variant_value', $variantValue);
                             }
 
                             $batch = $batchQuery->orderBy('received_date', 'desc')
@@ -945,6 +982,9 @@ class SalesmanBilling extends Component
                             if ($batch) {
                                 $batch->remaining_quantity += $quantity;
                                 $batch->quantity += $quantity;
+                                if ($batch->status === 'depleted') {
+                                    $batch->status = 'active';
+                                }
                                 $batch->save();
                             }
 

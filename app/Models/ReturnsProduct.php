@@ -14,6 +14,8 @@ class ReturnsProduct extends Model
         'variant_id',
         'variant_value',
         'return_quantity',
+        'usable_quantity',
+        'damaged_quantity',
         'selling_price',
         'total_amount',
         'notes',

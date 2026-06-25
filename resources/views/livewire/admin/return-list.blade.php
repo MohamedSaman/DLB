@@ -50,24 +50,30 @@
                         <tr>
                             <th class="ps-4">#</th>
                             <th>Invoice Number</th>
-                            <th>Product</th>
-                            <th>Return Qty</th>
-                            <th>Unit Price</th>
-                            <th>Total</th>
+                            <th>Customer Name</th>
+                            <th>Total Usable Qty</th>
+                            <th>Total Damage Qty</th>
+                            <th>Total Return Amount</th>
                             <th>Date</th>
                             <th class="text-end pe-4">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
                         @forelse($returns as $index => $return)
-                        <tr style="cursor:pointer" wire:key="return-{{ $return->id }}">
+                        <tr style="cursor:pointer" wire:key="return-{{ $return->sale_id }}">
                             <td class="ps-4">{{ $index + 1 }}</td>
-                            <td wire:click="showReceipt({{ $return->id }})">{{ $return->sale?->invoice_number ?? '-' }}</td>
-                            <td wire:click="showReceipt({{ $return->id }})">{{ $return->product?->name ?? '-' }}</td>
-                            <td wire:click="showReceipt({{ $return->id }})">{{ $return->return_quantity }}</td>
-                            <td wire:click="showReceipt({{ $return->id }})">Rs.{{ number_format($return->selling_price, 2) }}</td>
-                            <td wire:click="showReceipt({{ $return->id }})">Rs.{{ number_format($return->total_amount, 2) }}</td>
-                            <td wire:click="showReceipt({{ $return->id }})">{{ $return->created_at?->format('M d, Y') }}</td>
+                            <td wire:click="showReceipt({{ $return->sale_id }})">{{ $return->sale?->invoice_number ?? '-' }}</td>
+                            <td wire:click="showReceipt({{ $return->sale_id }})">{{ $return->sale?->customer?->name ?? 'Walk-in Customer' }}</td>
+                            <td wire:click="showReceipt({{ $return->sale_id }})">
+                                <span class="badge bg-success">{{ $return->total_usable }}</span>
+                            </td>
+                            <td wire:click="showReceipt({{ $return->sale_id }})">
+                                <span class="badge bg-danger">{{ $return->total_damaged }}</span>
+                            </td>
+                            <td wire:click="showReceipt({{ $return->sale_id }})">Rs.{{ number_format($return->total_return_amount, 2) }}</td>
+                            <td wire:click="showReceipt({{ $return->sale_id }})">
+                                {{ $return->latest_return_date ? \Carbon\Carbon::parse($return->latest_return_date)->format('M d, Y') : '-' }}
+                            </td>
                             <td class="text-end pe-4">
     <div class="dropdown">
         <button class="btn btn-sm btn-outline-secondary dropdown-toggle"
@@ -78,19 +84,27 @@
         </button>
 
         <ul class="dropdown-menu dropdown-menu-end">
+            <!-- Edit Return -->
+            <li>
+                <button class="dropdown-item"
+                        wire:click="editReturn({{ $return->sale_id }})">
+                    <i class="bi bi-pencil-square text-primary me-2"></i>
+                    Edit
+                </button>
+            </li>
 
             <!-- Delete Return -->
             <li>
                 <button class="dropdown-item"
-                        wire:click="deleteReturn({{ $return->id }})"
+                        wire:click="deleteReturn({{ $return->sale_id }})"
                         wire:loading.attr="disabled"
-                        wire:target="deleteReturn({{ $return->id }})">
+                        wire:target="deleteReturn({{ $return->sale_id }})">
 
-                    <span wire:loading wire:target="deleteReturn({{ $return->id }})">
+                    <span wire:loading wire:target="deleteReturn({{ $return->sale_id }})">
                         <i class="spinner-border spinner-border-sm me-2"></i>
                         Loading...
                     </span>
-                    <span wire:loading.remove wire:target="deleteReturn({{ $return->id }})">
+                    <span wire:loading.remove wire:target="deleteReturn({{ $return->sale_id }})">
                         <i class="bi bi-trash text-danger me-2"></i>
                         Delete
                     </span>
@@ -152,10 +166,9 @@
                         </div>
                         <div class="col-6">
                             <table class="table table-sm table-borderless">
-                                <tr><td><strong>Return No :</strong></td><td>{{ $selectedReturn->id }}</td></tr>
                                 <tr><td><strong>Invoice No :</strong></td><td>{{ $selectedReturn->sale?->invoice_number ?? '-' }}</td></tr>
                                 <tr><td><strong>Return Status :</strong></td><td>Completed</td></tr>
-                                <tr><td><strong>Return Date :</strong></td><td>{{ $selectedReturn->created_at->format('d/m/Y H:i') }}</td></tr>
+                                <tr><td><strong>Latest Return Date :</strong></td><td>{{ $selectedReturn->created_at->format('d/m/Y H:i') }}</td></tr>
                             </table>
                         </div>
                     </div>
@@ -168,20 +181,26 @@
                                     <th style="width:5%">#</th>
                                     <th style="width:15%">ITEM CODE</th>
                                     <th>DESCRIPTION</th>
-                                    <th class="text-center" style="width:12%">RETURN QTY</th>
+                                    <th class="text-center" style="width:10%">USABLE QTY</th>
+                                    <th class="text-center" style="width:10%">DAMAGE QTY</th>
+                                    <th class="text-center" style="width:10%">TOTAL QTY</th>
                                     <th class="text-end" style="width:12%">UNIT PRICE</th>
                                     <th class="text-end" style="width:12%">SUBTOTAL</th>
                                 </tr>
                             </thead>
                             <tbody>
+                                @foreach($selectedReturnItems as $idx => $item)
                                 <tr>
-                                    <td>1</td>
-                                    <td>{{ $selectedReturn->product?->code ?? 'N/A' }}</td>
-                                    <td>{{ $selectedReturn->product?->name ?? 'N/A' }}</td>
-                                    <td class="text-center">{{ $selectedReturn->return_quantity }} Pc(s)</td>
-                                    <td class="text-end">Rs.{{ number_format($selectedReturn->selling_price, 2) }}</td>
-                                    <td class="text-end">Rs.{{ number_format($selectedReturn->total_amount, 2) }}</td>
+                                    <td>{{ $idx + 1 }}</td>
+                                    <td>{{ $item->product?->code ?? 'N/A' }}</td>
+                                    <td>{{ $item->product?->name ?? 'N/A' }}</td>
+                                    <td class="text-center">{{ $item->usable_quantity }} Pc(s)</td>
+                                    <td class="text-center">{{ $item->damaged_quantity }} Pc(s)</td>
+                                    <td class="text-center">{{ $item->return_quantity }} Pc(s)</td>
+                                    <td class="text-end">Rs.{{ number_format($item->selling_price, 2) }}</td>
+                                    <td class="text-end">Rs.{{ number_format($item->total_amount, 2) }}</td>
                                 </tr>
+                                @endforeach
                             </tbody>
                         </table>
                     </div>
@@ -190,9 +209,12 @@
                     <div class="row">
                         <div class="col-7"></div>
                         <div class="col-5">
+                            @php
+                                $totalReturnAmount = collect($selectedReturnItems)->sum('total_amount');
+                            @endphp
                             <table class="table table-sm table-borderless">
-                                <tr><td class="text-end"><strong>Total Return Amount (LKR)</strong></td><td class="text-end">Rs.{{ number_format($selectedReturn->total_amount, 2) }}</td></tr>
-                                <tr><td class="text-end"><strong>Refunded Amount (LKR)</strong></td><td class="text-end">Rs.{{ number_format($selectedReturn->total_amount, 2) }}</td></tr>
+                                <tr><td class="text-end"><strong>Total Return Amount (LKR)</strong></td><td class="text-end">Rs.{{ number_format($totalReturnAmount, 2) }}</td></tr>
+                                <tr><td class="text-end"><strong>Refunded Amount (LKR)</strong></td><td class="text-end">Rs.{{ number_format($totalReturnAmount, 2) }}</td></tr>
                                 <tr><td class="text-end"><strong>Balance (LKR)</strong></td><td class="text-end">Rs.0.00</td></tr>
                             </table>
                         </div>
@@ -204,7 +226,11 @@
                             <div class="card bg-light">
                                 <div class="card-body p-3">
                                     <strong>Notes:</strong><br>
-                                    {{ $selectedReturn->notes ?? 'No additional notes.' }}
+                                    @foreach($selectedReturnItems as $item)
+                                        @if($item->notes)
+                                            <div><strong>{{ $item->product?->name }}:</strong> {{ $item->notes }}</div>
+                                        @endif
+                                    @endforeach
                                 </div>
                             </div>
                         </div>
@@ -243,6 +269,82 @@
         </div>
     </div>
 
+    <!-- Edit Return Modal -->
+    <div wire:ignore.self class="modal fade" id="editReturnModal" tabindex="-1"
+         aria-labelledby="editReturnModalLabel" aria-hidden="true" data-bs-backdrop="static">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title fw-bold"><i class="bi bi-pencil-square me-2"></i> Edit Product Return</h5>
+                    <button type="button" class="btn-close btn-close-white" wire:click="closeModal"></button>
+                </div>
+                <div class="modal-body">
+                    @if(!empty($editingReturnItems))
+                    <div class="card mb-3">
+                        <div class="card-body">
+                            <p class="mb-0"><strong>Invoice Number:</strong> #{{ $selectedReturn?->sale?->invoice_number ?? '-' }}</p>
+                        </div>
+                    </div>
+                    
+                    <div class="table-responsive">
+                        <table class="table table-bordered align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Product</th>
+                                    <th>Unit Price</th>
+                                    <th>Max Return</th>
+                                    <th style="width: 130px;">Usable Return Qty</th>
+                                    <th style="width: 130px;">Damage Return Qty</th>
+                                    <th>Notes</th>
+                                    <th class="text-end">Subtotal</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach($editingReturnItems as $index => $item)
+                                <tr wire:key="edit-item-{{ $item['id'] }}">
+                                    <td>
+                                        <strong>{{ $item['product_name'] }}</strong>
+                                    </td>
+                                    <td>Rs.{{ number_format($item['selling_price'], 2) }}</td>
+                                    <td><span class="badge bg-info">{{ $item['max_qty'] }} units</span></td>
+                                    <td>
+                                        <input type="number" class="form-control form-control-sm" min="0" max="{{ $item['max_qty'] }}" wire:model.live="editingReturnItems.{{ $index }}.usable_qty">
+                                    </td>
+                                    <td>
+                                        <input type="number" class="form-control form-control-sm border-danger text-danger" min="0" max="{{ $item['max_qty'] }}" wire:model.live="editingReturnItems.{{ $index }}.damage_qty">
+                                    </td>
+                                    <td>
+                                        <textarea class="form-control form-control-sm" rows="1" wire:model="editingReturnItems.{{ $index }}.notes" placeholder="Notes..."></textarea>
+                                    </td>
+                                    <td class="text-end fw-bold">
+                                        Rs.{{ number_format(((int)($item['usable_qty'] ?? 0) + (int)($item['damage_qty'] ?? 0)) * $item['selling_price'], 2) }}
+                                    </td>
+                                </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+
+                    @php
+                        $grandTotal = collect($editingReturnItems)->sum(function($item) {
+                            return ((int)($item['usable_qty'] ?? 0) + (int)($item['damage_qty'] ?? 0)) * $item['selling_price'];
+                        });
+                    @endphp
+                    <div class="d-flex justify-content-end bg-light p-2 rounded mt-3">
+                        <span class="fw-bold fs-5">Total Return Amount: Rs.{{ number_format($grandTotal, 2) }}</span>
+                    </div>
+                    @endif
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" wire:click="closeModal">Cancel</button>
+                    <button type="button" class="btn btn-primary" wire:click="updateReturn">
+                        <i class="bi bi-save me-1"></i> Save Changes
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Delete Confirmation Modal -->
     <div wire:ignore.self class="modal fade" id="deleteReturnModal" tabindex="-1"
          aria-labelledby="deleteReturnModalLabel" aria-hidden="true" data-bs-backdrop="static">
@@ -256,15 +358,13 @@
                     @if($selectedReturn)
                     <div class="alert alert-danger">
                         <h6 class="alert-heading">Warning!</h6>
-                        <p class="mb-0">You are about to delete this return record. This action cannot be undone and will adjust product stock accordingly.</p>
+                        <p class="mb-0">You are about to delete all return records for invoice #{{ $selectedReturn->sale?->invoice_number ?? '-' }}. This action cannot be undone and will adjust product stock accordingly.</p>
                     </div>
                     <div class="card">
                         <div class="card-body">
-                            <p><strong>Return ID:</strong> #{{ $selectedReturn->id }}</p>
-                            <p><strong>Product:</strong> {{ $selectedReturn->product?->name ?? '-' }}</p>
-                            <p><strong>Quantity:</strong> {{ $selectedReturn->return_quantity }}</p>
-                            <p><strong>Amount:</strong> Rs.{{ number_format($selectedReturn->total_amount, 2) }}</p>
-                            <p><strong>Date:</strong> {{ $selectedReturn->created_at?->format('M d, Y') }}</p>
+                            <p><strong>Invoice Number:</strong> #{{ $selectedReturn->sale?->invoice_number ?? '-' }}</p>
+                            <p><strong>Customer:</strong> {{ $selectedReturn->sale?->customer?->name ?? 'Walk-in Customer' }}</p>
+                            <p><strong>Total Return Amount:</strong> Rs.{{ number_format(collect($selectedReturnItems)->sum('total_amount'), 2) }}</p>
                         </div>
                     </div>
                     @endif
