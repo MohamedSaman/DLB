@@ -108,7 +108,7 @@ class ReturnProduct extends Component
 
             // Build return items with remaining quantities
             foreach ($this->selectedInvoice->items as $item) {
-                $alreadyReturned = $this->getAlreadyReturnedQuantity($item->product->id);
+                $alreadyReturned = $this->getAlreadyReturnedQuantity($item->product_id, $item->variant_id, $item->variant_value);
                 $remainingQty = $item->quantity - $alreadyReturned;
 
                 if ($remainingQty > 0) {
@@ -123,8 +123,8 @@ class ReturnProduct extends Component
                     }
 
                     $this->returnItems[] = [
-                        'product_id' => $item->product->id,
-                        'product_code' => $item->product_code ?? $item->product->code,
+                        'product_id' => $item->product_id,
+                        'product_code' => $item->product_code ?? ($item->product?->code),
                         'name' => $displayName,
                         'product_name' => $item->product_name ?? $item->product->name,
                         'selling_price' => $sellingPrice,
@@ -155,7 +155,9 @@ class ReturnProduct extends Component
         $this->previousReturns = ReturnsProduct::where('sale_id', $this->selectedInvoice->id)
             ->with('product')
             ->get()
-            ->groupBy('product_id')
+            ->groupBy(function ($item) {
+                return $item->product_id . '_' . ($item->variant_id ?? '') . '_' . ($item->variant_value ?? '');
+            })
             ->map(function ($returns) {
                 $firstReturn = $returns->first();
                 $productName = $firstReturn->product->name ?? 'Unknown';
@@ -182,13 +184,30 @@ class ReturnProduct extends Component
     }
 
     /** 🔢 Get Already Returned Quantity */
-    private function getAlreadyReturnedQuantity($productId)
+    private function getAlreadyReturnedQuantity($productId, $variantId = null, $variantValue = null)
     {
         if (!$this->selectedInvoice) return 0;
 
-        return ReturnsProduct::where('sale_id', $this->selectedInvoice->id)
-            ->where('product_id', $productId)
-            ->sum('return_quantity');
+        $query = ReturnsProduct::where('sale_id', $this->selectedInvoice->id)
+            ->where('product_id', $productId);
+
+        if ($variantId) {
+            $query->where('variant_id', $variantId);
+        } else {
+            $query->whereNull('variant_id');
+        }
+
+        if ($variantValue) {
+            $query->where('variant_value', $variantValue);
+        } else {
+            $query->where(function ($q) {
+                $q->whereNull('variant_value')
+                  ->orWhere('variant_value', '')
+                  ->orWhere('variant_value', 'null');
+            });
+        }
+
+        return $query->sum('return_quantity');
     }
 
     /** 👁️ View Invoice Details in Modal */
@@ -264,7 +283,7 @@ class ReturnProduct extends Component
             $invoice = Sale::with(['items.product.price'])->find($invoiceId);
             if ($invoice) {
                 $products = $invoice->items->map(function ($item) use ($invoice) {
-                    $alreadyReturned = $this->getAlreadyReturnedQuantity($item->product->id);
+                    $alreadyReturned = $this->getAlreadyReturnedQuantity($item->product_id, $item->variant_id, $item->variant_value);
                     $remainingQty = $item->quantity - $alreadyReturned;
 
                     // Build display name with variant
@@ -274,10 +293,12 @@ class ReturnProduct extends Component
                     }
 
                     return [
-                        'id' => $item->product->id,
+                        'id' => $item->product_id,
+                        'variant_id' => $item->variant_id,
+                        'variant_value' => $item->variant_value,
                         'name' => $displayName,
-                        'code' => $item->product_code ?? $item->product->code,
-                        'image' => $item->product->image,
+                        'code' => $item->product_code ?? ($item->product?->code),
+                        'image' => $item->product?->image,
                         'selling_price' => $item->unit_price,
                         'invoice_id' => $invoice->id,
                         'invoice_number' => $invoice->invoice_number,
@@ -288,7 +309,9 @@ class ReturnProduct extends Component
             }
         }
 
-        $this->invoiceProductsForSearch = $allProducts->unique('id')->values()->toArray();
+        $this->invoiceProductsForSearch = $allProducts->unique(function ($p) {
+            return $p['id'] . '_' . ($p['variant_id'] ?? '') . '_' . ($p['variant_value'] ?? '');
+        })->values()->toArray();
     }
 
     /** ❌ Remove Product from Return Cart */

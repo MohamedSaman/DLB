@@ -200,10 +200,26 @@ class ReturnList extends Component
 
         foreach ($returns as $return) {
             // Determine max qty available for this product on this sale
-            $saleItem = \App\Models\SaleItem::where('sale_id', $return->sale_id)
-                ->where('product_id', $return->product_id)
-                ->where('variant_id', $return->variant_id)
-                ->first();
+            $saleItemQuery = \App\Models\SaleItem::where('sale_id', $return->sale_id)
+                ->where('product_id', $return->product_id);
+
+            if ($return->variant_id) {
+                $saleItemQuery->where('variant_id', $return->variant_id);
+            } else {
+                $saleItemQuery->whereNull('variant_id');
+            }
+
+            if ($return->variant_value) {
+                $saleItemQuery->where('variant_value', $return->variant_value);
+            } else {
+                $saleItemQuery->where(function ($q) {
+                    $q->whereNull('variant_value')
+                      ->orWhere('variant_value', '')
+                      ->orWhere('variant_value', 'null');
+                });
+            }
+
+            $saleItem = $saleItemQuery->first();
             if (!$saleItem) {
                 $saleItem = \App\Models\SaleItem::where('sale_id', $return->sale_id)
                     ->where('product_id', $return->product_id)
@@ -212,11 +228,28 @@ class ReturnList extends Component
 
             $originalQty = $saleItem ? $saleItem->quantity : $return->return_quantity;
 
-            // Count other returns for this product
-            $otherReturnsSum = ReturnsProduct::where('sale_id', $return->sale_id)
+            // Count other returns for this product variant
+            $otherReturnsQuery = ReturnsProduct::where('sale_id', $return->sale_id)
                 ->where('product_id', $return->product_id)
-                ->where('id', '!=', $return->id)
-                ->sum('return_quantity');
+                ->where('id', '!=', $return->id);
+
+            if ($return->variant_id) {
+                $otherReturnsQuery->where('variant_id', $return->variant_id);
+            } else {
+                $otherReturnsQuery->whereNull('variant_id');
+            }
+
+            if ($return->variant_value) {
+                $otherReturnsQuery->where('variant_value', $return->variant_value);
+            } else {
+                $otherReturnsQuery->where(function ($q) {
+                    $q->whereNull('variant_value')
+                      ->orWhere('variant_value', '')
+                      ->orWhere('variant_value', 'null');
+                });
+            }
+
+            $otherReturnsSum = $otherReturnsQuery->sum('return_quantity');
 
             $maxQty = $originalQty - $otherReturnsSum;
 
@@ -286,7 +319,7 @@ class ReturnList extends Component
                     $returnAmount = $totalReturn * $returnRecord->selling_price;
 
                     // Build notes
-                    $cleanNotes = preg_replace('/^(Usable: \d+(?:,\s*Damaged: \d+)?\.\s*)?/i', '', $item['notes']);
+                    $cleanNotes = preg_replace('/^((?:Usable|Damaged):\s*\d+(?:,\s*(?:Usable|Damaged):\s*\d+)?[\.,]\s*)+/i', '', $item['notes']);
                     $notes = 'Customer return processed via system';
                     if ($usable > 0 && $damage > 0) {
                         $notes = "Usable: {$usable}, Damaged: {$damage}. " . $cleanNotes;
