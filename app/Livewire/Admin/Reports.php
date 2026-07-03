@@ -248,7 +248,14 @@ class Reports extends Component
             case 'product-value':
                 $export = new ProductValueReportExport($this->productValueReport, $this->productValueReportTotal);
                 break;
+            case 'inventory-stock':
+                $export = new \App\Exports\InventoryStockReportExport();
+                break;
+            case 'daily-purchases':
+                $export = new \App\Exports\DailyPurchasesReportExport($this->reportStartDate, $this->reportEndDate);
+                break;
             default:
+                $this->js("Swal.fire('Info', 'Export for this report type is not yet available.', 'info')");
                 return;
         }
 

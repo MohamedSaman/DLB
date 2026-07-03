@@ -114,7 +114,12 @@
                 @endphp
                 <tr>
                     <td>
-                        <div class="fw-semibold">{{ $stock->product->name ?? '-' }}</div>
+                        <div class="fw-semibold">
+                            {{ $stock->product->name ?? '-' }}
+                            @if($stock->variant_value)
+                                <span class="badge bg-secondary ms-1">{{ $stock->variant_value }}</span>
+                            @endif
+                        </div>
                         <small class="text-muted">{{ $stock->product->model ?? '-' }}</small>
                     </td>
                     <td>{{ $stock->product->brand->brand_name ?? '-' }}</td>
