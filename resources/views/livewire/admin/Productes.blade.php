@@ -2226,6 +2226,22 @@
                                         <span class="badge bg-danger">{{ $adjustmentDamageStock }}</span>
                                     </div>
                                 </div>
+
+                                @if($adjustmentPricingMode === 'variant' && !empty($adjustmentVariantValues))
+                                <div class="row mt-3 pt-3 border-top">
+                                    <div class="col-md-12">
+                                        <label class="form-label fw-bold text-primary mb-1">
+                                            <i class="bi bi-funnel-fill me-1"></i>Select Variant to Adjust:
+                                        </label>
+                                        <select class="form-select border-primary" wire:model.live="adjustmentSelectedVariant">
+                                            <option value="">-- Select Variant --</option>
+                                            @foreach($adjustmentVariantValues as $variant)
+                                                <option value="{{ $variant['variant_value'] }}">{{ $variant['variant_value'] }}</option>
+                                            @endforeach
+                                        </select>
+                                    </div>
+                                </div>
+                                @endif
                             </div>
                         </div>
 

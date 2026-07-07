@@ -159,6 +159,16 @@ class ChequeList extends Component
             $cheque->status = 'return';
             $cheque->save();
 
+            // Update associated payment status
+            if ($cheque->payment_id) {
+                $payment = \App\Models\Payment::find($cheque->payment_id);
+                if ($payment) {
+                    $payment->status = 'return';
+                    $payment->save();
+                    \Illuminate\Support\Facades\Log::info("Payment {$payment->id} status updated to return due to cheque return.");
+                }
+            }
+
             // Refresh the data
 
 

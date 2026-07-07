@@ -74,6 +74,7 @@ class Products extends Component
     // Stock Adjustment fields
     public $adjustmentProductId, $adjustmentProductName, $adjustmentAvailableStock, $adjustmentDamageStock,
         $damageQuantity, $availableQuantity;
+    public $adjustmentPricingMode, $adjustmentVariantValues = [], $adjustmentSelectedVariant = '';
 
     // View Product
     public $viewProduct;
@@ -1300,17 +1301,47 @@ class Products extends Component
     // 🔹 Open Stock Adjustment Modal
     public function openStockAdjustment($id)
     {
-        $product = ProductDetail::with(['stock'])->findOrFail($id);
+        $product = ProductDetail::with(['stock', 'stocks'])->findOrFail($id);
 
         $this->adjustmentProductId = $product->id;
         $this->adjustmentProductName = $product->name;
-        $this->adjustmentAvailableStock = $product->stock->available_stock ?? 0;
-        $this->adjustmentDamageStock = $product->stock->damage_stock ?? 0;
+        
+        $priceMode = ProductPrice::where('product_id', $product->id)->first()->pricing_mode ?? 'single';
+        $this->adjustmentPricingMode = $priceMode;
+
+        if ($priceMode === 'variant') {
+            $this->adjustmentVariantValues = ProductStock::where('product_id', $product->id)
+                ->whereNotNull('variant_value')
+                ->get()
+                ->toArray();
+            
+            $this->adjustmentSelectedVariant = '';
+            $this->adjustmentAvailableStock = 0;
+            $this->adjustmentDamageStock = 0;
+        } else {
+            $this->adjustmentVariantValues = [];
+            $this->adjustmentSelectedVariant = '';
+            $this->adjustmentAvailableStock = $product->stock->available_stock ?? 0;
+            $this->adjustmentDamageStock = $product->stock->damage_stock ?? 0;
+        }
+
         $this->damageQuantity = null; // Clear damage input
         $this->availableQuantity = null; // Clear available input
 
         $this->resetValidation();
         $this->js("$('#stockAdjustmentModal').modal('show')");
+    }
+
+    public function updatedAdjustmentSelectedVariant()
+    {
+        if ($this->adjustmentSelectedVariant) {
+            $stock = ProductStock::where('product_id', $this->adjustmentProductId)
+                ->where('variant_value', $this->adjustmentSelectedVariant)
+                ->first();
+                
+            $this->adjustmentAvailableStock = $stock->available_stock ?? 0;
+            $this->adjustmentDamageStock = $stock->damage_stock ?? 0;
+        }
     }
 
     // 🔹 Stock Adjustment Validation Rules
@@ -1332,19 +1363,45 @@ class Products extends Component
             'damageQuantity.min' => 'Damage quantity must be at least 1.',
         ]);
 
+        if ($this->adjustmentPricingMode === 'variant' && empty($this->adjustmentSelectedVariant)) {
+            $this->js("Swal.fire({
+                toast: true,
+                position: 'top-end',
+                icon: 'warning',
+                title: 'Please select a variant to adjust.',
+                showConfirmButton: false,
+                timer: 3000
+            })");
+            return;
+        }
+
         DB::beginTransaction();
         try {
-            $product = ProductDetail::with(['stock', 'price'])->findOrFail($this->adjustmentProductId);
-            $stock = $product->stock;
+            $product = ProductDetail::with(['price'])->findOrFail($this->adjustmentProductId);
+            
+            if ($this->adjustmentPricingMode === 'variant') {
+                $stock = ProductStock::where('product_id', $product->id)
+                    ->where('variant_value', $this->adjustmentSelectedVariant)
+                    ->first();
+            } else {
+                $stock = ProductStock::where('product_id', $product->id)
+                    ->whereNull('variant_id')
+                    ->first();
+            }
 
             if (!$stock) {
-                $stock = ProductStock::create([
+                $stockData = [
                     'product_id' => $product->id,
                     'available_stock' => 0,
                     'damage_stock' => 0,
                     'total_stock' => 0,
                     'sold_count' => 0,
-                ]);
+                ];
+                if ($this->adjustmentPricingMode === 'variant') {
+                    $stockData['variant_id'] = $product->variant_id;
+                    $stockData['variant_value'] = $this->adjustmentSelectedVariant;
+                }
+                $stock = ProductStock::create($stockData);
             }
 
             $damageQty = (int)$this->damageQuantity;
@@ -1354,41 +1411,89 @@ class Products extends Component
             // 🔹 Deduct from batches using FIFO (First In, First Out)
             $remainingDamage = $damageQty;
 
-            $batches = ProductBatch::where('product_id', $product->id)
+            $batchesQuery = ProductBatch::where('product_id', $product->id)
                 ->where('status', 'active')
                 ->where('remaining_quantity', '>', 0)
                 ->orderBy('received_date', 'asc')
-                ->orderBy('id', 'asc')
-                ->get();
+                ->orderBy('id', 'asc');
+                
+            if ($this->adjustmentPricingMode === 'variant') {
+                $batchesQuery->where('variant_value', $this->adjustmentSelectedVariant);
+            }
+            $batches = $batchesQuery->get();
 
             if ($batches->isEmpty()) {
-                DB::rollBack();
-                $this->js("Swal.fire('Error!', 'No active batches found for this product.', 'error')");
-                return;
+                // Find the very last batch (regardless of status/quantity)
+                $lastBatchQuery = ProductBatch::where('product_id', $product->id)
+                    ->orderBy('id', 'desc');
+                if ($this->adjustmentPricingMode === 'variant') {
+                    $lastBatchQuery->where('variant_value', $this->adjustmentSelectedVariant);
+                }
+                $lastBatch = $lastBatchQuery->first();
+
+                if ($lastBatch) {
+                    $lastBatch->status = 'active';
+                    $lastBatch->save();
+                    $batches = collect([$lastBatch]);
+                } else {
+                    // Create default batch
+                    $productPriceQuery = ProductPrice::where('product_id', $product->id);
+                    if ($this->adjustmentPricingMode === 'variant') {
+                        $productPriceQuery->where('variant_value', $this->adjustmentSelectedVariant);
+                    }
+                    $productPrice = $productPriceQuery->first();
+
+                    $batchNumber = 'ADJ-DEF-' . $product->id . '-' . date('YmdHis');
+                    
+                    $newBatchData = [
+                        'product_id' => $product->id,
+                        'batch_number' => $batchNumber,
+                        'quantity' => 0,
+                        'remaining_quantity' => 0,
+                        'supplier_price' => $productPrice->supplier_price ?? 0,
+                        'wholesale_price' => $productPrice->wholesale_price ?? 0,
+                        'retail_price' => $productPrice->retail_price ?? 0,
+                        'selling_price' => $productPrice->retail_price ?? 0,
+                        'distributor_price' => $productPrice->distributor_price ?? 0,
+                        'status' => 'active',
+                        'received_date' => now(),
+                    ];
+                    
+                    if ($this->adjustmentPricingMode === 'variant') {
+                        $newBatchData['variant_id'] = $stock->variant_id;
+                        $newBatchData['variant_value'] = $this->adjustmentSelectedVariant;
+                    }
+                    
+                    $defaultBatch = ProductBatch::create($newBatchData);
+                    $batches = collect([$defaultBatch]);
+                }
             }
 
-            foreach ($batches as $batch) {
+            $totalBatches = $batches->count();
+            foreach ($batches as $index => $batch) {
                 if ($remainingDamage <= 0) break;
 
-                $deductQty = min($remainingDamage, $batch->remaining_quantity);
-                $batch->remaining_quantity -= $deductQty;
-
-                if ($batch->remaining_quantity == 0) {
-                    $batch->status = 'depleted';
+                $isLastBatch = ($index === $totalBatches - 1);
+                
+                // If this is the last available batch, it absorbs the remainder (even if it goes negative)
+                if ($isLastBatch) {
+                    $deductQty = $remainingDamage;
+                } else {
+                    $deductQty = min($remainingDamage, max(0, $batch->remaining_quantity));
                 }
 
-                $batch->save();
-                $remainingDamage -= $deductQty;
+                if ($deductQty > 0) {
+                    $batch->remaining_quantity -= $deductQty;
 
-                Log::info("Damage added: Deducted {$deductQty} from batch {$batch->batch_number}");
-            }
+                    if ($batch->remaining_quantity == 0 && !$isLastBatch) {
+                        $batch->status = 'depleted';
+                    }
 
-            // Check if we have enough stock in batches
-            if ($remainingDamage > 0) {
-                DB::rollBack();
-                $availableInBatches = $batches->sum('remaining_quantity');
-                $this->js("Swal.fire('Error!', 'Not enough stock in batches! Available: {$availableInBatches}, Required: {$damageQty}', 'error')");
-                return;
+                    $batch->save();
+                    $remainingDamage -= $deductQty;
+
+                    Log::info("Damage added: Deducted {$deductQty} from batch {$batch->batch_number}");
+                }
             }
 
             // Update stock table
@@ -1401,20 +1506,33 @@ class Products extends Component
             $stock->save();
 
             // 🔹 Update product prices based on the oldest active batch with stock
-            $oldestActiveBatch = ProductBatch::where('product_id', $product->id)
+            $oldestActiveBatchQuery = ProductBatch::where('product_id', $product->id)
                 ->where('status', 'active')
                 ->where('remaining_quantity', '>', 0)
                 ->orderBy('received_date', 'asc')
-                ->orderBy('id', 'asc')
-                ->first();
+                ->orderBy('id', 'asc');
+                
+            if ($this->adjustmentPricingMode === 'variant') {
+                $oldestActiveBatchQuery->where('variant_value', $this->adjustmentSelectedVariant);
+            }
+            $oldestActiveBatch = $oldestActiveBatchQuery->first();
 
-            if ($oldestActiveBatch && $product->price) {
-                // Update the product_prices table with the batch prices
-                $product->price->supplier_price = $oldestActiveBatch->supplier_price;
-                $product->price->selling_price = $oldestActiveBatch->selling_price;
-                $product->price->save();
+            if ($oldestActiveBatch) {
+                if ($this->adjustmentPricingMode === 'variant') {
+                    $price = ProductPrice::where('product_id', $product->id)
+                        ->where('variant_value', $this->adjustmentSelectedVariant)
+                        ->first();
+                } else {
+                    $price = $product->price;
+                }
+                
+                if ($price) {
+                    $price->supplier_price = $oldestActiveBatch->supplier_price;
+                    $price->selling_price = $oldestActiveBatch->selling_price;
+                    $price->save();
 
-                Log::info("Prices updated: Supplier={$oldestActiveBatch->supplier_price}, Selling={$oldestActiveBatch->selling_price} from batch {$oldestActiveBatch->batch_number}");
+                    Log::info("Prices updated: Supplier={$oldestActiveBatch->supplier_price}, Selling={$oldestActiveBatch->selling_price} from batch {$oldestActiveBatch->batch_number}");
+                }
             }
 
             DB::commit();
@@ -1446,30 +1564,60 @@ class Products extends Component
             'availableQuantity.min' => 'Quantity must be at least 1.',
         ]);
 
+        if ($this->adjustmentPricingMode === 'variant' && empty($this->adjustmentSelectedVariant)) {
+            $this->js("Swal.fire({
+                toast: true,
+                position: 'top-end',
+                icon: 'warning',
+                title: 'Please select a variant to adjust.',
+                showConfirmButton: false,
+                timer: 3000
+            })");
+            return;
+        }
+
         DB::beginTransaction();
         try {
-            $product = ProductDetail::with(['stock'])->findOrFail($this->adjustmentProductId);
-            $stock = $product->stock;
+            $product = ProductDetail::findOrFail($this->adjustmentProductId);
+            
+            if ($this->adjustmentPricingMode === 'variant') {
+                $stock = ProductStock::where('product_id', $product->id)
+                    ->where('variant_value', $this->adjustmentSelectedVariant)
+                    ->first();
+            } else {
+                $stock = ProductStock::where('product_id', $product->id)
+                    ->whereNull('variant_id')
+                    ->first();
+            }
 
             if (!$stock) {
-                $stock = ProductStock::create([
+                $stockData = [
                     'product_id' => $product->id,
                     'available_stock' => 0,
                     'damage_stock' => 0,
                     'total_stock' => 0,
                     'sold_count' => 0,
-                ]);
+                ];
+                if ($this->adjustmentPricingMode === 'variant') {
+                    $stockData['variant_id'] = $product->variant_id;
+                    $stockData['variant_value'] = $this->adjustmentSelectedVariant;
+                }
+                $stock = ProductStock::create($stockData);
             }
 
             $addQty = (int)$this->availableQuantity;
             $currentAvailable = $stock->available_stock;
 
             // 🔹 Add to oldest active batch OR create new batch
-            $oldestBatch = ProductBatch::where('product_id', $product->id)
+            $oldestBatchQuery = ProductBatch::where('product_id', $product->id)
                 ->where('status', 'active')
                 ->orderBy('received_date', 'asc')
-                ->orderBy('id', 'asc')
-                ->first();
+                ->orderBy('id', 'asc');
+                
+            if ($this->adjustmentPricingMode === 'variant') {
+                $oldestBatchQuery->where('variant_value', $this->adjustmentSelectedVariant);
+            }
+            $oldestBatch = $oldestBatchQuery->first();
 
             if ($oldestBatch) {
                 // Add to existing oldest batch
@@ -1480,49 +1628,60 @@ class Products extends Component
                 Log::info("Available stock increased: Added {$addQty} to batch {$oldestBatch->batch_number}");
             } else {
                 // No batch exists, create a manual adjustment batch
-                $productPrice = ProductPrice::where('product_id', $product->id)->first();
+                $productPriceQuery = ProductPrice::where('product_id', $product->id);
+                if ($this->adjustmentPricingMode === 'variant') {
+                    $productPriceQuery->where('variant_value', $this->adjustmentSelectedVariant);
+                }
+                $productPrice = $productPriceQuery->first();
 
                 // Try to merge into an existing batch with same prices
-                $matchingBatch = ProductBatch::where('product_id', $product->id)
+                $matchingBatchQuery = ProductBatch::where('product_id', $product->id)
                     ->where('status', 'active')
                     ->where('supplier_price', $productPrice->supplier_price ?? 0)
                     ->where('wholesale_price', $productPrice->wholesale_price ?? 0)
-                    ->where('retail_price', $productPrice->retail_price ?? 0)
-                    ->where('distributor_price', $productPrice->distributor_price ?? 0)
-                    ->orderBy('received_date', 'desc')
-                    ->orderBy('id', 'desc')
-                    ->first();
+                    ->where('retail_price', $productPrice->retail_price ?? 0);
+                    
+                if ($this->adjustmentPricingMode === 'variant') {
+                    $matchingBatchQuery->where('variant_value', $this->adjustmentSelectedVariant);
+                }
+                $matchingBatch = $matchingBatchQuery->first();
 
                 if ($matchingBatch) {
-                    $matchingBatch->quantity += $addQty;
                     $matchingBatch->remaining_quantity += $addQty;
+                    $matchingBatch->quantity += $addQty;
                     $matchingBatch->save();
-                    Log::info("Added {$addQty} to existing batch {$matchingBatch->batch_number} for product {$product->id}");
+                    Log::info("Available stock increased: Added {$addQty} to matching batch {$matchingBatch->batch_number}");
                 } else {
-                    ProductBatch::create([
+                    // Create completely new batch
+                    $batchNumber = 'ADJ-' . $product->id . '-' . date('YmdHis');
+                    
+                    $newBatchData = [
                         'product_id' => $product->id,
-                        'batch_number' => ProductBatch::generateBatchNumber($product->id),
-                        'purchase_order_id' => null,
-                        'supplier_price' => $productPrice->supplier_price ?? 0,
-                        'selling_price' => $productPrice->selling_price ?? 0,
-                        'wholesale_price' => $productPrice->wholesale_price ?? 0,
-                        'retail_price' => $productPrice->retail_price ?? 0,
-                        'distributor_price' => $productPrice->distributor_price ?? 0,
+                        'batch_number' => $batchNumber,
                         'quantity' => $addQty,
                         'remaining_quantity' => $addQty,
-                        'received_date' => now(),
+                        'supplier_price' => $productPrice->supplier_price ?? 0,
+                        'wholesale_price' => $productPrice->wholesale_price ?? 0,
+                        'retail_price' => $productPrice->retail_price ?? 0,
+                        'selling_price' => $productPrice->retail_price ?? 0,
+                        'distributor_price' => $productPrice->distributor_price ?? 0,
                         'status' => 'active',
-                    ]);
+                        'received_date' => now(),
+                    ];
+                    
+                    if ($this->adjustmentPricingMode === 'variant') {
+                        $newBatchData['variant_id'] = $stock->variant_id;
+                        $newBatchData['variant_value'] = $this->adjustmentSelectedVariant;
+                    }
+                    
+                    ProductBatch::create($newBatchData);
 
-                    Log::info("Created new batch for {$product->id} with qty {$addQty}");
+                    Log::info("Available stock increased: Created new adjustment batch {$batchNumber} with {$addQty} units");
                 }
-
-                Log::info("Available stock increased: Created new batch for {$addQty} units");
             }
 
-            // Update stock table - only increase available stock
+            // Update stock table
             $newAvailableStock = $currentAvailable + $addQty;
-
             $stock->available_stock = $newAvailableStock;
             $stock->total_stock = $newAvailableStock + $stock->damage_stock;
             $stock->save();
@@ -1536,7 +1695,7 @@ class Products extends Component
             $this->availableQuantity = null;
             $this->adjustmentAvailableStock = $newAvailableStock;
 
-            $this->js("Swal.fire('Success!', 'Available stock increased successfully! Added {$addQty} units.', 'success')");
+            $this->js("Swal.fire('Success!', 'Available stock adjusted successfully! {$addQty} units added.', 'success')");
             $this->dispatch('refreshPage');
         } catch (\Exception $e) {
             DB::rollBack();

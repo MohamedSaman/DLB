@@ -115,17 +115,17 @@
                         @forelse($customers as $customer)
                         @php
                         $salesDueInvoices = $customer->sales->whereIn('payment_status', ['pending', 'partial'])->count();
-                        $salesDue = $customer->sales->whereIn('payment_status', ['pending', 'partial'])->sum(function($sale) {
-                            $returnAmount = $sale->returns ? $sale->returns->sum('total_amount') : 0;
-                            return max(0, $sale->due_amount );
-                        });
                         
                         $openingBalance = $customer->opening_balance ?? 0;
                         $openingBalancePaid = $customer->opening_balance_paid ?? 0;
                         $openingBalanceDue = max(0, $openingBalance - $openingBalancePaid);
                         
-                        $dueInvoices = $salesDueInvoices + ($openingBalanceDue > 0 ? 1 : 0);
-                        $totalDue = $openingBalanceDue + $salesDue;
+                        $returnedChequesCount = \App\Models\Cheque::where('customer_id', $customer->id)
+                            ->where('status', 'return')
+                            ->count();
+                        
+                        $dueInvoices = $salesDueInvoices + ($openingBalanceDue > 0 ? 1 : 0) + $returnedChequesCount;
+                        $totalDue = $this->getCustomerTotalDue($customer);
                         @endphp
                         <tr wire:key="customer-{{ $customer->id }}">
                             <td class="ps-4">
