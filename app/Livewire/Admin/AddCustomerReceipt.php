@@ -246,6 +246,28 @@ class AddCustomerReceipt extends Component
             ];
         }
 
+        // Add returned cheques
+        $returnedCheques = Cheque::where('customer_id', $this->selectedCustomer->id)
+            ->where('status', 'return')
+            ->get();
+            
+        foreach ($returnedCheques as $cheque) {
+            $salesList[] = [
+                'id' => 'returned_cheque_' . $cheque->id,
+                'invoice_number' => 'Returned Cheque: ' . $cheque->cheque_number,
+                'sale_id' => 'CHK-' . $cheque->cheque_number,
+                'sale_date' => $cheque->cheque_date,
+                'total_amount' => $cheque->cheque_amount,
+                'due_amount' => $cheque->cheque_amount,
+                'paid_amount' => 0,
+                'payment_status' => 'pending',
+                'items_count' => 0,
+                'is_opening_balance' => false,
+                'is_returned_cheque' => true,
+                'cheque_id' => $cheque->id
+            ];
+        }
+
         $query = Sale::with(['items', 'payments', 'returns'])
             ->where('customer_id', $this->selectedCustomer->id)
             ->where(function ($query) {
@@ -585,6 +607,25 @@ class AddCustomerReceipt extends Component
                         'created_at' => now(),
                         'updated_at' => now(),
                     ]);
+                } elseif (isset($sale['is_returned_cheque']) && $sale['is_returned_cheque']) {
+                    // It's a returned cheque being paid off
+                    $chequeModel = Cheque::find($sale['cheque_id']);
+                    if ($chequeModel) {
+                        if ($paymentAmount >= $chequeModel->cheque_amount) {
+                            $chequeModel->status = 'complete';
+                            $chequeModel->save();
+                            Log::info('Returned cheque fully paid', ['cheque_id' => $chequeModel->id]);
+                        }
+                        
+                        // Track allocation (sale_id = null since it's not a sale)
+                        DB::table('payment_allocations')->insert([
+                            'payment_id' => $payment->id,
+                            'sale_id' => null,
+                            'allocated_amount' => $paymentAmount,
+                            'created_at' => now(),
+                            'updated_at' => now(),
+                        ]);
+                    }
                 } else {
                     // Update sale with adjusted due amount
                     $saleModel = Sale::find($saleId);
@@ -644,7 +685,8 @@ class AddCustomerReceipt extends Component
             }
 
             // Recalculate total_due before commit
-            $this->selectedCustomer->total_due = ($this->selectedCustomer->opening_balance ?? 0) + ($this->selectedCustomer->due_amount ?? 0) - ($this->selectedCustomer->overpaid_amount ?? 0);
+            $returnedChequesAmount = Cheque::where('customer_id', $this->selectedCustomer->id)->where('status', 'return')->sum('cheque_amount');
+            $this->selectedCustomer->total_due = (($this->selectedCustomer->opening_balance ?? 0) - ($this->selectedCustomer->opening_balance_paid ?? 0)) + ($this->selectedCustomer->due_amount ?? 0) + $returnedChequesAmount - ($this->selectedCustomer->overpaid_amount ?? 0);
             $this->selectedCustomer->save();
 
             DB::commit();
@@ -770,7 +812,11 @@ class AddCustomerReceipt extends Component
         $openingBalancePaid = $customer->opening_balance_paid ?? 0;
         $openingBalanceDue = max(0, $openingBalance - $openingBalancePaid);
 
-        return $openingBalanceDue + $salesDue;
+        $returnedChequesDue = \App\Models\Cheque::where('customer_id', $customer->id)
+            ->where('status', 'return')
+            ->sum('cheque_amount');
+
+        return $openingBalanceDue + $salesDue + $returnedChequesDue;
     }
 
     public function getCustomersProperty()
@@ -819,7 +865,10 @@ class AddCustomerReceipt extends Component
                         }
                     }
                 })
-                    ->orWhere('opening_balance', '>', 0); // Also show if they have opening balance
+                    ->orWhere('opening_balance', '>', 0) // Also show if they have opening balance
+                    ->orWhereHas('cheques', function ($q) {
+                        $q->where('status', 'return');
+                    });
             })
             ->when($this->search, function ($query) {
                 $query->where(function ($q) {

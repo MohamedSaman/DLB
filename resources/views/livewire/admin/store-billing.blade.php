@@ -1034,6 +1034,7 @@
                         </div>
                         
                         <div>
+                            <p style="margin:0; font-size:12px;">Returns accepted within 30 days of purchase with the original invoice. Terms and conditions apply.</p>
                             <p style="margin:0; font-size:12px;">Thank you for your business!</p>
                             <p style="margin:0; font-size:12px; display:flex; align-items:center; justify-content:center; gap:12px;">
                                 <span class="material-symbols-outlined" style="font-size:14px;"></span> www.hardmen.lk

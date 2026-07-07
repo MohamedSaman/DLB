@@ -226,7 +226,7 @@
                                     wire:key="sale-{{ $sale['id'] }}" 
                                     class="{{ $isSelected ? 'table-success' : 'table-warning' }}"
                                     style="cursor: pointer;"
-                                    wire:click="toggleInvoiceSelection({{ $sale['id'] }})">
+                                    wire:click="toggleInvoiceSelection('{{ $sale['id'] }}')">
                                     <td class="text-center">
                                         <div class="form-check d-flex justify-content-center">
                                             <input 
@@ -254,11 +254,13 @@
                                         </span>
                                     </td>
                                     <td class="text-center">
+                                        @if(!($sale['is_opening_balance'] ?? false) && !($sale['is_returned_cheque'] ?? false))
                                         <button class="btn btn-outline-info btn-sm"
-                                            wire:click.stop="viewSale({{ $sale['id'] }})"
+                                            wire:click.stop="viewSale('{{ $sale['id'] }}')"
                                             title="View Invoice Details">
                                             <i class="bi bi-eye"></i>
                                         </button>
+                                        @endif
                                     </td>
                                 </tr>
                                 @endforeach

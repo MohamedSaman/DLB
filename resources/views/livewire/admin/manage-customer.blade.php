@@ -105,7 +105,7 @@
                                 </td>
                                 <td>{{ $customer->address ?? '-' }}</td>
                                 <td class="text-center">
-                                    <span class="badge bg-light text-dark">{{ number_format($customer->opening_balance ?? 0, 2) }}</span>
+                                    <span class="badge bg-light text-dark">{{ number_format(max(0, ($customer->opening_balance ?? 0) - ($customer->opening_balance_paid ?? 0)), 2) }}</span>
                                 </td>
                                 <td class="text-center">
                                     <span class="badge bg-warning text-dark">{{ number_format($customer->due_amount ?? 0, 2) }}</span>
@@ -869,6 +869,8 @@
                                             <span class="text-danger"><i class="bi bi-cart me-1"></i>{{ $entry['description'] }}</span>
                                         @elseif($entry['type'] === 'payment')
                                             <span class="text-success"><i class="bi bi-cash-coin me-1"></i>{{ $entry['description'] }}</span>
+                                        @elseif($entry['type'] === 'product_return')
+                                            <span class="text-warning"><i class="bi bi-box-seam me-1"></i>{{ $entry['description'] }}</span>
                                         @else
                                             {{ $entry['description'] }}
                                         @endif

@@ -141,23 +141,6 @@ class ManageCustomer extends Component
 
         $this->activeTab = 'overview';
 
-        // Basic info
-        $this->viewCustomerDetail = [
-            'id' => $customer->id,
-            'name' => $customer->name,
-            'business_name' => $customer->business_name,
-            'phone' => $customer->phone,
-            'email' => $customer->email,
-            'type' => $customer->type,
-            'address' => $customer->address,
-            'opening_balance' => $customer->opening_balance ?? 0,
-            'opening_balance_paid' => $customer->opening_balance_paid ?? 0,
-            'due_amount' => $customer->due_amount ?? 0,
-            'overpaid_amount' => $customer->overpaid_amount ?? 0,
-            'total_due' => (floatval($customer->opening_balance ?? 0) + floatval($customer->due_amount ?? 0)) - (floatval($customer->opening_balance_paid ?? 0) + floatval($customer->overpaid_amount ?? 0)),
-            'created_at' => $customer->created_at,
-            'updated_at' => $customer->updated_at,
-        ];
 
         // Sales
         $sales = Sale::where('customer_id', $customer->id)
@@ -267,21 +250,44 @@ class ManageCustomer extends Component
                 || str_contains(strtolower((string) ($sale->notes ?? '')), 'invoice fully returned by delivery man')
                 || str_contains(strtolower((string) ($sale->notes ?? '')), 'returned by delivery man');
 
-            $ledgerEntries->push([
-                'date' => $sale->created_at ? $sale->created_at->format('M d, Y h:i A') : '-',
-                'timestamp' => $sale->created_at ? $sale->created_at->timestamp : 0,
-                'description' => $isReturned ? 'Sale Invoice Returned' : 'Sale Invoice',
-                'reference' => $sale->invoice_number ?? $sale->sale_id,
-                'debit' => $sale->total_amount ?? 0,
-                'credit' => 0,
-                'type' => $isReturned ? 'sale_return' : 'sale',
-            ]);
+            if ($isReturned) {
+                // If it's fully returned, we could either not add it, or add it as a sale, and then a return credit.
+                // It's cleaner to add the sale as debit, and then an offsetting credit for the return.
+                $ledgerEntries->push([
+                    'date' => $sale->created_at ? $sale->created_at->format('M d, Y h:i A') : '-',
+                    'timestamp' => $sale->created_at ? $sale->created_at->timestamp : 0,
+                    'description' => 'Sale Invoice',
+                    'reference' => $sale->invoice_number ?? $sale->sale_id,
+                    'debit' => $sale->total_amount ?? 0,
+                    'credit' => 0,
+                    'type' => 'sale',
+                ]);
+                $ledgerEntries->push([
+                    'date' => $sale->updated_at ? $sale->updated_at->format('M d, Y h:i A') : '-',
+                    'timestamp' => $sale->updated_at ? $sale->updated_at->timestamp : 0,
+                    'description' => 'Sale Invoice Returned',
+                    'reference' => $sale->invoice_number ?? $sale->sale_id,
+                    'debit' => 0,
+                    'credit' => $sale->total_amount ?? 0,
+                    'type' => 'sale_return',
+                ]);
+            } else {
+                $ledgerEntries->push([
+                    'date' => $sale->created_at ? $sale->created_at->format('M d, Y h:i A') : '-',
+                    'timestamp' => $sale->created_at ? $sale->created_at->timestamp : 0,
+                    'description' => 'Sale Invoice',
+                    'reference' => $sale->invoice_number ?? $sale->sale_id,
+                    'debit' => $sale->total_amount ?? 0,
+                    'credit' => 0,
+                    'type' => 'sale',
+                ]);
+            }
         }
 
         // Add payments as credit entries
         foreach ($payments as $payment) {
-            // Only include non-rejected and non-pending payments in ledger
-            if ($payment->status === 'rejected' || $payment->status === 'pending') continue;
+            // Skip pending payments
+            if ($payment->status === 'pending') continue;
             
             // Use payment_date for sorting if available, otherwise fallback to created_at
             $paymentTimestamp = $payment->payment_date ? $payment->payment_date->timestamp : ($payment->created_at ? $payment->created_at->timestamp : 0);
@@ -295,10 +301,73 @@ class ManageCustomer extends Component
                 'credit' => $payment->amount ?? 0,
                 'type' => 'payment',
             ]);
+
+        }
+
+        // Add returned cheques as debit entries
+        $returnedCheques = \App\Models\Cheque::where('customer_id', $customer->id)
+            ->where('status', 'return')
+            ->get();
+            
+        foreach ($returnedCheques as $cheque) {
+            $ledgerEntries->push([
+                'date' => $cheque->updated_at ? $cheque->updated_at->format('M d, Y h:i A') : '-',
+                'timestamp' => $cheque->updated_at ? $cheque->updated_at->timestamp : 0,
+                'description' => 'Returned Cheque (' . $cheque->cheque_number . ')',
+                'reference' => 'CHK-' . $cheque->cheque_number,
+                'debit' => $cheque->cheque_amount ?? 0,
+                'credit' => 0,
+                'type' => 'payment_return',
+            ]);
+        }
+
+        // Add partial/product returns as credit entries
+        $returnsProducts = \App\Models\ReturnsProduct::whereHas('sale', function ($query) use ($customer) {
+            $query->where('customer_id', $customer->id)
+                  ->where('total_amount', '>', 0);
+        })->with(['sale'])->get();
+
+        foreach ($returnsProducts as $return) {
+            $ledgerEntries->push([
+                'date' => $return->created_at ? $return->created_at->format('M d, Y h:i A') : '-',
+                'timestamp' => $return->created_at ? $return->created_at->timestamp : 0,
+                'description' => 'Product Return',
+                'reference' => $return->sale ? $return->sale->invoice_number : '-',
+                'debit' => 0,
+                'credit' => $return->total_amount ?? 0,
+                'type' => 'product_return',
+            ]);
         }
 
         // Sort by date
         $this->viewCustomerLedger = $ledgerEntries->sortBy('date')->values()->toArray();
+
+        $ledgerDebit = $ledgerEntries->sum('debit');
+        $ledgerCredit = $ledgerEntries->sum('credit');
+        $ledgerBalance = $ledgerDebit - $ledgerCredit;
+
+        $openingBalance = floatval($customer->opening_balance ?? 0);
+        $openingBalancePaid = floatval($customer->opening_balance_paid ?? 0);
+        $dynamicDue = floatval($customer->due_amount ?? 0);
+        $dynamicOverpaid = floatval($customer->overpaid_amount ?? 0);
+
+        // Basic info
+        $this->viewCustomerDetail = [
+            'id' => $customer->id,
+            'name' => $customer->name,
+            'business_name' => $customer->business_name,
+            'phone' => $customer->phone,
+            'email' => $customer->email,
+            'type' => $customer->type,
+            'address' => $customer->address,
+            'opening_balance' => $openingBalance,
+            'opening_balance_paid' => $openingBalancePaid,
+            'due_amount' => $dynamicDue,
+            'overpaid_amount' => $dynamicOverpaid,
+            'total_due' => $ledgerBalance,
+            'created_at' => $customer->created_at,
+            'updated_at' => $customer->updated_at,
+        ];
 
         $this->showViewModal = true;
     }
