@@ -41,6 +41,7 @@ class SalesmanSalesList extends Component
     public $returnItems = [];
     public $returnNotes = '';
     public $saleReturns = [];
+    public $showFullReturnConfirmModal = false;
 
     public function updatedSearch()
     {
@@ -393,6 +394,8 @@ class SalesmanSalesList extends Component
                 'original_qty' => $item->quantity,
                 'returned_qty' => $returnedQty,
                 'available_qty' => $availableQty,
+                'usable_qty' => 0,
+                'damage_qty' => 0,
                 'return_qty' => 0,
                 'unit_price' => $item->unit_price,
             ];
@@ -404,15 +407,36 @@ class SalesmanSalesList extends Component
     public function closeReturnModal()
     {
         $this->showReturnModal = false;
+        $this->showFullReturnConfirmModal = false;
         $this->returnItems = [];
         $this->returnNotes = '';
     }
 
-    public function updateReturnQty($index, $qty)
+    public function updateUsableQty($index, $qty)
     {
         if (isset($this->returnItems[$index])) {
-            $maxQty = $this->returnItems[$index]['available_qty'];
-            $this->returnItems[$index]['return_qty'] = max(0, min((int)$qty, $maxQty));
+            $qty = max(0, (int)$qty);
+            $damageQty = (int)$this->returnItems[$index]['damage_qty'];
+            $maxAvailable = (int)$this->returnItems[$index]['available_qty'];
+            if ($qty + $damageQty > $maxAvailable) {
+                $qty = $maxAvailable - $damageQty;
+            }
+            $this->returnItems[$index]['usable_qty'] = $qty;
+            $this->returnItems[$index]['return_qty'] = $qty + $damageQty;
+        }
+    }
+
+    public function updateDamageQty($index, $qty)
+    {
+        if (isset($this->returnItems[$index])) {
+            $qty = max(0, (int)$qty);
+            $usableQty = (int)$this->returnItems[$index]['usable_qty'];
+            $maxAvailable = (int)$this->returnItems[$index]['available_qty'];
+            if ($qty + $usableQty > $maxAvailable) {
+                $qty = $maxAvailable - $usableQty;
+            }
+            $this->returnItems[$index]['damage_qty'] = $qty;
+            $this->returnItems[$index]['return_qty'] = $usableQty + $qty;
         }
     }
 
@@ -420,7 +444,7 @@ class SalesmanSalesList extends Component
     {
         $total = 0;
         foreach ($this->returnItems as $item) {
-            $total += $item['return_qty'] * $item['unit_price'];
+            $total += ($item['usable_qty'] + $item['damage_qty']) * $item['unit_price'];
         }
         return $total;
     }
@@ -434,7 +458,8 @@ class SalesmanSalesList extends Component
         // Check if any items are being returned
         $hasReturns = false;
         foreach ($this->returnItems as $item) {
-            if ($item['return_qty'] > 0) {
+            $totalRtn = (int)$item['usable_qty'] + (int)$item['damage_qty'];
+            if ($totalRtn > 0) {
                 $hasReturns = true;
                 break;
             }
@@ -451,9 +476,19 @@ class SalesmanSalesList extends Component
             $totalReturnAmount = 0;
 
             foreach ($this->returnItems as $item) {
-                if ($item['return_qty'] > 0) {
-                    $returnAmount = $item['return_qty'] * $item['unit_price'];
+                $usable = (int)$item['usable_qty'];
+                $damage = (int)$item['damage_qty'];
+                $totalRtn = $usable + $damage;
+
+                if ($totalRtn > 0) {
+                    $returnAmount = $totalRtn * $item['unit_price'];
                     $totalReturnAmount += $returnAmount;
+
+                    // Build notes specifying usable and damage count
+                    $notes = 'Usable: ' . $usable . ', Damaged: ' . $damage;
+                    if ($this->returnNotes) {
+                        $notes .= '. ' . $this->returnNotes;
+                    }
 
                     // Create return record
                     ReturnsProduct::create([
@@ -461,18 +496,52 @@ class SalesmanSalesList extends Component
                         'product_id' => $item['product_id'],
                         'variant_id' => $item['variant_id'] ?? null,
                         'variant_value' => $item['variant_value'] ?? null,
-                        'return_quantity' => $item['return_qty'],
+                        'return_quantity' => $totalRtn,
+                        'usable_quantity' => $usable,
+                        'damaged_quantity' => $damage,
                         'selling_price' => $item['unit_price'],
                         'total_amount' => $returnAmount,
-                        'notes' => $this->returnNotes,
+                        'notes' => $notes,
                         'return_type' => 'customer',
                         'user_id' => Auth::id(),
                     ]);
 
                     // Update stock (add back returned items)
-                    $stock = ProductStock::where('product_id', $item['product_id'])->first();
+                    $stock = null;
+                    $productId = $item['product_id'];
+                    $variantId = $item['variant_id'];
+                    $variantValue = $item['variant_value'];
+
+                    if ($variantId || $variantValue) {
+                        $stockQuery = ProductStock::where('product_id', $productId);
+                        if ($variantId) {
+                            $stockQuery->where('variant_id', $variantId);
+                        }
+                        if ($variantValue) {
+                            $stockQuery->where('variant_value', $variantValue);
+                        }
+                        $stock = $stockQuery->first();
+                    } else {
+                        $stock = ProductStock::where('product_id', $productId)
+                            ->where(function ($q) {
+                                $q->whereNull('variant_value')
+                                    ->orWhere('variant_value', '')
+                                    ->orWhere('variant_value', 'null');
+                            })
+                            ->whereNull('variant_id')
+                            ->first();
+
+                        if (!$stock) {
+                            $stock = ProductStock::where('product_id', $productId)->first();
+                        }
+                    }
+
                     if ($stock) {
-                        $stock->available_stock += $item['return_qty'];
+                        $stock->available_stock += $usable;
+                        $stock->damage_stock += $damage;
+                        if ($stock->sold_count >= $totalRtn) {
+                            $stock->sold_count -= $totalRtn;
+                        }
                         $stock->updateTotals();
                     }
                 }
@@ -513,6 +582,14 @@ class SalesmanSalesList extends Component
                 'due_amount' => $newDue,
             ]);
 
+            // Adjust customer's due_amount
+            $customer = Customer::find($this->selectedSale->customer_id);
+            if ($customer && $totalReduction != 0) {
+                $customer->due_amount = max(0, ($customer->due_amount ?? 0) - $totalReduction);
+                $customer->total_due = ($customer->opening_balance ?? 0) + $customer->due_amount;
+                $customer->save();
+            }
+
             DB::commit();
 
             $this->closeReturnModal();
@@ -521,6 +598,141 @@ class SalesmanSalesList extends Component
             DB::rollBack();
             Log::error('Return processing error: ' . $e->getMessage());
             $this->showToast('error', 'Error processing return.');
+        }
+    }
+
+    public function processFullReturn()
+    {
+        if (!$this->selectedSale) {
+            return;
+        }
+
+        try {
+            DB::beginTransaction();
+
+            $totalReturnAmount = 0;
+            $hasItemsToReturn = false;
+
+            foreach ($this->selectedSale->items as $item) {
+                // Calculate already returned quantity
+                $returnedQty = ReturnsProduct::where('sale_id', $this->selectedSale->id)
+                    ->where('product_id', $item->product_id)
+                    ->sum('return_quantity');
+
+                $availableQty = $item->quantity - $returnedQty;
+
+                if ($availableQty > 0) {
+                    $hasItemsToReturn = true;
+                    $returnAmount = $availableQty * $item->unit_price;
+                    $totalReturnAmount += $returnAmount;
+
+                    // Create return record
+                    ReturnsProduct::create([
+                        'sale_id' => $this->selectedSale->id,
+                        'product_id' => $item->product_id,
+                        'variant_id' => $item->variant_id ?? null,
+                        'variant_value' => $item->variant_value ?? null,
+                        'return_quantity' => $availableQty,
+                        'usable_quantity' => $availableQty,
+                        'damaged_quantity' => 0,
+                        'selling_price' => $item->unit_price,
+                        'total_amount' => $returnAmount,
+                        'notes' => 'Full invoice return processed as usable quantity',
+                        'return_type' => 'customer',
+                        'user_id' => Auth::id(),
+                    ]);
+
+                    // Update stock (add back returned items as usable)
+                    $stock = null;
+                    $productId = $item->product_id;
+                    $variantId = $item->variant_id;
+                    $variantValue = $item->variant_value;
+
+                    if ($variantId || $variantValue) {
+                        $stockQuery = ProductStock::where('product_id', $productId);
+                        if ($variantId) {
+                            $stockQuery->where('variant_id', $variantId);
+                        }
+                        if ($variantValue) {
+                            $stockQuery->where('variant_value', $variantValue);
+                        }
+                        $stock = $stockQuery->first();
+                    } else {
+                        $stock = ProductStock::where('product_id', $productId)
+                            ->where(function ($q) {
+                                $q->whereNull('variant_value')
+                                    ->orWhere('variant_value', '')
+                                    ->orWhere('variant_value', 'null');
+                            })
+                            ->whereNull('variant_id')
+                            ->first();
+
+                        if (!$stock) {
+                            $stock = ProductStock::where('product_id', $productId)->first();
+                        }
+                    }
+
+                    if ($stock) {
+                        $stock->available_stock += $availableQty;
+                        if ($stock->sold_count >= $availableQty) {
+                            $stock->sold_count -= $availableQty;
+                        }
+                        $stock->updateTotals();
+                    }
+                }
+            }
+
+            if (!$hasItemsToReturn) {
+                $this->showToast('error', 'All items in this invoice have already been returned.');
+                DB::rollBack();
+                return;
+            }
+
+            // Recalculate sale totals
+            $currentSubtotal = SaleItem::where('sale_id', $this->selectedSale->id)
+                ->get()
+                ->sum(function ($item) {
+                    return ($item->unit_price * $item->quantity) - ($item->discount_per_unit * $item->quantity);
+                });
+
+            $newSubtotal = $currentSubtotal - $totalReturnAmount;
+
+            $discountAmount = 0;
+            if ($this->selectedSale->additional_discount_type === 'percentage' && $this->selectedSale->additional_discount_percentage > 0) {
+                $discountAmount = ($newSubtotal * $this->selectedSale->additional_discount_percentage) / 100;
+            } elseif ($this->selectedSale->additional_discount_type === 'fixed') {
+                $discountAmount = min($this->selectedSale->discount_amount ?? 0, $newSubtotal);
+            }
+
+            $newTotal = $newSubtotal - $discountAmount;
+
+            $previousTotal = $this->selectedSale->total_amount;
+            $totalReduction = $previousTotal - $newTotal;
+            $newDue = max(0, $this->selectedSale->due_amount - $totalReduction);
+
+            $this->selectedSale->update([
+                'subtotal' => $newSubtotal,
+                'discount_amount' => $discountAmount,
+                'total_amount' => $newTotal,
+                'due_amount' => $newDue,
+            ]);
+
+            // Adjust customer's due_amount
+            $customer = Customer::find($this->selectedSale->customer_id);
+            if ($customer && $totalReduction != 0) {
+                $customer->due_amount = max(0, ($customer->due_amount ?? 0) - $totalReduction);
+                $customer->total_due = ($customer->opening_balance ?? 0) + $customer->due_amount;
+                $customer->save();
+            }
+
+            DB::commit();
+
+            $this->closeReturnModal();
+            $this->showToast('success', 'Full invoice return processed successfully.');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Full return processing error: ' . $e->getMessage());
+            $this->showToast('error', 'Error processing full return.');
         }
     }
 

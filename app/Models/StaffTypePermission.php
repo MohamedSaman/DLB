@@ -165,6 +165,8 @@ class StaffTypePermission extends Model
                 'view_products',
                 'view_distributor_price',
                 'add_expenses',
+                'create_returns',
+                'view_returns',
             ],
             'shop_staff' => [
                 'view_dashboard',

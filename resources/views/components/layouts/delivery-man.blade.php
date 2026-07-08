@@ -404,6 +404,7 @@
             }
         }
     </style>
+    @stack('styles')
 </head>
 
 <body>
@@ -469,6 +470,33 @@
                                     <i class="bi bi-list-check"></i> <span>Payment List</span>
                                 </a>
                             </li>
+                        </ul>
+                    </div>
+                </li>
+                @endif
+                
+                {{-- Returns Section --}}
+                @if($permissionModel->hasPermission($staffType, 'create_returns') || $permissionModel->hasPermission($staffType, 'view_returns'))
+                <li class="nav-item">
+                    <a class="nav-link dropdown-toggle" href="#returnsSubmenu" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="returnsSubmenu">
+                        <i class="bi bi-arrow-return-left"></i> <span>Returns</span>
+                    </a>
+                    <div class="collapse" id="returnsSubmenu">
+                        <ul class="nav flex-column ms-3">
+                            @if($permissionModel->hasPermission($staffType, 'create_returns'))
+                            <li class="nav-item">
+                                <a class="nav-link py-2 {{ request()->routeIs('delivery.return-product') ? 'active' : '' }}" href="{{ route('delivery.return-product') }}">
+                                    <i class="bi bi-plus-circle"></i> <span>New Return</span>
+                                </a>
+                            </li>
+                            @endif
+                            @if($permissionModel->hasPermission($staffType, 'view_returns'))
+                            <li class="nav-item">
+                                <a class="nav-link py-2 {{ request()->routeIs('delivery.return-list') ? 'active' : '' }}" href="{{ route('delivery.return-list') }}">
+                                    <i class="bi bi-clock-history"></i> <span>Returns History</span>
+                                </a>
+                            </li>
+                            @endif
                         </ul>
                     </div>
                 </li>
@@ -621,5 +649,6 @@
             }
         });
     </script>
+    @stack('scripts')
 </body>
 </html>

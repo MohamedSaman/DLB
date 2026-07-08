@@ -596,14 +596,15 @@
                     {{-- Return Items --}}
                     <h6 class="fw-bold mb-3">Select Items to Return</h6>
                     <div class="table-responsive mb-4">
-                        <table class="table table-sm table-bordered">
+                        <table class="table table-sm table-bordered align-middle">
                             <thead class="table-light">
                                 <tr>
                                     <th>Product</th>
                                     <th class="text-center">Original</th>
                                     <th class="text-center">Returned</th>
                                     <th class="text-center">Available</th>
-                                    <th class="text-center" style="width: 100px;">Return Qty</th>
+                                    <th class="text-center" style="width: 100px;">Usable Rtn Qty</th>
+                                    <th class="text-center" style="width: 100px;">Damage Rtn Qty</th>
                                     <th class="text-end">Amount</th>
                                 </tr>
                             </thead>
@@ -620,26 +621,45 @@
                                     </td>
                                     <td class="text-center">
                                         <input type="number"
-                                               wire:change="updateReturnQty({{ $index }}, $event.target.value)"
-                                               value="{{ $item['return_qty'] }}"
+                                               wire:change="updateUsableQty({{ $index }}, $event.target.value)"
+                                               value="{{ $item['usable_qty'] }}"
                                                min="0"
                                                max="{{ $item['available_qty'] }}"
                                                class="form-control form-control-sm text-center"
                                                {{ $item['available_qty'] <= 0 ? 'disabled' : '' }}>
                                     </td>
+                                    <td class="text-center">
+                                        <input type="number"
+                                               wire:change="updateDamageQty({{ $index }}, $event.target.value)"
+                                               value="{{ $item['damage_qty'] }}"
+                                               min="0"
+                                               max="{{ $item['available_qty'] }}"
+                                               class="form-control form-control-sm text-center border-danger text-danger"
+                                               {{ $item['available_qty'] <= 0 ? 'disabled' : '' }}>
+                                    </td>
                                     <td class="text-end fw-semibold text-danger">
-                                        Rs. {{ number_format($item['return_qty'] * $item['unit_price'], 2) }}
+                                        Rs. {{ number_format(($item['usable_qty'] + $item['damage_qty']) * $item['unit_price'], 2) }}
                                     </td>
                                 </tr>
                                 @endforeach
                             </tbody>
                             <tfoot>
                                 <tr class="table-danger">
-                                    <td colspan="5" class="text-end fw-bold">Total Return Amount:</td>
+                                    <td colspan="6" class="text-end fw-bold">Total Return Amount:</td>
                                     <td class="text-end fw-bold">Rs. {{ number_format($this->returnTotal, 2) }}</td>
                                 </tr>
                             </tfoot>
                         </table>
+                    </div>
+
+                    {{-- Full Invoice Return Button --}}
+                    <div class="mb-4 d-flex justify-content-between align-items-center bg-light p-2 rounded">
+                        <span class="text-muted small"><i class="bi bi-info-circle me-1"></i> Or fully return the entire invoice at once:</span>
+                        <button type="button" 
+                                wire:click="$set('showFullReturnConfirmModal', true)" 
+                                class="btn btn-sm btn-danger">
+                            <i class="bi bi-arrow-counterclockwise me-1"></i> Full Invoice Return
+                        </button>
                     </div>
 
                     {{-- Return Notes --}}
@@ -661,6 +681,38 @@
                         </span>
                         <span wire:loading wire:target="processReturn">
                             <span class="spinner-border spinner-border-sm me-2"></span>Processing...
+                        </span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    @endif
+
+    {{-- Full Return Confirmation Modal --}}
+    @if($showFullReturnConfirmModal)
+    <div class="modal fade show d-block" tabindex="-1" style="background: rgba(0,0,0,0.5); z-index: 1060;">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg">
+                <div class="modal-header bg-danger text-white border-0">
+                    <h5 class="modal-title fw-bold">
+                        <i class="bi bi-exclamation-triangle-fill me-2"></i>Confirm Full Return
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" wire:click="$set('showFullReturnConfirmModal', false)"></button>
+                </div>
+                <div class="modal-body py-4 text-center">
+                    <i class="bi bi-exclamation-octagon text-danger display-4 mb-3 d-block"></i>
+                    <p class="mb-0 text-dark fs-5 fw-semibold">Are you sure you want to fully return this invoice?</p>
+                    <p class="text-muted small mt-2">All remaining items will be returned to the inventory as usable quantity. This action cannot be undone.</p>
+                </div>
+                <div class="modal-footer border-0 bg-light justify-content-center">
+                    <button type="button" class="btn btn-secondary px-4" wire:click="$set('showFullReturnConfirmModal', false)">Cancel</button>
+                    <button type="button" class="btn btn-danger px-4" wire:click="processFullReturn" wire:loading.attr="disabled">
+                        <span wire:loading.remove wire:target="processFullReturn">
+                            <i class="bi bi-check-circle me-1"></i> Yes, Return Full Invoice
+                        </span>
+                        <span wire:loading wire:target="processFullReturn">
+                            <span class="spinner-border spinner-border-sm me-1"></span>Processing...
                         </span>
                     </button>
                 </div>

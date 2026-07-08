@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Livewire\Admin;
+namespace App\Livewire\DeliveryMan;
 
 use Livewire\Component;
 use App\Models\Customer;
@@ -11,15 +11,14 @@ use App\Models\ProductStock;
 use App\Models\ReturnsProduct;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
-use App\Livewire\Concerns\WithDynamicLayout;
 
 #[Title("Product Return")]
-class ReturnProduct extends Component
+#[Layout('components.layouts.delivery-man')]
+class DeliveryManReturnProduct extends Component
 {
-    use WithDynamicLayout;
-
     public $searchCustomer = '';
     public $customers = [];
     public $selectedCustomer = null;
@@ -47,15 +46,32 @@ class ReturnProduct extends Component
     /** 🔍 Search Customer or Invoice */
     public function updatedSearchCustomer()
     {
+        $userId = Auth::id();
         if (strlen($this->searchCustomer) > 2) {
             $this->customers = Customer::query()
-                ->where('name', 'like', '%' . $this->searchCustomer . '%')
-                ->orWhere('phone', 'like', '%' . $this->searchCustomer . '%')
-                ->orWhere('email', 'like', '%' . $this->searchCustomer . '%')
+                ->where(function ($q) {
+                    $q->where('name', 'like', '%' . $this->searchCustomer . '%')
+                      ->orWhere('phone', 'like', '%' . $this->searchCustomer . '%')
+                      ->orWhere('email', 'like', '%' . $this->searchCustomer . '%');
+                })
+                ->whereHas('sales', function ($q) use ($userId) {
+                    $q->where('status', 'confirm')
+                      ->where('delivery_status', 'pending')
+                      ->where(function ($sq) use ($userId) {
+                          $sq->whereNull('delivered_by')
+                            ->orWhere('delivered_by', $userId);
+                      });
+                })
                 ->limit(10)
                 ->get();
 
             $this->customerInvoices = Sale::where('invoice_number', 'like', '%' . $this->searchCustomer . '%')
+                ->where('status', 'confirm')
+                ->where('delivery_status', 'pending')
+                ->where(function ($sq) use ($userId) {
+                    $sq->whereNull('delivered_by')
+                      ->orWhere('delivered_by', $userId);
+                })
                 ->latest()
                 ->limit(5)
                 ->get();
@@ -84,7 +100,14 @@ class ReturnProduct extends Component
             return;
         }
 
+        $userId = Auth::id();
         $this->customerInvoices = Sale::where('customer_id', $this->selectedCustomer->id)
+            ->where('status', 'confirm')
+            ->where('delivery_status', 'pending')
+            ->where(function ($sq) use ($userId) {
+                $sq->whereNull('delivered_by')
+                  ->orWhere('delivered_by', $userId);
+            })
             ->latest()
             ->limit(5)
             ->get();
@@ -95,49 +118,59 @@ class ReturnProduct extends Component
     {
         $this->resetReturnData();
 
-        $this->selectedInvoice = Sale::with(['items.product', 'customer'])->find($invoiceId);
+        $userId = Auth::id();
+        $this->selectedInvoice = Sale::with(['items.product', 'customer'])
+            ->where('status', 'confirm')
+            ->where('delivery_status', 'pending')
+            ->where(function ($sq) use ($userId) {
+                $sq->whereNull('delivered_by')
+                  ->orWhere('delivered_by', $userId);
+            })
+            ->find($invoiceId);
+
+        if (!$this->selectedInvoice) {
+            $this->js("Swal.fire('Error!', 'Selected invoice is not available or not pending for delivery.', 'error')");
+            return;
+        }
+
         $this->selectedInvoices = [$invoiceId];
         $this->showReturnSection = true;
 
-        if ($this->selectedInvoice && $this->selectedInvoice->customer) {
+        if ($this->selectedInvoice->customer) {
             $this->selectedCustomer = $this->selectedInvoice->customer;
         }
 
-        if ($this->selectedInvoice) {
-            // Load previous returns for this invoice
-            $this->loadPreviousReturns();
+        // Load previous returns for this invoice
+        $this->loadPreviousReturns();
 
-            // Build return items with remaining quantities
-            foreach ($this->selectedInvoice->items as $item) {
-                $alreadyReturned = $this->getAlreadyReturnedQuantity($item->product_id, $item->variant_id, $item->variant_value);
-                $remainingQty = $item->quantity - $alreadyReturned;
+        // Build return items with remaining quantities
+        foreach ($this->selectedInvoice->items as $item) {
+            $alreadyReturned = $this->getAlreadyReturnedQuantity($item->product_id, $item->variant_id, $item->variant_value);
+            $remainingQty = $item->quantity - $alreadyReturned;
 
-                if ($remainingQty > 0) {
-                    // Use the selling price directly from sale_items
-                    // Discount will be recalculated after subtotal adjustment
-                    $sellingPrice = $item->unit_price;
+            if ($remainingQty > 0) {
+                $sellingPrice = $item->unit_price;
 
-                    // Build display name with variant
-                    $displayName = $item->product_name ?? $item->product->name;
-                    if ($item->variant_value) {
-                        $displayName .= ' (' . $item->variant_value . ')';
-                    }
-
-                    $this->returnItems[] = [
-                        'product_id' => $item->product_id,
-                        'product_code' => $item->product_code ?? ($item->product?->code),
-                        'name' => $displayName,
-                        'product_name' => $item->product_name ?? $item->product->name,
-                        'selling_price' => $sellingPrice,
-                        'original_qty' => $item->quantity,
-                        'already_returned' => $alreadyReturned,
-                        'max_qty' => $remainingQty,
-                        'usable_qty' => 0,
-                        'damage_qty' => 0,
-                        'variant_id' => $item->variant_id ?? null,
-                        'variant_value' => $item->variant_value ?? null,
-                    ];
+                // Build display name with variant
+                $displayName = $item->product_name ?? $item->product->name;
+                if ($item->variant_value) {
+                    $displayName .= ' (' . $item->variant_value . ')';
                 }
+
+                $this->returnItems[] = [
+                    'product_id' => $item->product_id,
+                    'product_code' => $item->product_code ?? ($item->product?->code),
+                    'name' => $displayName,
+                    'product_name' => $item->product_name ?? $item->product->name,
+                    'selling_price' => $sellingPrice,
+                    'original_qty' => $item->quantity,
+                    'already_returned' => $alreadyReturned,
+                    'max_qty' => $remainingQty,
+                    'usable_qty' => 0,
+                    'damage_qty' => 0,
+                    'variant_id' => $item->variant_id ?? null,
+                    'variant_value' => $item->variant_value ?? null,
+                ];
             }
         }
 
@@ -163,7 +196,6 @@ class ReturnProduct extends Component
                 $firstReturn = $returns->first();
                 $productName = $firstReturn->product->name ?? 'Unknown';
                 
-                // Add variant value if exists
                 if ($firstReturn->variant_value) {
                     $productName .= ' (' . $firstReturn->variant_value . ')';
                 }
@@ -220,12 +252,10 @@ class ReturnProduct extends Component
             $totalDiscountAmount = $invoice->discount_amount ?? 0;
             $totalQty = $invoice->items->sum('quantity');
 
-            // Calculate total unit discounts
             $totalUnitDiscounts = $invoice->items->sum(function ($item) {
                 return ($item->discount_per_unit ?? 0) * $item->quantity;
             });
 
-            // Calculate remaining overall discount per item
             $remainingOverallDiscount = $totalDiscountAmount - $totalUnitDiscounts;
             $overallDiscountPerItem = $totalQty > 0 ? ($remainingOverallDiscount / $totalQty) : 0;
 
@@ -240,7 +270,6 @@ class ReturnProduct extends Component
                     $totalDiscountPerUnit = $itemDiscount + $overallDiscountPerItem;
                     $netPrice = $item->unit_price - $totalDiscountPerUnit;
 
-                    // Build display name with variant
                     $displayName = $item->product_name ?? $item->product->name;
                     if ($item->variant_value) {
                         $displayName .= ' (' . $item->variant_value . ')';
@@ -287,7 +316,6 @@ class ReturnProduct extends Component
                     $alreadyReturned = $this->getAlreadyReturnedQuantity($item->product_id, $item->variant_id, $item->variant_value);
                     $remainingQty = $item->quantity - $alreadyReturned;
 
-                    // Build display name with variant
                     $displayName = $item->product_name ?? $item->product->name;
                     if ($item->variant_value) {
                         $displayName .= ' (' . $item->variant_value . ')';
@@ -408,7 +436,7 @@ class ReturnProduct extends Component
                 $returnAmount = $totalReturn * $item['selling_price'];
                 $totalReturnAmount += $returnAmount;
 
-                $notes = 'Customer return processed via system';
+                $notes = 'Customer return processed by delivery man';
                 if ($usable > 0 && $damage > 0) {
                     $notes = "Usable: {$usable}, Damaged: {$damage}. " . $notes;
                 } elseif ($usable > 0) {
@@ -439,43 +467,41 @@ class ReturnProduct extends Component
                 );
             }
 
-            // ✅ Correct calculation: Recalculate sale totals with discount percentage
             if ($this->selectedInvoice && $totalReturnAmount > 0) {
-                // Step 1: Get current subtotal from all sale items
                 $currentSubtotal = SaleItem::where('sale_id', $this->selectedInvoice->id)
                     ->get()
                     ->sum(function ($item) {
                         return ($item->unit_price * $item->quantity) - ($item->discount_per_unit * $item->quantity);
                     });
 
-                // Step 2: Subtract return amount from subtotal
                 $newSubtotal = $currentSubtotal - $totalReturnAmount;
 
-                // Step 3: Recalculate discount based on sale's additional discount settings
                 $discountAmount = 0;
                 if ($this->selectedInvoice->additional_discount_type === 'percentage' && $this->selectedInvoice->additional_discount_percentage > 0) {
                     $discountAmount = ($newSubtotal * $this->selectedInvoice->additional_discount_percentage) / 100;
                 } elseif ($this->selectedInvoice->additional_discount_type === 'fixed') {
-                    // For fixed discount, keep it as is (but don't exceed new subtotal)
                     $discountAmount = min($this->selectedInvoice->discount_amount ?? 0, $newSubtotal);
                 }
 
-                // Step 4: Calculate new total
                 $newTotal = $newSubtotal - $discountAmount;
 
-                // Step 5: Update due amount proportionally
                 $previousTotal = $this->selectedInvoice->total_amount;
                 $totalReduction = $previousTotal - $newTotal;
                 $newDue = max(0, $this->selectedInvoice->due_amount - $totalReduction);
+
+                // Check if invoice is fully returned (subtotal == 0)
+                $isFullyReturned = $newSubtotal <= 0;
 
                 $this->selectedInvoice->update([
                     'subtotal' => $newSubtotal,
                     'discount_amount' => $discountAmount,
                     'total_amount' => $newTotal,
                     'due_amount' => $newDue,
+                    // If fully returned, we cancel the delivery status
+                    'delivery_status' => $isFullyReturned ? 'cancelled' : $this->selectedInvoice->delivery_status,
+                    'delivered_by' => Auth::id(), // Assign to current delivery man
                 ]);
 
-                // Reduce customer's due amount by the same reduction amount
                 if ($this->selectedCustomer && $totalReduction > 0) {
                     $customer = Customer::find($this->selectedCustomer->id);
                     if ($customer) {
@@ -514,7 +540,7 @@ class ReturnProduct extends Component
                         $returnAmount = $remainingQty * $item->unit_price;
                         $totalReturnAmount += $returnAmount;
 
-                        $notes = "Full invoice return processed via system - Usable: {$remainingQty}";
+                        $notes = "Full invoice return by delivery man - Usable: {$remainingQty}";
 
                         ReturnsProduct::create([
                             'sale_id' => $this->selectedInvoice->id,
@@ -543,7 +569,6 @@ class ReturnProduct extends Component
                     throw new \Exception('All items in this invoice have already been returned.');
                 }
 
-                // Recalculate sale totals
                 if ($totalReturnAmount > 0) {
                     $currentSubtotal = SaleItem::where('sale_id', $this->selectedInvoice->id)
                         ->get()
@@ -567,10 +592,12 @@ class ReturnProduct extends Component
                     $newDue = max(0, $this->selectedInvoice->due_amount - $totalReduction);
 
                     $this->selectedInvoice->update([
-                        'subtotal' => $newSubtotal,
-                        'discount_amount' => $discountAmount,
-                        'total_amount' => $newTotal,
-                        'due_amount' => $newDue,
+                        'subtotal' => 0,
+                        'discount_amount' => 0,
+                        'total_amount' => 0,
+                        'due_amount' => 0,
+                        'delivery_status' => 'cancelled', // fully returned/cancelled
+                        'delivered_by' => Auth::id(), // Assign to current delivery man
                     ]);
 
                     if ($this->selectedCustomer && $totalReduction > 0) {
@@ -600,7 +627,6 @@ class ReturnProduct extends Component
         $stock = null;
 
         if ($variantId || $variantValue) {
-            // Find the specific variant stock record
             $stockQuery = ProductStock::where('product_id', $productId);
             if ($variantId) {
                 $stockQuery->where('variant_id', $variantId);
@@ -610,7 +636,6 @@ class ReturnProduct extends Component
             }
             $stock = $stockQuery->first();
         } else {
-            // Non-variant product: find stock with no variant
             $stock = ProductStock::where('product_id', $productId)
                 ->where(function ($q) {
                     $q->whereNull('variant_value')
@@ -620,7 +645,6 @@ class ReturnProduct extends Component
                 ->whereNull('variant_id')
                 ->first();
 
-            // Fallback: just by product_id if single-stock product
             if (!$stock) {
                 $stock = ProductStock::where('product_id', $productId)->first();
             }
@@ -668,6 +692,6 @@ class ReturnProduct extends Component
 
     public function render()
     {
-        return view('livewire.admin.return-product')->layout($this->layout);
+        return view('livewire.delivery-man.delivery-man-return-product');
     }
 }

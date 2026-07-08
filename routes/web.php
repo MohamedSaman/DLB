@@ -96,6 +96,8 @@ use App\Livewire\DeliveryMan\DeliveryManPendingDeliveries;
 use App\Livewire\DeliveryMan\DeliveryManCompletedDeliveries;
 use App\Livewire\DeliveryMan\DeliveryManPaymentCollection;
 use App\Livewire\DeliveryMan\DeliveryManPaymentList;
+use App\Livewire\DeliveryMan\DeliveryManReturnProduct;
+use App\Livewire\DeliveryMan\DeliveryManReturnList;
 use App\Livewire\ShopStaff\ShopStaffDashboard;
 use App\Livewire\ShopStaff\ShopStaffProductList;
 
@@ -385,6 +387,8 @@ Route::middleware(['auth:sanctum', config('jetstream.auth_session'), 'verified',
         Route::get('/payments', DeliveryManPaymentCollection::class)->name('payments');
         Route::get('/payment-list', DeliveryManPaymentList::class)->name('payment-list');
         Route::get('/expenses', \App\Livewire\DeliveryMan\DeliveryManExpenses::class)->name('expenses');
+        Route::get('/return-product', DeliveryManReturnProduct::class)->name('return-product');
+        Route::get('/return-list', DeliveryManReturnList::class)->name('return-list');
     });
 
 // Shop Staff Routes

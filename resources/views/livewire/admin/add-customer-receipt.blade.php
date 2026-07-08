@@ -627,106 +627,138 @@
                     </div>
 
                     {{-- Payment Details Form --}}
-                    <div class="row g-3">
+                    <div class="row mb-3">
                         <div class="col-md-6">
                             <label class="form-label fw-semibold">Payment Date <span class="text-danger">*</span></label>
                             <input type="date" class="form-control @error('paymentData.payment_date') is-invalid @enderror" wire:model="paymentData.payment_date">
                             @error('paymentData.payment_date') <span class="text-danger small">{{ $message }}</span> @enderror
                         </div>
-                        <div class="col-md-6">
-                            <label class="form-label fw-semibold">Payment Method <span class="text-danger">*</span></label>
-                            <select class="form-select @error('paymentData.payment_method') is-invalid @enderror" wire:model.live="paymentData.payment_method">
-                                <option value="cash">Cash</option>
-                                <option value="cheque">Cheque</option>
-                                <option value="bank_transfer">Bank Transfer</option>
-                            </select>
-                            @error('paymentData.payment_method') <span class="text-danger small">{{ $message }}</span> @enderror
-                        </div>
+                    </div>
 
-                        {{-- Cheque Details --}}
-                        @if($paymentData['payment_method'] === 'cheque')
-                        <div class="col-12">
-                            <div class="border rounded p-3 bg-light">
-                                <h6 class="fw-semibold mb-3 text-success">
-                                    <i class="bi bi-receipt me-2"></i>Cheque Details
-                                </h6>
-                                <div class="row g-3">
-                                    <div class="col-md-4">
-                                        <label class="form-label fw-semibold">Cheque Number <span class="text-danger">*</span></label>
-                                        <input type="text" class="form-control @error('cheque.cheque_number') is-invalid @enderror"
-                                            wire:model="cheque.cheque_number"
-                                            placeholder="Enter cheque number">
-                                        @error('cheque.cheque_number') <span class="text-danger small">{{ $message }}</span> @enderror
+                    {{-- Multiple Payment Methods List --}}
+                    <h6 class="text-muted mb-3">PAYMENT METHODS</h6>
+                    
+                    @foreach($payments as $index => $payment)
+                    <div class="card mb-3 border-light shadow-sm">
+                        <div class="card-header d-flex justify-content-between align-items-center bg-light py-2">
+                            <span class="fw-bold text-success">
+                                <i class="bi bi-wallet2 me-2"></i> Payment #{{ $index + 1 }}
+                            </span>
+                            @if(count($payments) > 1)
+                            <button type="button" class="btn btn-outline-danger btn-sm py-0 px-2" wire:click="removePaymentMethod({{ $index }})">
+                                <i class="bi bi-trash"></i> Remove
+                            </button>
+                            @endif
+                        </div>
+                        <div class="card-body">
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label class="form-label fw-semibold">Payment Method <span class="text-danger">*</span></label>
+                                    <select class="form-select @error('payments.'.$index.'.payment_method') is-invalid @enderror" wire:model.live="payments.{{ $index }}.payment_method">
+                                        <option value="cash">Cash</option>
+                                        <option value="cheque">Cheque</option>
+                                        <option value="bank_transfer">Bank Transfer</option>
+                                    </select>
+                                    @error('payments.'.$index.'.payment_method') <span class="text-danger small">{{ $message }}</span> @enderror
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label fw-semibold">Amount <span class="text-danger">*</span></label>
+                                    <div class="input-group">
+                                        <span class="input-group-text">Rs.</span>
+                                        <input type="number" step="0.01" min="0.01" class="form-control @error('payments.'.$index.'.amount') is-invalid @enderror" wire:model.live="payments.{{ $index }}.amount">
                                     </div>
-                                    <div class="col-md-4">
-                                        <label class="form-label fw-semibold">Bank Name <span class="text-danger">*</span></label>
-                                        <input type="text" class="form-control @error('cheque.bank_name') is-invalid @enderror"
-                                            wire:model="cheque.bank_name"
-                                            placeholder="Enter bank name">
-                                        @error('cheque.bank_name') <span class="text-danger small">{{ $message }}</span> @enderror
+                                    @error('payments.'.$index.'.amount') <span class="text-danger small">{{ $message }}</span> @enderror
+                                </div>
+
+                                {{-- Cheque Details --}}
+                                @if(($payment['payment_method'] ?? '') === 'cheque')
+                                <div class="col-12 mt-3">
+                                    <div class="border rounded p-3 bg-light">
+                                        <h6 class="fw-semibold mb-3 text-success">
+                                            <i class="bi bi-receipt me-2"></i>Cheque Details
+                                        </h6>
+                                        <div class="row g-3">
+                                            <div class="col-md-4">
+                                                <label class="form-label fw-semibold">Cheque Number <span class="text-danger">*</span></label>
+                                                <input type="text" class="form-control @error('payments.'.$index.'.cheque_number') is-invalid @enderror"
+                                                    wire:model="payments.{{ $index }}.cheque_number"
+                                                    placeholder="Enter cheque number">
+                                                @error('payments.'.$index.'.cheque_number') <span class="text-danger small">{{ $message }}</span> @enderror
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label class="form-label fw-semibold">Bank Name <span class="text-danger">*</span></label>
+                                                <input type="text" class="form-control @error('payments.'.$index.'.bank_name') is-invalid @enderror"
+                                                    wire:model="payments.{{ $index }}.bank_name"
+                                                    placeholder="Enter bank name">
+                                                @error('payments.'.$index.'.bank_name') <span class="text-danger small">{{ $message }}</span> @enderror
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label class="form-label fw-semibold">Cheque Date <span class="text-danger">*</span></label>
+                                                <input type="date" class="form-control @error('payments.'.$index.'.cheque_date') is-invalid @enderror"
+                                                    wire:model="payments.{{ $index }}.cheque_date">
+                                                @error('payments.'.$index.'.cheque_date') <span class="text-danger small">{{ $message }}</span> @enderror
+                                            </div>
+                                        </div>
                                     </div>
-                                    <div class="col-md-4">
-                                        <label class="form-label fw-semibold">Cheque Date <span class="text-danger">*</span></label>
-                                        <input type="date" class="form-control @error('cheque.cheque_date') is-invalid @enderror"
-                                            wire:model="cheque.cheque_date">
-                                        @error('cheque.cheque_date') <span class="text-danger small">{{ $message }}</span> @enderror
+                                </div>
+                                @endif
+
+                                {{-- Bank Transfer Details --}}
+                                @if(($payment['payment_method'] ?? '') === 'bank_transfer')
+                                <div class="col-12 mt-3">
+                                    <div class="border rounded p-3 bg-light">
+                                        <h6 class="fw-semibold mb-3 text-primary">
+                                            <i class="bi bi-bank me-2"></i>Bank Transfer Details
+                                        </h6>
+                                        <div class="row g-3">
+                                            <div class="col-md-4">
+                                                <label class="form-label fw-semibold">Bank Name <span class="text-danger">*</span></label>
+                                                <input type="text" class="form-control @error('payments.'.$index.'.bank_name') is-invalid @enderror"
+                                                    wire:model="payments.{{ $index }}.bank_name"
+                                                    placeholder="Enter bank name">
+                                                @error('payments.'.$index.'.bank_name') <span class="text-danger small">{{ $message }}</span> @enderror
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label class="form-label fw-semibold">Transfer Date <span class="text-danger">*</span></label>
+                                                <input type="date" class="form-control @error('payments.'.$index.'.transfer_date') is-invalid @enderror"
+                                                    wire:model="payments.{{ $index }}.transfer_date">
+                                                @error('payments.'.$index.'.transfer_date') <span class="text-danger small">{{ $message }}</span> @enderror
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label class="form-label fw-semibold">Reference Number <span class="text-danger">*</span></label>
+                                                <input type="text" class="form-control @error('payments.'.$index.'.reference_number') is-invalid @enderror"
+                                                    wire:model="payments.{{ $index }}.reference_number"
+                                                    placeholder="Transaction reference">
+                                                @error('payments.'.$index.'.reference_number') <span class="text-danger small">{{ $message }}</span> @enderror
+                                            </div>
+                                        </div>
                                     </div>
+                                </div>
+                                @endif
+
+                                {{-- Optional Reference & Notes --}}
+                                <div class="col-md-6 mt-3">
+                                    <label class="form-label fw-semibold">Payment Reference (Optional)</label>
+                                    <input type="text" class="form-control"
+                                        wire:model="payments.{{ $index }}.reference_number_opt"
+                                        placeholder="Enter payment reference if any">
+                                </div>
+                                <div class="col-md-6 mt-3">
+                                    <label class="form-label fw-semibold">Notes (Optional)</label>
+                                    <textarea class="form-control"
+                                        rows="1"
+                                        wire:model="payments.{{ $index }}.notes"
+                                        placeholder="Additional notes"></textarea>
                                 </div>
                             </div>
                         </div>
-                        @endif
+                    </div>
+                    @endforeach
 
-                        {{-- Bank Transfer Details --}}
-                        @if($paymentData['payment_method'] === 'bank_transfer')
-                        <div class="col-12">
-                            <div class="border rounded p-3 bg-light">
-                                <h6 class="fw-semibold mb-3 text-primary">
-                                    <i class="bi bi-bank me-2"></i>Bank Transfer Details
-                                </h6>
-                                <div class="row g-3">
-                                    <div class="col-md-4">
-                                        <label class="form-label fw-semibold">Bank Name <span class="text-danger">*</span></label>
-                                        <input type="text" class="form-control @error('bankTransfer.bank_name') is-invalid @enderror"
-                                            wire:model="bankTransfer.bank_name"
-                                            placeholder="Enter bank name">
-                                        @error('bankTransfer.bank_name') <span class="text-danger small">{{ $message }}</span> @enderror
-                                    </div>
-                                    <div class="col-md-4">
-                                        <label class="form-label fw-semibold">Transfer Date <span class="text-danger">*</span></label>
-                                        <input type="date" class="form-control @error('bankTransfer.transfer_date') is-invalid @enderror"
-                                            wire:model="bankTransfer.transfer_date">
-                                        @error('bankTransfer.transfer_date') <span class="text-danger small">{{ $message }}</span> @enderror
-                                    </div>
-                                    <div class="col-md-4">
-                                        <label class="form-label fw-semibold">Reference Number <span class="text-danger">*</span></label>
-                                        <input type="text" class="form-control @error('bankTransfer.reference_number') is-invalid @enderror"
-                                            wire:model="bankTransfer.reference_number"
-                                            placeholder="Transaction reference">
-                                        @error('bankTransfer.reference_number') <span class="text-danger small">{{ $message }}</span> @enderror
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        @endif
-
-                        {{-- Optional Reference (Always visible) --}}
-                        <div class="col-md-6">
-                            <label class="form-label fw-semibold">Payment Reference (Optional)</label>
-                            <input type="text" class="form-control @error('paymentData.reference_number') is-invalid @enderror"
-                                wire:model="paymentData.reference_number"
-                                placeholder="Enter payment reference if any">
-                            @error('paymentData.reference_number') <span class="text-danger small">{{ $message }}</span> @enderror
-                        </div>
-
-                        {{-- Notes (Always visible) --}}
-                        <div class="col-md-6">
-                            <label class="form-label fw-semibold">Notes (Optional)</label>
-                            <textarea class="form-control @error('paymentData.notes') is-invalid @enderror"
-                                rows="1"
-                                wire:model="paymentData.notes"
-                                placeholder="Additional notes"></textarea>
-                            @error('paymentData.notes') <span class="text-danger small">{{ $message }}</span> @enderror
-                        </div>
+                    <div class="d-flex justify-content-end mb-4">
+                        <button type="button" class="btn btn-outline-success btn-sm fw-bold" wire:click="addPaymentMethod">
+                            <i class="bi bi-plus-circle me-1"></i> Add Payment Method
+                        </button>
                     </div>
 
                     {{-- Allocation Breakdown --}}
@@ -826,8 +858,12 @@
                                 <div class="col-md-6">
                                     <table class="table table-borderless">
                                         <tr>
-                                            <td><strong>Receipt ID:</strong></td>
-                                            <td>#{{ $latestPayment->id }}</td>
+                                            <td><strong>Receipt ID(s):</strong></td>
+                                            <td>
+                                                @foreach($createdPayments as $p)
+                                                    <span class="badge bg-secondary">#{{ $p->id }}</span>
+                                                @endforeach
+                                            </td>
                                         </tr>
                                         <tr>
                                             <td><strong>Payment Date:</strong></td>
@@ -846,16 +882,8 @@
                                 <div class="col-md-6">
                                     <table class="table table-borderless">
                                         <tr>
-                                            <td><strong>Payment Method:</strong></td>
-                                            <td class="text-capitalize">{{ str_replace('_', ' ', $latestPayment->payment_method) }}</td>
-                                        </tr>
-                                        <tr>
-                                            <td><strong>Amount Paid:</strong></td>
-                                            <td class="fw-bold text-success">Rs.{{ number_format($latestPayment->amount, 2) }}</td>
-                                        </tr>
-                                        <tr>
-                                            <td><strong>Reference No:</strong></td>
-                                            <td>{{ $latestPayment->payment_reference ?: 'N/A' }}</td>
+                                            <td><strong>Total Amount Paid:</strong></td>
+                                            <td class="fw-bold text-success">Rs.{{ number_format(collect($createdPayments)->sum('amount'), 2) }}</td>
                                         </tr>
                                         <tr>
                                             <td><strong>Received By:</strong></td>
@@ -865,12 +893,40 @@
                                 </div>
                             </div>
 
-                            @if($latestPayment->notes)
                             <div class="mt-3">
-                                <strong>Notes:</strong>
-                                <p class="mb-0">{{ $latestPayment->notes }}</p>
+                                <h6><strong>Payment Method Breakdown:</strong></h6>
+                                <div class="table-responsive">
+                                    <table class="table table-bordered table-sm">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th>Method</th>
+                                                <th>Details</th>
+                                                <th class="text-end">Amount</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            @foreach($createdPayments as $p)
+                                            <tr>
+                                                <td class="text-capitalize fw-semibold">{{ str_replace('_', ' ', $p->payment_method) }}</td>
+                                                <td>
+                                                    @if($p->payment_method === 'cheque' && $p->cheques->count() > 0)
+                                                        Cheque: {{ $p->cheques->first()->cheque_number }} ({{ $p->cheques->first()->bank_name }})
+                                                    @elseif($p->payment_method === 'bank_transfer')
+                                                        Transfer Ref: {{ $p->transfer_reference ?: 'N/A' }} ({{ $p->bank_name }})
+                                                    @else
+                                                        {{ $p->payment_reference ?: 'N/A' }}
+                                                    @endif
+                                                    @if($p->notes)
+                                                        <div class="small text-muted">Note: {{ $p->notes }}</div>
+                                                    @endif
+                                                </td>
+                                                <td class="text-end fw-bold">Rs.{{ number_format($p->amount, 2) }}</td>
+                                            </tr>
+                                            @endforeach
+                                        </tbody>
+                                    </table>
+                                </div>
                             </div>
-                            @endif
                         </div>
                     </div>
                 </div>
