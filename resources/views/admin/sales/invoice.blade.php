@@ -1,510 +1,378 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Invoice - {{ $sale->invoice_number }}</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
         @page {
             margin: 10mm;
-            size: A4;
+            size: A4 portrait;
         }
-
         body {
-            margin: 20px;
-            padding: 20px;
-            font-family: "DejaVu Sans", Arial, sans-serif;
-            font-size: 10pt;
-            line-height: 1.4;
-            background: white;
+            font-family: 'Segoe UI', Arial, sans-serif;
+            font-size: 13px;
+            margin: 0;
+            padding: 0;
             color: #000;
+            margin-bottom: 150px;
         }
-
-        .invoice-container {
-            width: 100%;
-            padding: 0;
-            margin: 0;
-            background: white;
-            box-sizing: border-box;
-        }
-
-        /* Global Header Styles */
-        .global-header {
-            border-bottom: 3px solid #000000;
-            padding-bottom: 5px;
-            margin-bottom: 25px;
-        }
-
-        .global-header table {
-            width: 100%;
-            border: none;
-            margin-bottom: 25px;
-        }
-
-        .global-header td {
-            vertical-align: middle;
-            border: none;
-            padding: 0;
-        }
-
-        .global-header .logo-section {
-            width: 80px;
-        }
-
-        .global-header .logo-section img {
-            max-height: 80px;
-            width: auto;
-        }
-
-        .global-header .company-section {
+        
+        .footer-container {
+            position: fixed;
+            bottom: 0px;
+            left: 0px;
+            right: 0px;
+            height: 120px;
             text-align: center;
-            padding: 0 10px;
         }
-
-        .global-header .company-section h2 {
-            font-size: 20pt;
-            letter-spacing: 1.5px;
-            font-weight: bold;
-            margin: 0;
-            padding: 0;
-            line-height: 1.1;
-        }
-
-        .global-header .company-section p {
-            font-size: 7pt;
-            color: #000000;
-            font-weight: 600;
-            margin: 2px 0 0 0;
-            padding: 0;
-            line-height: 1.1;
-        }
-
-        .global-header .invoice-section {
-            width: 250px;
-            text-align: right;
-        }
-
-        .global-header .invoice-section h3 {
-            font-size: 10pt;
-            font-weight: bold;
-            margin: 0;
-            padding: 0;
-            line-height: 1.2;
-        }
-
-        .global-header .invoice-section h6 {
-            font-size: 9pt;
-            font-weight: bold;
-            color: #666;
-            margin: 1px 0 0 0;
-            padding: 0;
-            line-height: 1.2;
-        }
-
-        /* Content Area */
-        .print-content {
-            min-height: calc(297mm - 200px);
-            margin-bottom: 20px;
-        }
-
-        /* Global Footer Styles */
-        .global-footer {
-            margin-top: 100px;
-            clear: both;
-        }
-
-        .global-footer table {
-            width: 100%;
-            border: none;
-            margin-top: 50px;
-            margin-bottom: 10px;
-        }
-
-        .global-footer td {
-            text-align: center;
-            vertical-align: bottom;
-            border: none;
-            padding: 5px;
-        }
-
-        .global-footer .signature-line {
-            font-size: 9pt;
-            font-weight: bold;
-            margin: 0;
-            padding: 0;
-        }
-
-        .global-footer .signature-label {
-            font-size: 9pt;
-            font-weight: bold;
-            margin: 3px 0;
-            padding: 0;
-        }
-
-        .global-footer img {
-            height: 40px;
-            margin: 5px auto 0;
-            display: block;
-        }
-
-        .global-footer .info-section {
-            border-top: 2px solid #000000;
-            padding-top: 8px;
-            margin-top: 8px;
-        }
-
-        .global-footer .info-section p {
-            text-align: center;
-            font-size: 8pt;
-            margin: 2px 0;
-            padding: 0;
-        }
-
-        .info-row {
-            margin-bottom: 15px;
-        }
-
-        .info-row table {
-            width: 100%;
-            font-size: 9pt;
-        }
-
-        .info-row td {
-            vertical-align: top;
-            padding: 5px;
-        }
-
-        .customer-info {
-            width: 50%;
-        }
-
-        .invoice-info {
-            width: 50%;
-            text-align: right;
-        }
-
-        .invoice-info table {
-            float: right;
-            text-align: left;
-        }
-
-        .invoice-info table td {
-            padding: 2px 5px;
-            font-size: 9pt;
-        }
-
         table {
             width: 100%;
             border-collapse: collapse;
         }
+        
+        /* Header */
+        .receipt-header {
+            width: 100%;
+            border-bottom: 3px solid #000;
+            padding-bottom: 15px;
+            margin-bottom: 15px;
+        }
+        .receipt-header td {
+            vertical-align: top;
+            padding-bottom: 10px;
+        }
+        
+        /* Info Row */
+        .info-table {
+            margin-bottom: 15px;
+            font-size: 11px;
 
+        }
+        .info-table td {
+            vertical-align: top;
+        }
+        .info-table .customer-col {
+            width: 50%;
+            text-align: left;
+        }
+        .info-table .invoice-col {
+            width: 50%;
+            text-align: right;
+        }
+        .info-table p {
+            margin: 0;
+        }
+        
+        /* Items Table */
         .items-table {
-            margin: 10px 0;
-            font-size: 9pt;
+            width: 100%;
+            min-height: 50%;
+            border-collapse: collapse;
+            
+            margin-top: 15px;
+            font-size: 11px;
         }
-
         .items-table th {
-            background: #e9ecef;
-            padding: 8px 6px;
-            border: 1px solid #999;
-            font-weight: bold;
+            
+            border-bottom: 2px solid #000;
+            padding: 8px;
             text-align: left;
+            background: none;
+            font-weight: bold;
+            text-transform: uppercase;
         }
-
+        .items-table th.text-center { text-align: center; }
+        .items-table th.text-right { text-align: right; }
         .items-table td {
-            padding: 6px;
-            border: 1px solid #999;
-        }
-
-        .text-center {
-            text-align: center;
-        }
-
-        .text-right {
-            text-align: right;
-        }
-
-        .totals-section {
-            margin: 15px 0;
-            text-align: right;
-        }
-
-        .totals-table {
-            float: right;
-            width: 45%;
-            font-size: 9pt;
-        }
-
-        .totals-table td {
+            border: none;
             padding: 4px 8px;
-        }
-
-        .totals-table .total-row td {
-            border-top: 1px solid #000;
-            font-weight: bold;
-            padding-top: 8px;
-        }
-
-        .returned-section {
-            clear: both;
-            margin-top: 20px;
-        }
-
-        .returned-section h4 {
-            background: #f8f8f8;
-            padding: 5px;
-            margin-bottom: 10px;
-            font-size: 11pt;
-        }
-
-
-
-
-        .text-end {
-            text-align: right;
-        }
-
-        .text-center {
-            text-align: center;
-        }
-
-        .text-left {
             text-align: left;
         }
+        .items-table td.text-center { text-align: center; }
+        .items-table td.text-right { text-align: right; }
 
-        .fw-bold {
+        /* Payment & Summary Container */
+        .summary-container {
+            margin-top: 25px;
+            border-top: 2px solid #000;
+            padding-top: 12px;
+        }
+        .summary-table {
+            width: 100%;
+            font-size: 11px;
+        }
+        .summary-table td {
+            vertical-align: top;
+            width: 50%;
+        }
+        .summary-table h4 {
+            margin: 0 0 8px 0;
+            color: #000;
+            font-size: 16px;
+        }
+        
+        /* Payment Box */
+        .payment-box {
+            margin-bottom: 8px;
+            padding: 8px;
+            background: #f8f9fa;
+        }
+        
+        /* Order Summary Box */
+        .order-summary-box h4 {
+            border-bottom: 1px solid #000;
+            padding-bottom: 8px;
+        }
+        .order-summary-table {
+            width: 100%;
+        }
+        .order-summary-table td {
+            padding: 3px 0;
+        }
+
+        /* Outstanding Summary */
+        .outstanding-summary {
+            margin-top: 15px;
+            padding: 12px;
+            border: 1.5px solid #e67e22;
+            background-color: #fffaf5;
+            border-radius: 6px;
+        }
+        .outstanding-summary h6 {
+            margin: 0 0 8px 0;
+            color: #e67e22;
             font-weight: bold;
+            border-bottom: 1px solid #ffebcc;
+            padding-bottom: 4px;
+            text-transform: uppercase;
+            font-size: 11px;
+        }
+        .outstanding-table {
+            width: 100%;
+            font-size: 11px;
+            table-layout: fixed;
+        }
+        .outstanding-table td {
+            padding: 3px 0;
         }
 
-        .mb-0 {
-            margin-bottom: 0;
+        /* Signatures */
+        .signatures-table {
+            width: 100%;
+            text-align: center;
+            margin-top: 40px;
         }
-
-        .mb-2 {
-            margin-bottom: 0.5rem;
+        .signatures-table td {
+            width: 50%;
         }
-
-        .mb-3 {
-            margin-bottom: 1rem;
+        .signatures-table p {
+            margin: 5px 0;
         }
-
-        .mt-2 {
-            margin-top: 0.5rem;
-        }
-
-        .pt-3 {
-            padding-top: 1rem;
+        .footer-text {
+            text-align: center;
+            font-size: 11px;
+            margin-top: 20px;
         }
     </style>
 </head>
-
 <body>
-    <div class="invoice-container">
+    <!-- Header -->
+    <table class="receipt-header">
+        <tr>
+            <td style="width: 20%;"></td>
+            <td style="width: 60%; text-align: center;">
+                <h2 style="font-size: 24pt; letter-spacing: 2px; margin: 0 0 4px 0;">HARDMEN (PVT) LTD</h2>
+                <p style="color:#666; font-size:12px; margin: 0;">TOOLS WITH POWER</p>
+                <p style="margin: 0;"><strong>421/2, Doolmala, thihariya, Kalagedihena.</strong></p>
+                <p style="margin: 0;"><strong>TEL :</strong> (077) 9752950, <strong>EMAIL :</strong> Hardmenlanka@gmail.com</p>
+            </td>
+            <td style="width: 20%; text-align: right;">
+                <h6 style="font-size: 12pt; color: #666; margin: 0; font-weight: bold;">INVOICE</h6>
+            </td>
+        </tr>
+    </table>
 
-        <div class="global-header">
-            <table>
-                <tr>
-                    <td class="logo-section">
-                        <img src="{{ public_path('images/HARDMEN.png') }}" alt="Logo">
-                    </td>
-                    <td class="company-section">
-                        <h2>HARDMEN (PVT) LTD</h2>
-                        <p>TOOLS WITH POWER</p>
-                    </td>
-                    <td class="invoice-section">
-                        <span style="font-size:10pt; font-weight:bold;"></span>
-                        <span style="font-size:9pt; font-weight:bold; color:#666; margin-left:8px;">INVOICE</span>
-                    </td>
-                </tr>
-            </table>
-        </div>
+    <!-- Info Row -->
+    <table class="info-table">
+        <tr>
+            <td class="customer-col">
+                @if($sale->customer && $sale->customer->name !== 'Walking Customer' && $sale->customer->name !== 'Walk-in')
+                <p><strong>Name:</strong> {{ $sale->customer->name }}</p>
+                <p><strong>Phone:</strong> {{ $sale->customer->phone }}</p>
+                <p><strong>Type:</strong> {{ ucfirst($sale->customer->customer_type ?? 'Retail') }}</p>
+                @else
+                <p style="color: #666;">Walk-in Customer</p>
+                @endif
+            </td>
+            <td class="invoice-col">
+                <p><strong>Invoice Number:</strong> {{ $sale->invoice_number }}</p>
+                <p><strong>Date:</strong> {{ $sale->created_at->format('d/m/Y h:i A') }}</p>
+                <p><strong>Payment Status:</strong> <span style="color:#e67e22; font-weight:bold;">{{ ucfirst($sale->payment_status ?? 'paid') }}</span></p>
+            </td>
+        </tr>
+    </table>
 
+    <!-- Items -->
+    <table class="items-table">
+        <thead>
+            <tr>
+                <th width="5%">#</th>
+                <th width="15%">Code</th>
+                <th width="35%">Item</th>
+                <th width="15%" class="text-center">Price</th>
+                <th width="10%" class="text-center">Qty</th>
+                <th width="10%" class="text-center">Discount</th>
+                <th width="10%" class="text-center">Total</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach($sale->items as $index => $item)
+            <tr>
+                <td>{{ $index + 1 }}</td>
+                <td>{{ $item->product_code ?? ($item->product ? $item->product->code : '') }}</td>
+                <td>{{ $item->product_name ?? ($item->product ? $item->product->name : '') }}</td>
+                <td class="text-right">Rs.{{ number_format($item->unit_price, 2) }}</td>
+                <td class="text-right">{{ $item->quantity }}</td>
+                <td class="text-right">
+                    @php
+                        $discountAmount = $item->discount_per_unit ?? 0;
+                    @endphp
+                    @if($item->discount_type === 'percentage' && $item->discount_percentage > 0)
+                        {{ number_format($item->discount_percentage, 0) }}%
+                    @elseif($discountAmount > 0)
+                        Rs.{{ number_format($discountAmount * $item->quantity, 2) }}
+                    @else
+                        -
+                    @endif
+                </td>
+                <td class="text-right">Rs.{{ number_format($item->total, 2) }}</td>
+            </tr>
+            @endforeach
+        </tbody>
+    </table>
 
-        {{-- Customer and Invoice Info --}}
-        <div class="info-row">
-            <table>
-                <tr>
-                    <td class="customer-info">
-                        <strong>Customer :</strong><br>
-                        {{ $sale->customer->name ?? 'Walk-in Customer' }}<br>
-                        @if(isset($sale->customer->address) && $sale->customer->address)
-                        {{ $sale->customer->address }}<br>
-                        @endif
-                        Tel: {{ $sale->customer->phone ?? 'N/A' }}
-                    </td>
-                    <td class="invoice-info">
-                        <table>
+    <!-- Payment & Order Summary -->
+    <div class="summary-container">
+        <table class="summary-table">
+            <tr>
+                <td style="padding-right: 20px;">
+                    <h4>PAYMENT INFORMATION</h4>
+                    @if($sale->payments && $sale->payments->count() > 0)
+                        @foreach($sale->payments as $payment)
+                        <div class="payment-box" style="border-left: 3px solid {{ $payment->is_completed ? '#28a745' : '#ffc107' }};">
+                            <p style="margin:0;"><strong>{{ $payment->is_completed ? 'Payment' : 'Scheduled Payment' }}:</strong> Rs.{{ number_format($payment->amount, 2) }}</p>
+                            <p style="margin:0;"><strong>Method:</strong> {{ ucfirst(str_replace('_', ' ', $payment->payment_method)) }}</p>
+                        </div>
+                        @endforeach
+                    @else
+                        <p style="color: #666;">No payment information available</p>
+                    @endif
+                </td>
+                <td style="padding-left: 20px;">
+                    <div class="order-summary-box">
+                        <h4>ORDER SUMMARY</h4>
+                        @php
+                            // Calculate original subtotal (before any discounts)
+                            $originalSubtotal = $sale->items->sum(function($item) {
+                                return $item->unit_price * $item->quantity;
+                            });
+                            // Total discount = original subtotal - grand total
+                            $totalDiscountRs = $originalSubtotal - $sale->total_amount;
+                            // Calculate discount percentage
+                            $discountPercentage = $originalSubtotal > 0 ? ($totalDiscountRs / $originalSubtotal) * 100 : 0;
+                        @endphp
+                        <table class="order-summary-table">
                             <tr>
-                                <td><strong>Invoice #</strong></td>
-                                <td>{{ $sale->invoice_number }}</td>
+                                <td>Subtotal:</td>
+                                <td class="text-right">Rs.{{ number_format($originalSubtotal, 2) }}</td>
+                            </tr>
+                            @if($totalDiscountRs > 0)
+                            <tr>
+                                <td>Discount:</td>
+                                <td class="text-right">- Rs. {{ number_format($discountPercentage, 2) }}%</td>
+                            </tr>
+                            @endif
+                            <tr>
+                                <td colspan="2"><hr style="border: 0; border-top: 1px solid #000; margin: 4px 0;"></td>
                             </tr>
                             <tr>
-                                <td><strong>Sale ID</strong></td>
-                                <td>{{ $sale->sale_id }}</td>
-                            </tr>
-                            <tr>
-                                <td><strong>Date</strong></td>
-                                <td>{{ $sale->created_at->format('d/m/Y') }}</td>
-                            </tr>
-                            <tr>
-                                <td><strong>Time</strong></td>
-                                <td>{{ $sale->created_at->format('H:i') }}</td>
-                            </tr>
-                            <tr>
-                                <td><strong>Payment</strong></td>
-                                <td>{{ ucfirst($sale->payment_status) }}</td>
+                                <td><strong>Grand Total:</strong></td>
+                                <td class="text-right"><strong>Rs.{{ number_format($sale->total_amount, 2) }}</strong></td>
                             </tr>
                         </table>
-                    </td>
-                </tr>
-            </table>
-        </div>
-
-        {{-- Items Table --}}
-        <table class="items-table">
-            <thead>
-                <tr>
-                    <th style="width: 5%;" class="text-center">#</th>
-                    <th style="width: 15%;">ITEM CODE</th>
-                    <th style="width: 40%;">DESCRIPTION</th>
-                    <th style="width: 10%;" class="text-center">QTY</th>
-                    <th style="width: 15%;" class="text-right">UNIT PRICE</th>
-                    <th style="width: 15%;" class="text-right">UNIT DISCOUNT</th>
-                    <th style="width: 15%;" class="text-right">SUBTOTAL</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach($sale->items as $index => $item)
-                <tr>
-                    <td class="text-center">{{ $index + 1 }}</td>
-                    <td>{{ $item->product_code }}</td>
-                    <td>{{ $item->product_name }}</td>
-                    <td class="text-center">{{ $item->quantity }}</td>
-                    <td class="text-right">Rs.{{ number_format($item->unit_price, 2) }}</td>
-                    <td class="text-right">
-                        @if($item->discount_per_unit > 0)
-                            - Rs.{{ number_format($item->discount_per_unit, 2) }}
-                        @else
-                            - Rs.0.00
-                        @endif
-                    </td>
-                    <td class="text-right">Rs.{{ number_format(($item->unit_price - $item->discount_per_unit) * $item->quantity, 2) }}</td>
-                </tr>
-                @endforeach
-            </tbody>
+                    </div>
+                </td>
+            </tr>
         </table>
+    </div>
 
-        {{-- Totals --}}
-        <div class="totals-section">
-            <table class="totals-table">
-                @php
-                    $originalSubtotal = $sale->items->sum(function($item) {
-                        return $item->unit_price * $item->quantity;
-                    });
-                    $totalDiscountRs = $originalSubtotal - $sale->total_amount;
-                @endphp
-                <tr>
-                    <td>Subtotal</td>
-                    <td class="text-right">Rs.{{ number_format($originalSubtotal, 2) }}</td>
-                </tr>
-                @if($totalDiscountRs > 0)
-                <tr>
-                    <td>Discount</td>
-                    <td class="text-right">- Rs.{{ number_format($totalDiscountRs, 2) }}</td>
-                </tr>
-                @endif
-                <tr class="total-row">
-                    <td>Grand Total</td>
-                    <td class="text-right">Rs.{{ number_format($sale->total_amount, 2) }}</td>
-                </tr>
-                <tr>
-                    <td>Paid Amount</td>
-                    <td class="text-right">Rs.{{ number_format($sale->paid_amount ?? ($sale->total_amount - $sale->due_amount), 2) }}</td>
-                </tr>
-                @if($sale->due_amount > 0)
-                <tr>
-                    <td>Due Amount</td>
-                    <td class="text-right">Rs.{{ number_format($sale->due_amount, 2) }}</td>
-                </tr>
-                @endif
-            </table>
-        </div>
+    {{-- Outstanding Financial Summary --}}
+    @if(isset($showDueDetails) && $showDueDetails && $sale->customer && $sale->customer->name !== 'Walking Customer' && $sale->customer->name !== 'Walk-in')
+    @php
+        $receiptCustomer = $sale->customer;
+        $receiptDueInvoiceCount = \App\Models\Sale::where('customer_id', $receiptCustomer->id)
+            ->where('due_amount', '>', 0)
+            ->count();
+        $receiptReturnedCheques = \App\Models\Cheque::where('customer_id', $receiptCustomer->id)
+            ->where('status', 'return')
+            ->get();
+        $receiptReturnedChequeCount = $receiptReturnedCheques->count();
+        $receiptReturnedChequeAmount = $receiptReturnedCheques->sum('cheque_amount');
+    @endphp
+    <div style="clear: both;"></div>
+    <div class="outstanding-summary">
+        <h6>Outstanding Financial Summary</h6>
+        <table class="outstanding-table">
+            @if($receiptReturnedChequeCount > 0)
+            <tr>
+                <td style="width: 65%;">Invoice Outstanding Due:</td>
+                <td class="text-right" style="width: 35%; font-weight: bold;">Rs. {{ number_format(max(0, $receiptCustomer->total_due - $receiptReturnedChequeAmount), 2) }} ({{ $receiptDueInvoiceCount }} Invoices)</td>
+            </tr>
+            <tr style="color: #d32f2f;">
+                <td>Returned Cheque Amount:</td>
+                <td class="text-right" style="font-weight: bold;">Rs. {{ number_format($receiptReturnedChequeAmount, 2) }} ({{ $receiptReturnedChequeCount }} Cheques)</td>
+            </tr>
+            <tr>
+                <td style="border-top: 1px dashed #ffebcc; padding-top: 4px; color: #e67e22; font-weight: bold;">Total Outstanding Due:</td>
+                <td class="text-right" style="border-top: 1px dashed #ffebcc; padding-top: 4px; font-weight: bold; color: #e67e22; font-size: 12px;">Rs. {{ number_format($receiptCustomer->total_due, 2) }}</td>
+            </tr>
+            @else
+            <tr>
+                <td style="width: 65%;">Remaining Due Amount:</td>
+                <td class="text-right" style="width: 35%; font-weight: bold;">Rs. {{ number_format($receiptCustomer->total_due, 2) }}</td>
+            </tr>
+            @endif
+        </table>
+    </div>
+    @endif
 
-        {{-- Returned Items --}}
-        @if(isset($sale->returns) && count($sale->returns) > 0)
-        @php $returnAmount = 0; @endphp
-        <div class="returned-section">
-            <h4>RETURNED ITEMS</h4>
-            <table class="items-table">
-                <thead>
-                    <tr>
-                        <th style="width: 5%;" class="text-center">#</th>
-                        <th style="width: 35%;">PRODUCT</th>
-                        <th style="width: 15%;">CODE</th>
-                        <th style="width: 15%;" class="text-center">RETURN QTY</th>
-                        <th style="width: 17%;" class="text-right">UNIT PRICE</th>
-                        <th style="width: 18%;" class="text-right">TOTAL</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach($sale->returns as $index => $return)
-                    @php $returnAmount += $return->total_amount; @endphp
-                    <tr>
-                        <td class="text-center">{{ $index + 1 }}</td>
-                        <td>{{ $return->product->name ?? '-' }}</td>
-                        <td>{{ $return->product->code ?? '-' }}</td>
-                        <td class="text-center">{{ $return->return_quantity }}</td>
-                        <td class="text-right">Rs.{{ number_format($return->selling_price, 2) }}</td>
-                        <td class="text-right">Rs.{{ number_format($return->total_amount, 2) }}</td>
-                    </tr>
-                    @endforeach
-                    <tr style="background: #f8f8f8; font-weight: bold;">
-                        <td colspan="5" class="text-right" style="padding: 8px;">Return Amount:</td>
-                        <td class="text-right" style="padding: 8px;">- Rs.{{ number_format($returnAmount, 2) }}</td>
-                    </tr>
-                    <tr style="background: #e9ecef; font-weight: bold;">
-                        <td colspan="5" class="text-right" style="padding: 8px;">Net Amount:</td>
-                        <td class="text-right" style="padding: 8px;">Rs.{{ number_format((($sale->subtotal ?? $sale->total_amount) - ($sale->discount_amount ?? 0) - $returnAmount), 2) }}</td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
-        @endif
+    {{-- Notes --}}
+    @if($sale->notes)
+    <div style="margin-top: 20px; padding: 10px; background: #f8f9fa; border: 1px solid #dee2e6;">
+        <strong>Notes:</strong> {{ $sale->notes }}
+    </div>
+    @endif
 
-        <div class="global-footer" style="position: absolute; bottom: 5;top: auto; width: 100%;">
-            <table>
-                <tr>
-                    <td>
-                        <p class="signature-line"><strong>.............................</strong></p>
-                        <p class="signature-label"><strong>Checked By</strong></p>
-                        
-                    </td>
-                    <td>
-                        <p class="signature-line"><strong>.............................</strong></p>
-                        <p class="signature-label"><strong>Authorized Officer</strong></p>
-                        
-                    </td>
-                    <td>
-                        <p class="signature-line"><strong>.............................</strong></p>
-                        <p class="signature-label"><strong>Customer Stamp</strong></p>
-                        
-                    </td>
-                </tr>
-            </table>
-            <div class="info-section">
-                <p><strong>ADDRESS:</strong> 421/2, Doolmala, thihariya, Kalagedihena.</p>
-                <p><strong>TEL:</strong> (077) 9752950 | <strong>EMAIL:</strong> Hardmenlanka@gmail.com</p>
-                <p style="margin-top: 6px;"><strong>Goods return will be accepted within 10 days only. Electrical and body parts non-returnable.</strong></p>
-            </div>
+    <div class="footer-container">
+        <!-- Signatures -->
+        <table class="signatures-table">
+            <tr>
+                <td>
+                    <p><strong>..............................</strong></p>
+                    <p><strong>Authorized Signature</strong></p>
+                </td>
+                <td>
+                    <p><strong>..............................</strong></p>
+                    <p><strong>Customer Signature</strong></p>
+                </td>
+            </tr>
+        </table>
+        
+        <div class="footer-text">
+            <p style="margin: 0;">Returns accepted within 30 days of purchase with the original invoice. Terms and conditions apply.</p>
+            <p style="margin: 0;">Thank you for your business!</p>
+            <p style="margin: 0;">www.hardmen.lk | info@hardmen.lk</p>
         </div>
     </div>
 </body>
-
 </html>

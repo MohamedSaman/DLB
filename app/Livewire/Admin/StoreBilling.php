@@ -87,6 +87,10 @@ class StoreBilling extends Component
     public $customerDueAmountDisplay = 0;
     public $customerOverpaidAmountDisplay = 0;
     public $customerTotalDueDisplay = 0;
+    public $showDueDetails = false;
+    public $dueInvoiceCount = 0;
+    public $returnedChequeCount = 0;
+    public $returnedChequeAmount = 0;
 
     // Sale Properties
     public $notes = '';
@@ -156,6 +160,13 @@ class StoreBilling extends Component
                 $this->customerId = $this->editingSale->customer_id;
                 $this->selectedCustomer = $this->editingSale->customer;
                 $this->customerSearch = $this->formatCustomerDisplayName($this->editingSale->customer);
+                if ($this->selectedCustomer) {
+                    $this->customerOpeningBalanceDisplay = ($this->selectedCustomer->opening_balance ?? 0) - ($this->selectedCustomer->opening_balance_paid ?? 0);
+                    $this->customerDueAmountDisplay = $this->selectedCustomer->due_amount ?? 0;
+                    $this->customerOverpaidAmountDisplay = $this->selectedCustomer->overpaid_amount ?? 0;
+                    $this->calculateDueDetails();
+                    $this->customerTotalDueDisplay = (($this->selectedCustomer->opening_balance ?? 0) - ($this->selectedCustomer->opening_balance_paid ?? 0)) + ($this->selectedCustomer->due_amount ?? 0) - ($this->selectedCustomer->overpaid_amount ?? 0) + ($this->returnedChequeAmount ?? 0);
+                }
                 $this->notes = $this->editingSale->notes ?? '';
 
                 // Load additional discount from sale
@@ -1063,10 +1074,32 @@ class StoreBilling extends Component
         $this->customerSearchResults = [];
         $this->showCustomerSearchDropdown = false;
 
-        $this->customerOpeningBalanceDisplay = $customer->opening_balance ?? 0;
+        $this->customerOpeningBalanceDisplay = ($customer->opening_balance ?? 0) - ($customer->opening_balance_paid ?? 0);
         $this->customerDueAmountDisplay = $customer->due_amount ?? 0;
         $this->customerOverpaidAmountDisplay = $customer->overpaid_amount ?? 0;
-        $this->customerTotalDueDisplay = $customer->total_due ?? 0;
+        $this->calculateDueDetails();
+        $this->customerTotalDueDisplay = (($customer->opening_balance ?? 0) - ($customer->opening_balance_paid ?? 0)) + ($customer->due_amount ?? 0) - ($customer->overpaid_amount ?? 0) + ($this->returnedChequeAmount ?? 0);
+    }
+
+    public function calculateDueDetails()
+    {
+        if ($this->customerId && $this->customerId != '') {
+            $this->dueInvoiceCount = Sale::where('customer_id', $this->customerId)
+                ->where('due_amount', '>', 0.01)
+                ->count();
+            
+            $this->returnedChequeCount = Cheque::where('customer_id', $this->customerId)
+                ->where('status', 'return')
+                ->count();
+
+            $this->returnedChequeAmount = Cheque::where('customer_id', $this->customerId)
+                ->where('status', 'return')
+                ->sum('cheque_amount');
+        } else {
+            $this->dueInvoiceCount = 0;
+            $this->returnedChequeCount = 0;
+            $this->returnedChequeAmount = 0;
+        }
     }
 
     public function hideCustomerSearchDropdown()
@@ -1078,7 +1111,6 @@ class StoreBilling extends Component
         }
     }
 
-    // When customer is selected from dropdown
     public function updatedCustomerId($value)
     {
         if ($value) {
@@ -1089,10 +1121,11 @@ class StoreBilling extends Component
                 $this->customerSearchResults = [];
                 $this->showCustomerSearchDropdown = false;
                 // Load balance information
-                $this->customerOpeningBalanceDisplay = $customer->opening_balance ?? 0;
+                $this->customerOpeningBalanceDisplay = ($customer->opening_balance ?? 0) - ($customer->opening_balance_paid ?? 0);
                 $this->customerDueAmountDisplay = $customer->due_amount ?? 0;
                 $this->customerOverpaidAmountDisplay = $customer->overpaid_amount ?? 0;
-                $this->customerTotalDueDisplay = $customer->total_due ?? 0;
+                $this->calculateDueDetails();
+                $this->customerTotalDueDisplay = (($customer->opening_balance ?? 0) - ($customer->opening_balance_paid ?? 0)) + ($customer->due_amount ?? 0) - ($customer->overpaid_amount ?? 0) + ($this->returnedChequeAmount ?? 0);
             }
         } else {
             // If customer is deselected, set back to walking customer
@@ -1102,6 +1135,10 @@ class StoreBilling extends Component
             $this->customerDueAmountDisplay = 0;
             $this->customerOverpaidAmountDisplay = 0;
             $this->customerTotalDueDisplay = 0;
+            
+            $this->dueInvoiceCount = 0;
+            $this->returnedChequeCount = 0;
+            $this->returnedChequeAmount = 0;
         }
     }
 
@@ -1345,7 +1382,8 @@ class StoreBilling extends Component
             $this->customerOpeningBalanceDisplay = $openingBalance;
             $this->customerDueAmountDisplay = 0;
             $this->customerOverpaidAmountDisplay = $overpaidAmount;
-            $this->customerTotalDueDisplay = $totalDue;
+            $this->calculateDueDetails();
+            $this->customerTotalDueDisplay = $openingBalance - $overpaidAmount + ($this->returnedChequeAmount ?? 0);
             $this->closeCustomerModal();
             $this->resetCustomerFields();
 
@@ -2274,7 +2312,8 @@ class StoreBilling extends Component
                         // Customer changed: remove old due from old customer (only if it was added)
                         if ($oldDueAmount > 0) {
                             $oldCustomer->due_amount = max(0, ($oldCustomer->due_amount ?? 0) - $oldDueAmount);
-                            $oldCustomer->total_due = ($oldCustomer->opening_balance ?? 0) + $oldCustomer->due_amount - ($oldCustomer->overpaid_amount ?? 0);
+                            $oldReturnedChequeAmount = Cheque::where('customer_id', $oldCustomer->id)->where('status', 'return')->sum('cheque_amount');
+                            $oldCustomer->total_due = ($oldCustomer->opening_balance ?? 0) - ($oldCustomer->opening_balance_paid ?? 0) + $oldCustomer->due_amount - ($oldCustomer->overpaid_amount ?? 0) + $oldReturnedChequeAmount;
                             $oldCustomer->save();
                         }
                     }
@@ -2297,7 +2336,8 @@ class StoreBilling extends Component
                         $customer->due_amount = ($customer->due_amount ?? 0) + $this->dueAmount;
                     }
                 }
-                $customer->total_due = ($customer->opening_balance ?? 0) + $customer->due_amount - ($customer->overpaid_amount ?? 0);
+                $returnedChequeAmount = Cheque::where('customer_id', $customer->id)->where('status', 'return')->sum('cheque_amount');
+                $customer->total_due = ($customer->opening_balance ?? 0) - ($customer->opening_balance_paid ?? 0) + $customer->due_amount - ($customer->overpaid_amount ?? 0) + $returnedChequeAmount;
                 $customer->save();
 
                 // Update sale
@@ -2498,21 +2538,23 @@ class StoreBilling extends Component
                     $customer->due_amount = ($customer->due_amount ?? 0) + $dueAmount;
 
                     // Recalculate total_due
-                    $customer->total_due = ($customer->opening_balance ?? 0) + $customer->due_amount - ($customer->overpaid_amount ?? 0);
+                    $returnedChequeAmount = Cheque::where('customer_id', $customer->id)->where('status', 'return')->sum('cheque_amount');
+                    $customer->total_due = ($customer->opening_balance ?? 0) - ($customer->opening_balance_paid ?? 0) + $customer->due_amount - ($customer->overpaid_amount ?? 0) + $returnedChequeAmount;
                 }
 
                 // Handle Overpayments (payment exceeds grand total)
                 if ($totalPaid > $grandTotal) {
                     $excessAmount = $totalPaid - $grandTotal;
 
-                    // Distribution logic: opening_balance → due_amount → overpaid_amount
-                    if ($excessAmount >= ($customer->opening_balance ?? 0)) {
+                    // Distribution logic: remaining opening balance -> due_amount -> overpaid_amount
+                    $remainingOB = max(0, ($customer->opening_balance ?? 0) - ($customer->opening_balance_paid ?? 0));
+                    if ($excessAmount >= $remainingOB) {
                         // Excess enough to clear opening balance
-                        $excessAmount -= ($customer->opening_balance ?? 0);
-                        $customer->opening_balance = 0;
+                        $customer->opening_balance_paid = $customer->opening_balance;
+                        $excessAmount -= $remainingOB;
                     } else {
-                        // Reduce opening balance only
-                        $customer->opening_balance = ($customer->opening_balance ?? 0) - $excessAmount;
+                        // Reduce opening balance only (add to opening_balance_paid)
+                        $customer->opening_balance_paid = ($customer->opening_balance_paid ?? 0) + $excessAmount;
                         $excessAmount = 0;
                     }
 
@@ -2561,7 +2603,8 @@ class StoreBilling extends Component
                     }
 
                     // Recalculate total_due
-                    $customer->total_due = ($customer->opening_balance ?? 0) + ($customer->due_amount ?? 0) - ($customer->overpaid_amount ?? 0);
+                    $returnedChequeAmount = Cheque::where('customer_id', $customer->id)->where('status', 'return')->sum('cheque_amount');
+                    $customer->total_due = ($customer->opening_balance ?? 0) - ($customer->opening_balance_paid ?? 0) + ($customer->due_amount ?? 0) - ($customer->overpaid_amount ?? 0) + $returnedChequeAmount;
                 }
 
                 // Apply existing overpaid_amount to reduce any remaining due on this sale
@@ -2581,7 +2624,8 @@ class StoreBilling extends Component
 
                     // Also reduce customer's due_amount by the overpaid portion used
                     $customer->due_amount = max(0, ($customer->due_amount ?? 0) - $overpaidToUse);
-                    $customer->total_due = ($customer->opening_balance ?? 0) + ($customer->due_amount ?? 0) - ($customer->overpaid_amount ?? 0);
+                    $returnedChequeAmount = Cheque::where('customer_id', $customer->id)->where('status', 'return')->sum('cheque_amount');
+                    $customer->total_due = ($customer->opening_balance ?? 0) - ($customer->opening_balance_paid ?? 0) + ($customer->due_amount ?? 0) - ($customer->overpaid_amount ?? 0) + $returnedChequeAmount;
 
                     Log::info('Existing overpaid balance applied to sale', [
                         'customer_id' => $customer->id,
@@ -2696,7 +2740,8 @@ class StoreBilling extends Component
             return;
         }
 
-        $pdf = PDF::loadView('receipts.download', compact('sale'));
+        $showDueDetails = $this->showDueDetails;
+        $pdf = PDF::loadView('receipts.download', compact('sale', 'showDueDetails'));
         $pdf->setPaper('a4', 'portrait');
         $pdf->setOption('dpi', 150);
         $pdf->setOption('defaultFont', 'sans-serif');
@@ -2726,12 +2771,16 @@ class StoreBilling extends Component
             return;
         }
 
-        // Store sale ID in session for print route
-        session(['print_sale_id' => $sale->id]);
+        // Store sale ID and show_due_details flag in session for print route
+        session([
+            'print_sale_id' => $sale->id,
+            'show_due_details' => $this->showDueDetails,
+        ]);
 
+        $showDue = $this->showDueDetails ? '?show_due=1' : '';
         // Open print page in new window
         $this->js("
-            const printUrl = '" . route('admin.print.sale', $sale->id) . "';
+            const printUrl = '" . route('admin.print.sale', $sale->id) . $showDue . "';
             const printWindow = window.open(printUrl, '_blank', 'width=800,height=600');
             if (printWindow) {
                 printWindow.focus();

@@ -41,6 +41,7 @@ class PosSales extends Component
     public $editPaidAmount;
     public $editPayBalanceAmount = 0;
     public $perPage = 10;
+    public $showDueDetails = false;
 
     public function mount()
     {
@@ -82,6 +83,7 @@ class PosSales extends Component
             ->where('sale_type', 'pos')
             ->find($saleId);
 
+        $this->showDueDetails = false;
         $this->showViewModal = true;
         $this->dispatch('showModal', 'viewModal');
     }
@@ -392,6 +394,7 @@ class PosSales extends Component
             return;
         }
 
+        $this->showDueDetails = false;
         $this->showViewModal = true;
         $this->dispatch('showModal', 'viewModal');
 
@@ -412,8 +415,8 @@ class PosSales extends Component
         }
         // Store sale ID in session for print route
         session(['print_sale_id' => $sale->id]);
-        // Open print page in new window
-        $printUrl = route('admin.print.sale', $sale->id);
+        // Open print page in new window with show_due query param
+        $printUrl = route('admin.print.sale', $sale->id) . '?show_due=' . ($this->showDueDetails ? '1' : '0');
         $this->js("window.open('$printUrl', '_blank', 'width=800,height=600');");
     }
 
@@ -435,7 +438,8 @@ class PosSales extends Component
             $sale->paid_amount = $sale->total_amount - $sale->due_amount;
             $sale->balance_amount = $sale->due_amount;
 
-            $pdf = PDF::loadView('admin.sales.invoice', compact('sale'));
+            $showDueDetails = $this->showDueDetails;
+            $pdf = PDF::loadView('admin.sales.invoice', compact('sale', 'showDueDetails'));
 
             $pdf->setPaper('a4', 'portrait');
             $pdf->setOption('dpi', 150);
@@ -476,6 +480,7 @@ class PosSales extends Component
         $this->showPaymentHistoryModal = false;
         $this->selectedSale = null;
         $this->paymentHistory = [];
+        $this->showDueDetails = false;
         $this->resetEditForm();
 
         // Hide all modals

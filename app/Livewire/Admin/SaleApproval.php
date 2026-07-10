@@ -38,6 +38,7 @@ class SaleApproval extends Component
     public $rejectionReason = '';
     public $perPage = 10;
     public $isProcessing = false;
+    public $showDueDetails = false;
     public $editQuantities = [];
     public $editPrices = [];
     public $editDiscounts = [];
@@ -97,6 +98,7 @@ class SaleApproval extends Component
     public function viewDetails($saleId)
     {
         $this->selectedSaleId = $saleId;
+        $this->showDueDetails = false;
         $this->showDetailsModal = true;
     }
 
@@ -104,11 +106,13 @@ class SaleApproval extends Component
     {
         $this->showDetailsModal = false;
         $this->selectedSaleId = null;
+        $this->showDueDetails = false;
     }
 
     public function printSale($saleId)
     {
         $this->selectedSaleId = $saleId;
+        $this->showDueDetails = false;
         $this->showDetailsModal = true;
 
         $this->js("setTimeout(function(){ if (window.printInvoice) { window.printInvoice(); } }, 500);");

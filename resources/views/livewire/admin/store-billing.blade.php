@@ -420,7 +420,7 @@
                         </div>
                     </div>
                     
-                    {{-- Customer Balance Information (Conditional) --}}
+                    {{-- Customer Balance Information --}}
                     @if($customerId && $customerId != '' && $selectedCustomer && $selectedCustomer->type != 'Walking Customer')
                     <div class="p-3 bg-gradient-to-r from-slate-50 to-slate-100 border border-slate-200 rounded-lg grid grid-cols-4 gap-2">
                         <div class="text-center p-2 bg-white rounded border border-slate-100">
@@ -869,6 +869,46 @@
                                 <span class="text-3xl font-black text-[#e67e22]">Rs. {{ number_format($grandTotal, 2) }}</span>
                             </div>
                             <textarea class="w-full p-4 bg-slate-50 border border-slate-100 rounded-xl text-xs font-bold outline-none" wire:model="paymentNotes" placeholder="Transaction notes..." rows="2"></textarea>
+                            
+                            {{-- Show Remaining Due checkbox --}}
+                            @if($customerId && $customerId != '' && $selectedCustomer && $selectedCustomer->type != 'Walking Customer')
+                            <div class="mt-4 flex items-center">
+                                <label class="inline-flex items-center text-xs font-black text-slate-600 cursor-pointer">
+                                    <input type="checkbox" wire:model.live="showDueDetails" class="rounded border-slate-300 text-[#e67e22] focus:ring-[#e67e22] mr-2">
+                                    Show Remaining Due Amount on Receipt
+                                </label>
+                            </div>
+                            @if($showDueDetails)
+                            <div class="mt-4 p-4 bg-orange-50 border border-orange-100 rounded-xl text-left">
+                                <h5 class="text-[10px] font-black text-orange-600 uppercase tracking-wider mb-2">Outstanding Financial Summary</h5>
+                                <div class="grid grid-cols-2 gap-2 text-xs">
+                                    @if($returnedChequeCount > 0)
+                                    <div class="bg-white p-2.5 rounded-lg border border-orange-100/50">
+                                        <div class="text-[9px] font-bold text-slate-400 uppercase">Invoice Outstanding Due</div>
+                                        <div class="font-black text-slate-800 mt-0.5">Rs. {{ number_format(max(0, $customerTotalDueDisplay - $returnedChequeAmount), 2) }}</div>
+                                    </div>
+                                    <div class="bg-white p-2.5 rounded-lg border border-red-100/50 text-red-600">
+                                        <div class="text-[9px] font-bold text-red-400 uppercase">Returned Cheque Amount</div>
+                                        <div class="font-black mt-0.5">Rs. {{ number_format($returnedChequeAmount, 2) }} ({{ $returnedChequeCount }} Cheques)</div>
+                                    </div>
+                                    <div class="bg-white p-2.5 rounded-lg border border-orange-100/50 col-span-2">
+                                        <div class="text-[9px] font-bold text-slate-400 uppercase">Total Outstanding Due (Invoice + Cheque)</div>
+                                        <div class="font-black text-[#e67e22] mt-0.5 text-sm font-black">Rs. {{ number_format($customerTotalDueDisplay, 2) }}</div>
+                                    </div>
+                                    @else
+                                    <div class="bg-white p-2.5 rounded-lg border border-orange-100/50 col-span-2">
+                                        <div class="text-[9px] font-bold text-slate-400 uppercase">Remaining Due Amount</div>
+                                        <div class="font-black text-slate-800 mt-0.5">Rs. {{ number_format($customerTotalDueDisplay, 2) }}</div>
+                                    </div>
+                                    @endif
+                                    <div class="bg-white p-2.5 rounded-lg border border-orange-100/50 col-span-2">
+                                        <div class="text-[9px] font-bold text-slate-400 uppercase">Due Invoice Count</div>
+                                        <div class="font-black text-slate-800 mt-0.5">{{ $dueInvoiceCount }}</div>
+                                    </div>
+                                </div>
+                            </div>
+                            @endif
+                            @endif
                         </div>
                     </div>
                     
@@ -1024,6 +1064,44 @@
                             </div>
                         </div>
                     </div>
+                    
+                    {{-- Outstanding Financial Details if checkbox checked --}}
+                    @if($showDueDetails && $createdSale->customer && $createdSale->customer->name !== 'Walking Customer')
+                    @php
+                        $receiptCustomer = $createdSale->customer;
+                        $receiptDueInvoiceCount = \App\Models\Sale::where('customer_id', $receiptCustomer->id)
+                            ->where('due_amount', '>', 0)
+                            ->count();
+
+                        $receiptReturnedCheques = \App\Models\Cheque::where('customer_id', $receiptCustomer->id)
+                            ->where('status', 'return')
+                            ->get();
+                        $receiptReturnedChequeCount = $receiptReturnedCheques->count();
+                        $receiptReturnedChequeAmount = $receiptReturnedCheques->sum('cheque_amount');
+                    @endphp
+                    <div style="margin-top: 15px; padding: 12px; border: 1.5px solid #e67e22; background-color: #fffaf5; border-radius: 6px; text-align: left;">
+                        <h4 style="margin: 0 0 8px 0; color: #e67e22; font-size: 11px; font-weight: bold; border-bottom: 1px solid #ffebcc; padding-bottom: 4px; text-transform: uppercase;">Outstanding Financial Summary</h4>
+                        @if($receiptReturnedChequeCount > 0)
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 4px; font-size: 11px;">
+                            <span>Invoice Outstanding Due:</span>
+                            <strong>Rs. {{ number_format(max(0, $receiptCustomer->total_due - $receiptReturnedChequeAmount), 2) }} ({{ $receiptDueInvoiceCount }} Invoices)</strong>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 4px; font-size: 11px; color: #d32f2f;">
+                            <span>Returned Cheque Amount:</span>
+                            <strong>Rs. {{ number_format($receiptReturnedChequeAmount, 2) }} ({{ $receiptReturnedChequeCount }} Cheques)</strong>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 4px; font-size: 11px; border-top: 1px dashed #ffebcc; padding-top: 4px;">
+                            <span style="color: #e67e22; font-weight: bold;">Total Outstanding Due:</span>
+                            <strong style="color: #e67e22; font-size: 12px;">Rs. {{ number_format($receiptCustomer->total_due, 2) }}</strong>
+                        </div>
+                        @else
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 4px; font-size: 11px;">
+                            <span>Remaining Due Amount:</span>
+                            <strong>Rs. {{ number_format($receiptCustomer->total_due, 2) }}</strong>
+                        </div>
+                        @endif
+                    </div>
+                    @endif
 
                     <!-- Footer -->
                     <div style="margin-top:auto; text-align:center; padding-top:12px; display:flex; flex-direction:column;">

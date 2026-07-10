@@ -130,6 +130,49 @@
     </div>
     @endif
 
+    @if(isset($showDueDetails) && $showDueDetails && $sale->customer && $sale->customer->name !== 'Walking Customer')
+    @php
+        $receiptCustomer = $sale->customer;
+        $receiptDueInvoiceCount = \App\Models\Sale::where('customer_id', $receiptCustomer->id)
+            ->where('due_amount', '>', 0)
+            ->count();
+
+        $receiptReturnedCheques = \App\Models\Cheque::where('customer_id', $receiptCustomer->id)
+            ->where('status', 'return')
+            ->get();
+        $receiptReturnedChequeCount = $receiptReturnedCheques->count();
+        $receiptReturnedChequeAmount = $receiptReturnedCheques->sum('cheque_amount');
+    @endphp
+    <div style="margin-top: 20px; padding: 12px; border: 1.5px solid #e67e22; background-color: #fffaf5; border-radius: 6px;">
+        <h6 style="margin: 0 0 8px 0; color: #e67e22; font-weight: bold; border-bottom: 1px solid #ffebcc; padding-bottom: 4px; text-transform: uppercase; font-size: 12px;">Outstanding Financial Summary</h6>
+        <table class="table table-sm table-borderless mb-0" style="font-size: 12px; width: 100%;">
+            @if($receiptReturnedChequeCount > 0)
+            <tr style="border: none;">
+                <td style="padding: 2px 0; border: none; text-align: left;">Invoice Outstanding Due:</td>
+                <td class="text-end" style="padding: 2px 0; font-weight: bold; border: none; text-align: right;">Rs. {{ number_format(max(0, $receiptCustomer->total_due - $receiptReturnedChequeAmount), 2) }}</td>
+            </tr>
+            <tr style="color: #d32f2f; border: none;">
+                <td style="padding: 2px 0; border: none; text-align: left;">Returned Cheque Amount:</td>
+                <td class="text-end" style="padding: 2px 0; font-weight: bold; border: none; text-align: right;">Rs. {{ number_format($receiptReturnedChequeAmount, 2) }} ({{ $receiptReturnedChequeCount }} Cheques)</td>
+            </tr>
+            <tr style="border-top: 1px dashed #ffebcc; padding-top: 4px;">
+                <td style="padding: 4px 0 2px 0; border: none; text-align: left; color: #e67e22; font-weight: bold;">Total Outstanding Due:</td>
+                <td class="text-end" style="padding: 4px 0 2px 0; font-weight: bold; border: none; text-align: right; color: #e67e22; font-size: 13px;">Rs. {{ number_format($receiptCustomer->total_due, 2) }}</td>
+            </tr>
+            @else
+            <tr style="border: none;">
+                <td style="padding: 2px 0; border: none; text-align: left;">Remaining Due Amount:</td>
+                <td class="text-end" style="padding: 2px 0; font-weight: bold; border: none; text-align: right;">Rs. {{ number_format($receiptCustomer->total_due, 2) }}</td>
+            </tr>
+            @endif
+            <tr style="border: none;">
+                <td style="padding: 2px 0; border: none; text-align: left;">Due Invoice Count:</td>
+                <td class="text-end" style="padding: 2px 0; font-weight: bold; border: none; text-align: right;">{{ $receiptDueInvoiceCount }}</td>
+            </tr>
+        </table>
+    </div>
+    @endif
+
     @if($sale->notes)
     <div style="margin-top: 20px; padding: 10px; background: #f8f9fa; border: 1px solid #dee2e6;">
         <strong>Notes:</strong> {{ $sale->notes }}

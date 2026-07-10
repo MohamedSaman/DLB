@@ -428,6 +428,43 @@
                                 </div>
                             </div>
 
+                            @if($showDueDetails && $this->selectedSale->customer && $this->selectedSale->customer->name !== 'Walking Customer' && $this->selectedSale->customer->name !== 'Walk-in')
+                            @php
+                                $receiptCustomer = $this->selectedSale->customer;
+                                $receiptDueInvoiceCount = \App\Models\Sale::where('customer_id', $receiptCustomer->id)
+                                    ->where('due_amount', '>', 0)
+                                    ->count();
+
+                                $receiptReturnedCheques = \App\Models\Cheque::where('customer_id', $receiptCustomer->id)
+                                    ->where('status', 'return')
+                                    ->get();
+                                $receiptReturnedChequeCount = $receiptReturnedCheques->count();
+                                $receiptReturnedChequeAmount = $receiptReturnedCheques->sum('cheque_amount');
+                            @endphp
+                            <div style="margin-top: 15px; padding: 12px; border: 1.5px solid #e67e22; background-color: #fffaf5; border-radius: 6px; text-align: left;">
+                                <h4 style="margin: 0 0 8px 0; color: #e67e22; font-size: 11px; font-weight: bold; border-bottom: 1px solid #ffebcc; padding-bottom: 4px; text-transform: uppercase;">Outstanding Financial Summary</h4>
+                                @if($receiptReturnedChequeCount > 0)
+                                <div style="display: flex; justify-content: space-between; margin-bottom: 4px; font-size: 11px;">
+                                    <span>Invoice Outstanding Due:</span>
+                                    <strong>Rs. {{ number_format(max(0, $receiptCustomer->total_due - $receiptReturnedChequeAmount), 2) }} ({{ $receiptDueInvoiceCount }} Invoices)</strong>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; margin-bottom: 4px; font-size: 11px; color: #d32f2f;">
+                                    <span>Returned Cheque Amount:</span>
+                                    <strong>Rs. {{ number_format($receiptReturnedChequeAmount, 2) }} ({{ $receiptReturnedChequeCount }} Cheques)</strong>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; margin-bottom: 4px; font-size: 11px; border-top: 1px dashed #ffebcc; padding-top: 4px;">
+                                    <span style="color: #e67e22; font-weight: bold;">Total Outstanding Due:</span>
+                                    <strong style="color: #e67e22; font-size: 12px;">Rs. {{ number_format($receiptCustomer->total_due, 2) }}</strong>
+                                </div>
+                                @else
+                                <div style="display: flex; justify-content: space-between; margin-bottom: 4px; font-size: 11px;">
+                                    <span>Remaining Due Amount:</span>
+                                    <strong>Rs. {{ number_format($receiptCustomer->total_due, 2) }}</strong>
+                                </div>
+                                @endif
+                            </div>
+                            @endif
+
                             {{-- Footer --}}
                             <div style="margin-top:auto; text-align:center; padding-top:12px; display:flex; flex-direction:column;">
                                 <div style="display:flex; justify-content:center; gap:20px; margin-bottom:12px;">
@@ -444,13 +481,23 @@
                         </div>
                     </div>
                 </div>
-                <div class="modal-footer bg-light">
-                    <button type="button" class="btn btn-secondary" wire:click="closeDetailsModal">
-                        <i class="bi bi-x-circle me-2"></i>Close
-                    </button>
-                    <button type="button" class="btn btn-primary" onclick="printInvoice()">
-                        <i class="bi bi-printer me-2"></i>Print
-                    </button>
+                <div class="modal-footer bg-light justify-content-between">
+                    <div class="d-flex align-items-center">
+                        @if($this->selectedSale && $this->selectedSale->customer && $this->selectedSale->customer->name !== 'Walking Customer' && $this->selectedSale->customer->name !== 'Walk-in')
+                        <label class="inline-flex items-center text-xs font-semibold text-slate-600 cursor-pointer mb-0">
+                            <input type="checkbox" wire:model.live="showDueDetails" class="rounded border-slate-300 text-primary focus:ring-primary me-2">
+                            Show Remaining Due Amount on Receipt
+                        </label>
+                        @endif
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button type="button" class="btn btn-secondary" wire:click="closeDetailsModal">
+                            <i class="bi bi-x-circle me-2"></i>Close
+                        </button>
+                        <button type="button" class="btn btn-primary" onclick="printInvoice()">
+                            <i class="bi bi-printer me-2"></i>Print
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
