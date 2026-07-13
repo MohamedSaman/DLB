@@ -461,6 +461,14 @@ class AddCustomerReceipt extends Component
             return;
         }
 
+        if (floatval($this->totalPaymentAmount) != floatval($this->totalDueAmount)) {
+            $this->dispatch('show-toast', [
+                'type' => 'error',
+                'message' => 'Payment amount must be exactly equal to the total due amount of Rs. ' . number_format($this->totalDueAmount, 2) . '.'
+            ]);
+            return;
+        }
+
         // Initialize payments array with a single default payment (Cash)
         $this->payments = [
             [
@@ -549,6 +557,14 @@ class AddCustomerReceipt extends Component
             'customer_id' => $this->selectedCustomer->id,
             'amount' => $this->totalPaymentAmount,
         ]);
+
+        if (floatval($this->totalPaymentAmount) != floatval($this->totalDueAmount)) {
+            $this->dispatch('show-toast', [
+                'type' => 'error',
+                'message' => 'Payment amount must be exactly equal to the total due amount of Rs. ' . number_format($this->totalDueAmount, 2) . '.'
+            ]);
+            return;
+        }
 
         // Validate inputs
         try {
