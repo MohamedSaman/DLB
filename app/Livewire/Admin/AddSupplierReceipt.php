@@ -355,7 +355,7 @@ class AddSupplierReceipt extends Component
 
     public function viewOrderDetails($orderId)
     {
-        $this->selectedOrderForView = PurchaseOrder::with(['supplier', 'items.product', 'returns.product'])
+        $this->selectedOrderForView = PurchaseOrder::with(['supplier', 'items.product.variant', 'returns.product'])
             ->find($orderId);
         $this->showOrderDetailsModal = true;
     }
@@ -585,6 +585,58 @@ class AddSupplierReceipt extends Component
             })
             ->orderBy('name')
             ->paginate(10);
+    }
+
+    /**
+     * Format product name and append variant value if available. Tries to match by supplier_price or selling_price.
+     */
+    public function formatProductName($product, $unitPrice = null)
+    {
+        if (!$product) return 'N/A';
+        $name = trim($product->name ?? '');
+
+        if (!empty($product->variant_id) && $product->variant) {
+            $variantName = $product->variant->variant_name ?? null;
+            $variantValue = null;
+
+            if ($unitPrice !== null) {
+                $price = \App\Models\ProductPrice::where('product_id', $product->id)
+                    ->whereNotNull('variant_value')
+                    ->where('supplier_price', $unitPrice)
+                    ->first();
+
+                if (!$price) {
+                    $price = \App\Models\ProductPrice::where('product_id', $product->id)
+                        ->whereNotNull('variant_value')
+                        ->where('selling_price', $unitPrice)
+                        ->first();
+                }
+
+                if ($price && !empty($price->variant_value)) {
+                    $variantValue = trim($price->variant_value);
+                }
+            }
+
+            if (!$variantValue) {
+                $fallback = \App\Models\ProductPrice::where('product_id', $product->id)
+                    ->whereNotNull('variant_value')
+                    ->where('variant_value', '!=', '')
+                    ->first();
+                if ($fallback) $variantValue = trim($fallback->variant_value);
+            }
+
+            if (!empty($variantValue)) {
+                if (!empty($variantName)) {
+                    $display = trim($name . ' - ' . $variantName . ': ' . $variantValue);
+                } else {
+                    $display = trim($name . ' - ' . $variantValue);
+                }
+                // Remove accidental trailing punctuation/hyphens
+                return rtrim($display, " -:");
+            }
+        }
+
+        return rtrim($name, " -:");
     }
 
     public function render()

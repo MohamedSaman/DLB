@@ -253,7 +253,7 @@
     {{-- Order Details Modal --}}
     @if($showOrderDetailsModal && $selectedOrderForView)
     <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
-        <div class="modal-dialog modal-xl">
+        <div class="modal-dialog modal-xl modal-dialog-scrollable">
             <div class="modal-content">
                 <div class="modal-header bg-primary text-white">
                     <h5 class="modal-title fw-bold">
@@ -319,9 +319,9 @@
 
                     {{-- Order Items --}}
                     <h6 class="text-muted mb-3">ORDER ITEMS</h6>
-                    <div class="table-responsive overflow-auto">
-                        <table class="table table-bordered">
-                            <thead class="table-light">
+                    <div class="table-responsive overflow-auto" style="max-height: 400px; overflow-y: auto;">
+                        <table class="table table-bordered mb-0">
+                            <thead class="table-light position-sticky top-0" style="z-index: 1020;">
                                 <tr>
                                     <th>Product</th>
                                     <th class="text-center">Received Quantity</th>
