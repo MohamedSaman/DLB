@@ -339,8 +339,8 @@ class ManageCustomer extends Component
             ]);
         }
 
-        // Sort by date
-        $this->viewCustomerLedger = $ledgerEntries->sortBy('date')->values()->toArray();
+        // Sort by timestamp for proper chronological ordering
+        $this->viewCustomerLedger = $ledgerEntries->sortBy('timestamp')->values()->toArray();
 
         $ledgerDebit = $ledgerEntries->sum('debit');
         $ledgerCredit = $ledgerEntries->sum('credit');

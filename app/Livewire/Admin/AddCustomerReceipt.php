@@ -213,11 +213,7 @@ class AddCustomerReceipt extends Component
 
     public function updatePaymentTotals()
     {
-        $this->totalPaymentAmount = collect($this->payments)->sum(function ($payment) {
-            return floatval($payment['amount'] ?? 0);
-        });
-        $this->calculateRemainingAmount();
-        $this->autoAllocatePayment();
+        // Do not overwrite totalPaymentAmount. The sum of payment methods must equal the totalPaymentAmount.
     }
 
     public function selectCustomer($customerId)
@@ -461,13 +457,7 @@ class AddCustomerReceipt extends Component
             return;
         }
 
-        if (floatval($this->totalPaymentAmount) != floatval($this->totalDueAmount)) {
-            $this->dispatch('show-toast', [
-                'type' => 'error',
-                'message' => 'Payment amount must be exactly equal to the total due amount of Rs. ' . number_format($this->totalDueAmount, 2) . '.'
-            ]);
-            return;
-        }
+
 
         // Initialize payments array with a single default payment (Cash)
         $this->payments = [
@@ -558,10 +548,16 @@ class AddCustomerReceipt extends Component
             'amount' => $this->totalPaymentAmount,
         ]);
 
-        if (floatval($this->totalPaymentAmount) != floatval($this->totalDueAmount)) {
+
+
+        $sumPayments = collect($this->payments)->sum(function ($payment) {
+            return floatval($payment['amount'] ?? 0);
+        });
+
+        if (abs(floatval($this->totalPaymentAmount) - floatval($sumPayments)) > 0.01) {
             $this->dispatch('show-toast', [
                 'type' => 'error',
-                'message' => 'Payment amount must be exactly equal to the total due amount of Rs. ' . number_format($this->totalDueAmount, 2) . '.'
+                'message' => 'The sum of payment methods must exactly equal the total payment amount of Rs. ' . number_format($this->totalPaymentAmount, 2) . '.'
             ]);
             return;
         }
