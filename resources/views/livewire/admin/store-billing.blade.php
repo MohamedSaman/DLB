@@ -1,4 +1,4 @@
-<div class="pos-billing-terminal" wire:poll.10s>
+@push('styles')
     <!-- Load TailWind & Premium Fonts -->
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet"/>
@@ -70,7 +70,9 @@
             .pos-footer .btn-primary { background: linear-gradient(90deg,var(--accent-500),var(--accent-700)); color: white; }
         }
     </style>
+@endpush
 
+<div class="pos-billing-terminal" wire:poll.10s>
     <div class="bg-slate-50 text-slate-800 h-screen flex flex-col overflow-hidden text-sm">
         
         <!-- Header Section -->
@@ -1177,8 +1179,10 @@
         @endif
     </div>
     @endif
+</div>
 
-    <script>
+@script
+<script>
         document.addEventListener('DOMContentLoaded', function() {
             console.log('POS System Loaded');
             
@@ -1580,4 +1584,4 @@
         window.printInvoice = printInvoice;
         console.log('printInvoice function registered globally');
     </script>
-</div>
+@endscript
