@@ -1179,405 +1179,405 @@
     @endif
 
     <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        console.log('POS System Loaded');
-        
-        // Real-time Clock Implementation
-        function updateClock() {
-            const el = document.getElementById('posClock');
-            if (!el) return;
-            const now = new Date();
-            el.innerText = now.getHours().toString().padStart(2, '0') + ':' + 
-                          now.getMinutes().toString().padStart(2, '0') + ':' + 
-                          now.getSeconds().toString().padStart(2, '0');
-        }
-        setInterval(updateClock, 1000);
-        updateClock();
-
-        // Native Post-load adjustments
-        const initLayout = () => {
-            const grid = document.getElementById('productGridContainer');
-            if(grid){ grid.style.scrollBehavior = 'smooth'; }
-        };
-        initLayout();
-
-        // Keyboard Logic
-        document.addEventListener('keydown', (e) => {
-            if (e.ctrlKey && e.key === 'Enter') {
-                e.preventDefault();
-                if(@json(count($cart)) > 0){ @this.validateAndCreateSale(); }
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('POS System Loaded');
+            
+            // Real-time Clock Implementation
+            function updateClock() {
+                const el = document.getElementById('posClock');
+                if (!el) return;
+                const now = new Date();
+                el.innerText = now.getHours().toString().padStart(2, '0') + ':' + 
+                            now.getMinutes().toString().padStart(2, '0') + ':' + 
+                            now.getSeconds().toString().padStart(2, '0');
             }
-            if (e.key === 'F10') {
-                e.preventDefault();
-                @this.validateAndCreateSale();
-            }
-        });
-    });
+            setInterval(updateClock, 1000);
+            updateClock();
 
-    function paginatePrintTable(containerElement) {
-        const table = containerElement.querySelector('table.receipt-table, table.items-table, table');
-        if (!table) return;
+            // Native Post-load adjustments
+            const initLayout = () => {
+                const grid = document.getElementById('productGridContainer');
+                if(grid){ grid.style.scrollBehavior = 'smooth'; }
+            };
+            initLayout();
 
-        const tbody = table.querySelector('tbody');
-        if (!tbody) return;
-
-        const rows = Array.from(tbody.querySelectorAll('tr'));
-        if (rows.length === 0) return;
-
-        const getChunkTotal = (rowArray) => {
-            let sum = 0;
-            rowArray.forEach(row => {
-                const cells = row.querySelectorAll('td');
-                if (cells.length > 0) {
-                    const lastCell = cells[cells.length - 1];
-                    let rawVal = lastCell.getAttribute('data-total');
-                    if (!rawVal) {
-                        rawVal = lastCell.textContent.replace(/,/g, '').replace(/[^0-9.-]+/g, '');
-                    }
-                    const val = parseFloat(rawVal);
-                    if (!isNaN(val)) sum += val;
+            // Keyboard Logic
+            document.addEventListener('keydown', (e) => {
+                if (e.ctrlKey && e.key === 'Enter') {
+                    e.preventDefault();
+                    if(@json(count($cart)) > 0){ @this.validateAndCreateSale(); }
+                }
+                if (e.key === 'F10') {
+                    e.preventDefault();
+                    @this.validateAndCreateSale();
                 }
             });
-            return sum;
-        };
-
-        const formatRsVal = (num) => {
-            return 'Rs.' + num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-        };
-
-        const PAGE_1_MAX_ITEMS = 30;
-        const REST_PAGE_MAX_ITEMS = 35;
-
-        if (rows.length <= PAGE_1_MAX_ITEMS) {
-            const pageSubtotal = getChunkTotal(rows);
-            const tfoot = table.querySelector('tfoot');
-            if (tfoot) {
-                const totalCell = tfoot.querySelector('td:last-child');
-                if (totalCell) {
-                    totalCell.innerHTML = `<strong>${formatRsVal(pageSubtotal)}</strong>`;
-                }
-            }
-            return;
-        }
-
-        const pageChunks = [];
-        pageChunks.push(rows.slice(0, PAGE_1_MAX_ITEMS));
-        let currentRowIdx = PAGE_1_MAX_ITEMS;
-
-        while (currentRowIdx < rows.length) {
-            pageChunks.push(rows.slice(currentRowIdx, currentRowIdx + REST_PAGE_MAX_ITEMS));
-            currentRowIdx += REST_PAGE_MAX_ITEMS;
-        }
-
-        const theadHtml = table.querySelector('thead') ? table.querySelector('thead').outerHTML : '';
-        const tableClass = table.className || 'receipt-table';
-
-        const headerNodes = [];
-        const footerNodes = [];
-        let passedTable = false;
-
-        Array.from(containerElement.children).forEach(child => {
-            if (child === table || child.contains(table)) {
-                passedTable = true;
-            } else if (!passedTable) {
-                if (child.tagName !== 'STYLE' && child.tagName !== 'SCRIPT') {
-                    headerNodes.push(child);
-                }
-            } else {
-                if (child.tagName !== 'STYLE' && child.tagName !== 'SCRIPT') {
-                    footerNodes.push(child);
-                }
-            }
         });
 
-        const page1HeaderHtml = headerNodes.map(node => node.outerHTML).join('');
-        headerNodes.forEach(node => node.remove());
-        const footerBlocks = footerNodes;
+        function paginatePrintTable(containerElement) {
+            const table = containerElement.querySelector('table.receipt-table, table.items-table, table');
+            if (!table) return;
 
-        const paginatedWrapper = document.createElement('div');
-        paginatedWrapper.className = 'paginated-print-wrapper';
+            const tbody = table.querySelector('tbody');
+            if (!tbody) return;
 
-        pageChunks.forEach((chunk, pageIdx) => {
-            const chunkSubtotal = getChunkTotal(chunk);
-            const pageDiv = document.createElement('div');
-            pageDiv.className = 'print-page';
-            if (pageIdx > 0) {
-                pageDiv.style.pageBreakBefore = 'always';
-                pageDiv.style.breakBefore = 'page';
-                pageDiv.style.marginTop = '15px';
+            const rows = Array.from(tbody.querySelectorAll('tr'));
+            if (rows.length === 0) return;
+
+            const getChunkTotal = (rowArray) => {
+                let sum = 0;
+                rowArray.forEach(row => {
+                    const cells = row.querySelectorAll('td');
+                    if (cells.length > 0) {
+                        const lastCell = cells[cells.length - 1];
+                        let rawVal = lastCell.getAttribute('data-total');
+                        if (!rawVal) {
+                            rawVal = lastCell.textContent.replace(/,/g, '').replace(/[^0-9.-]+/g, '');
+                        }
+                        const val = parseFloat(rawVal);
+                        if (!isNaN(val)) sum += val;
+                    }
+                });
+                return sum;
+            };
+
+            const formatRsVal = (num) => {
+                return 'Rs.' + num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            };
+
+            const PAGE_1_MAX_ITEMS = 30;
+            const REST_PAGE_MAX_ITEMS = 35;
+
+            if (rows.length <= PAGE_1_MAX_ITEMS) {
+                const pageSubtotal = getChunkTotal(rows);
+                const tfoot = table.querySelector('tfoot');
+                if (tfoot) {
+                    const totalCell = tfoot.querySelector('td:last-child');
+                    if (totalCell) {
+                        totalCell.innerHTML = `<strong>${formatRsVal(pageSubtotal)}</strong>`;
+                    }
+                }
+                return;
             }
 
-            let pageHeaderHtml = '';
-            if (pageIdx === 0) {
-                pageHeaderHtml = page1HeaderHtml;
-            } else {
-                pageHeaderHtml = `
-                    <div style="border-bottom: 2px solid #000; padding-bottom: 6px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
-                        <strong style="font-size: 14px;">HARDMEN (PVT) LTD — INVOICE</strong>
-                        <span style="font-size: 11px; font-weight: bold; color: #555;">Page ${pageIdx + 1} of ${pageChunks.length}</span>
-                    </div>
-                `;
+            const pageChunks = [];
+            pageChunks.push(rows.slice(0, PAGE_1_MAX_ITEMS));
+            let currentRowIdx = PAGE_1_MAX_ITEMS;
+
+            while (currentRowIdx < rows.length) {
+                pageChunks.push(rows.slice(currentRowIdx, currentRowIdx + REST_PAGE_MAX_ITEMS));
+                currentRowIdx += REST_PAGE_MAX_ITEMS;
             }
 
-            const chunkTbodyHtml = '<tbody>' + chunk.map(r => r.outerHTML).join('') + '</tbody>';
+            const theadHtml = table.querySelector('thead') ? table.querySelector('thead').outerHTML : '';
+            const tableClass = table.className || 'receipt-table';
 
-            pageDiv.innerHTML = `
-                ${pageHeaderHtml}
-                <table class="${tableClass}" style="width: 100%; border-collapse: collapse; margin-top: 10px;">
-                    ${theadHtml}
-                    ${chunkTbodyHtml}
-                    <tfoot>
-                        <tr style="border-top: 1px solid #000; border-bottom: 2px solid #000;">
-                            <td colspan="6" class="text-end" style="padding: 6px; font-weight: bold;">
-                                Sales Items Subtotal (Page ${pageIdx + 1}${pageChunks.length > 1 ? ' of ' + pageChunks.length : ''})
-                            </td>
-                            <td class="text-end" style="padding: 6px; font-weight: bold;">
-                                ${formatRsVal(chunkSubtotal)}
-                            </td>
-                        </tr>
-                    </tfoot>
-                </table>
-            `;
+            const headerNodes = [];
+            const footerNodes = [];
+            let passedTable = false;
 
-            if (pageIdx === pageChunks.length - 1) {
-                footerBlocks.forEach(block => pageDiv.appendChild(block.cloneNode(true)));
-            }
-
-            paginatedWrapper.appendChild(pageDiv);
-        });
-
-        containerElement.innerHTML = '';
-        containerElement.appendChild(paginatedWrapper);
-    }
-
-    // Print Invoice Function - Make it globally available
-    function printInvoice() {
-        console.log('=== Print Invoice Function Called ===');
-        
-        const printEl = document.getElementById('printableInvoice');
-        if (!printEl) { 
-            console.error('ERROR: Printable invoice element not found');
-            setTimeout(function() {
-                console.log('Retrying print after 1 second...');
-                const retryEl = document.getElementById('printableInvoice');
-                if (retryEl) {
-                    printInvoice();
+            Array.from(containerElement.children).forEach(child => {
+                if (child === table || child.contains(table)) {
+                    passedTable = true;
+                } else if (!passedTable) {
+                    if (child.tagName !== 'STYLE' && child.tagName !== 'SCRIPT') {
+                        headerNodes.push(child);
+                    }
                 } else {
-                    alert('Invoice not ready for printing. Please use the Print Invoice button.');
+                    if (child.tagName !== 'STYLE' && child.tagName !== 'SCRIPT') {
+                        footerNodes.push(child);
+                    }
                 }
-            }, 1000);
-            return; 
+            });
+
+            const page1HeaderHtml = headerNodes.map(node => node.outerHTML).join('');
+            headerNodes.forEach(node => node.remove());
+            const footerBlocks = footerNodes;
+
+            const paginatedWrapper = document.createElement('div');
+            paginatedWrapper.className = 'paginated-print-wrapper';
+
+            pageChunks.forEach((chunk, pageIdx) => {
+                const chunkSubtotal = getChunkTotal(chunk);
+                const pageDiv = document.createElement('div');
+                pageDiv.className = 'print-page';
+                if (pageIdx > 0) {
+                    pageDiv.style.pageBreakBefore = 'always';
+                    pageDiv.style.breakBefore = 'page';
+                    pageDiv.style.marginTop = '15px';
+                }
+
+                let pageHeaderHtml = '';
+                if (pageIdx === 0) {
+                    pageHeaderHtml = page1HeaderHtml;
+                } else {
+                    pageHeaderHtml = `
+                        <div style="border-bottom: 2px solid #000; padding-bottom: 6px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
+                            <strong style="font-size: 14px;">HARDMEN (PVT) LTD — INVOICE</strong>
+                            <span style="font-size: 11px; font-weight: bold; color: #555;">Page ${pageIdx + 1} of ${pageChunks.length}</span>
+                        </div>
+                    `;
+                }
+
+                const chunkTbodyHtml = '<tbody>' + chunk.map(r => r.outerHTML).join('') + '</tbody>';
+
+                pageDiv.innerHTML = `
+                    ${pageHeaderHtml}
+                    <table class="${tableClass}" style="width: 100%; border-collapse: collapse; margin-top: 10px;">
+                        ${theadHtml}
+                        ${chunkTbodyHtml}
+                        <tfoot>
+                            <tr style="border-top: 1px solid #000; border-bottom: 2px solid #000;">
+                                <td colspan="6" class="text-end" style="padding: 6px; font-weight: bold;">
+                                    Sales Items Subtotal (Page ${pageIdx + 1}${pageChunks.length > 1 ? ' of ' + pageChunks.length : ''})
+                                </td>
+                                <td class="text-end" style="padding: 6px; font-weight: bold;">
+                                    ${formatRsVal(chunkSubtotal)}
+                                </td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                `;
+
+                if (pageIdx === pageChunks.length - 1) {
+                    footerBlocks.forEach(block => pageDiv.appendChild(block.cloneNode(true)));
+                }
+
+                paginatedWrapper.appendChild(pageDiv);
+            });
+
+            containerElement.innerHTML = '';
+            containerElement.appendChild(paginatedWrapper);
         }
 
-        console.log('Print element found:', printEl);
+        // Print Invoice Function - Make it globally available
+        function printInvoice() {
+            console.log('=== Print Invoice Function Called ===');
+            
+            const printEl = document.getElementById('printableInvoice');
+            if (!printEl) { 
+                console.error('ERROR: Printable invoice element not found');
+                setTimeout(function() {
+                    console.log('Retrying print after 1 second...');
+                    const retryEl = document.getElementById('printableInvoice');
+                    if (retryEl) {
+                        printInvoice();
+                    } else {
+                        alert('Invoice not ready for printing. Please use the Print Invoice button.');
+                    }
+                }, 1000);
+                return; 
+            }
 
-        // Get the actual receipt container
-        const receiptContainer = printEl.querySelector('.receipt-container');
-        if (!receiptContainer) {
-            console.error('ERROR: Receipt container not found inside printableInvoice');
-            alert('Invoice content not ready. Please try again.');
-            return;
-        }
+            console.log('Print element found:', printEl);
 
-        console.log('Receipt container found, preparing content...');
+            // Get the actual receipt container
+            const receiptContainer = printEl.querySelector('.receipt-container');
+            if (!receiptContainer) {
+                console.error('ERROR: Receipt container not found inside printableInvoice');
+                alert('Invoice content not ready. Please try again.');
+                return;
+            }
 
-        // Clone the content to avoid modifying the original
-        let content = receiptContainer.cloneNode(true);
-        
-        // Remove any buttons or interactive elements from print
-        content.querySelectorAll('button, .no-print').forEach(el => el.remove());
+            console.log('Receipt container found, preparing content...');
 
-        // Paginate table for multi-page print invoices & calculate accurate per-page subtotals
-        paginatePrintTable(content);
+            // Clone the content to avoid modifying the original
+            let content = receiptContainer.cloneNode(true);
+            
+            // Remove any buttons or interactive elements from print
+            content.querySelectorAll('button, .no-print').forEach(el => el.remove());
 
-        // Ensure footer is anchored to bottom: add a class and inline style to footer block
-        const footerEl = content.querySelector('div[style*="border-top:2px solid #000"]') || content.querySelector('div:last-child');
-        if (footerEl) {
-            footerEl.classList.add('receipt-footer');
-            footerEl.style.marginTop = 'auto';
-        }
+            // Paginate table for multi-page print invoices & calculate accurate per-page subtotals
+            paginatePrintTable(content);
 
-        // Get the HTML string
-        let htmlContent = content.outerHTML;
+            // Ensure footer is anchored to bottom: add a class and inline style to footer block
+            const footerEl = content.querySelector('div[style*="border-top:2px solid #000"]') || content.querySelector('div:last-child');
+            if (footerEl) {
+                footerEl.classList.add('receipt-footer');
+                footerEl.style.marginTop = 'auto';
+            }
 
-        console.log('Content prepared, opening print window...');
+            // Get the HTML string
+            let htmlContent = content.outerHTML;
 
-        // Open a new window
-        const printWindow = window.open('', '_blank', 'width=800,height=600');
-        
-        if (!printWindow) {
-            console.error('ERROR: Print window blocked by popup blocker');
-            alert('Popup blocked. Please allow pop-ups for this site or use the Print Invoice button below.');
-            return;
-        }
+            console.log('Content prepared, opening print window...');
 
-        console.log('Print window opened successfully');
+            // Open a new window
+            const printWindow = window.open('', '_blank', 'width=800,height=600');
+            
+            if (!printWindow) {
+                console.error('ERROR: Print window blocked by popup blocker');
+                alert('Popup blocked. Please allow pop-ups for this site or use the Print Invoice button below.');
+                return;
+            }
 
-        // Complete HTML document with styles
-        const fullHtml = `
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <meta charset="utf-8">
-                <title>Invoice - HARDMEN (PVT) LTD</title>
-                <style>
-                    @page { 
-                        size: letter portrait; 
-                        margin: 6mm; 
-                    }
+            console.log('Print window opened successfully');
 
-                    html, body { height: 100%; }
+            // Complete HTML document with styles
+            const fullHtml = `
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <meta charset="utf-8">
+                    <title>Invoice - HARDMEN (PVT) LTD</title>
+                    <style>
+                        @page { 
+                            size: letter portrait; 
+                            margin: 6mm; 
+                        }
 
-                    * {
-                        margin: 0;
-                        padding: 0;
-                        box-sizing: border-box;
-                    }
+                        html, body { height: 100%; }
 
-                    body { 
-                        font-family: sans-serif; 
-                        color: #000; 
-                        background: #fff; 
-                        padding: 10mm;
-                        font-size: 12px;
-                        line-height: 1.4;
-                    }
-
-                    .receipt-container { 
-                        max-width: 800px; 
-                        margin: 0 auto;
-                        padding: 20px;
-                        background: white;
-                        display: flex;
-                        flex-direction: column;
-                        min-height: 100vh;
-                        page-break-inside: avoid;
-                    }
-
-                    .receipt-footer { 
-                        margin-top: auto !important; 
-                        page-break-inside: avoid;
-                    }
-                    
-                    .receipt-header { 
-                        border-bottom: 3px solid #000; 
-                        padding-bottom: 12px; 
-                        margin-bottom: 12px; 
-                    }
-                    
-                    .receipt-row { 
-                        display: flex; 
-                        align-items: center; 
-                        justify-content: space-between; 
-                    }
-                    
-                    .receipt-center { 
-                        flex: 1; 
-                        text-align: center; 
-                    }
-                    
-                    .receipt-center h2 { 
-                        margin: 0 0 4px 0; 
-                        font-size: 2rem; 
-                        letter-spacing: 2px;
-                        font-weight: bold;
-                    }
-                    
-                    table.receipt-table { 
-                        width: 100%; 
-                        border-collapse: collapse; 
-                        margin-top: 12px; 
-                    }
-                    
-                    table.receipt-table th {
-                        border-bottom: 1px solid #000; 
-                        padding: 8px; 
-                        text-align: left;
-                        font-weight: bold;
-                        background: none;
-                    }
-                    
-                    table.receipt-table td { 
-                        padding: 2px; 
-                        text-align: left;
-                        border: none;
-                    }
-                    
-                    .text-end { 
-                        text-align: right; 
-                    }
-                    
-                    .text-muted {
-                        color: #000000;
-                    }
-                    
-                    p {
-                        margin: 4px 0;
-                    }
-                    
-                    strong {
-                        font-weight: bold;
-                    }
-                    
-                    hr {
-                        border: none;
-                        border-top: 1px solid #000;
-                        margin: 8px 0;
-                    }
-                    
-                    @media print {
-                        body {
+                        * {
+                            margin: 0;
                             padding: 0;
+                            box-sizing: border-box;
                         }
-                        
-                        .receipt-container {
-                            box-shadow: none !important;
+
+                        body { 
+                            font-family: sans-serif; 
+                            color: #000; 
+                            background: #fff; 
+                            padding: 10mm;
+                            font-size: 12px;
+                            line-height: 1.4;
                         }
-                        
-                        .receipt-container {
+
+                        .receipt-container { 
+                            max-width: 800px; 
+                            margin: 0 auto;
+                            padding: 20px;
+                            background: white;
+                            display: flex;
+                            flex-direction: column;
+                            min-height: 100vh;
                             page-break-inside: avoid;
                         }
-                    }
-                </style>
-            </head>
-            <body>
-                ${htmlContent}
-                <script>
-                    console.log('Print window document loaded');
-                    window.onload = function() {
-                        console.log('Print window fully loaded, triggering print dialog...');
-                        setTimeout(function() {
-                            try {
-                                window.print();
-                                console.log('Print dialog triggered');
-                            } catch(e) {
-                                console.error('Print failed:', e);
-                                alert('Print failed: ' + e.message);
+
+                        .receipt-footer { 
+                            margin-top: auto !important; 
+                            page-break-inside: avoid;
+                        }
+                        
+                        .receipt-header { 
+                            border-bottom: 3px solid #000; 
+                            padding-bottom: 12px; 
+                            margin-bottom: 12px; 
+                        }
+                        
+                        .receipt-row { 
+                            display: flex; 
+                            align-items: center; 
+                            justify-content: space-between; 
+                        }
+                        
+                        .receipt-center { 
+                            flex: 1; 
+                            text-align: center; 
+                        }
+                        
+                        .receipt-center h2 { 
+                            margin: 0 0 4px 0; 
+                            font-size: 2rem; 
+                            letter-spacing: 2px;
+                            font-weight: bold;
+                        }
+                        
+                        table.receipt-table { 
+                            width: 100%; 
+                            border-collapse: collapse; 
+                            margin-top: 12px; 
+                        }
+                        
+                        table.receipt-table th {
+                            border-bottom: 1px solid #000; 
+                            padding: 8px; 
+                            text-align: left;
+                            font-weight: bold;
+                            background: none;
+                        }
+                        
+                        table.receipt-table td { 
+                            padding: 2px; 
+                            text-align: left;
+                            border: none;
+                        }
+                        
+                        .text-end { 
+                            text-align: right; 
+                        }
+                        
+                        .text-muted {
+                            color: #000000;
+                        }
+                        
+                        p {
+                            margin: 4px 0;
+                        }
+                        
+                        strong {
+                            font-weight: bold;
+                        }
+                        
+                        hr {
+                            border: none;
+                            border-top: 1px solid #000;
+                            margin: 8px 0;
+                        }
+                        
+                        @media print {
+                            body {
+                                padding: 0;
                             }
-                        }, 500);
-                    };
-                <\/script>
-            </body>
-            </html>
-        `;
+                            
+                            .receipt-container {
+                                box-shadow: none !important;
+                            }
+                            
+                            .receipt-container {
+                                page-break-inside: avoid;
+                            }
+                        }
+                    </style>
+                </head>
+                <body>
+                    ${htmlContent}
+                    <script>
+                        console.log('Print window document loaded');
+                        window.onload = function() {
+                            console.log('Print window fully loaded, triggering print dialog...');
+                            setTimeout(function() {
+                                try {
+                                    window.print();
+                                    console.log('Print dialog triggered');
+                                } catch(e) {
+                                    console.error('Print failed:', e);
+                                    alert('Print failed: ' + e.message);
+                                }
+                            }, 500);
+                        };
+                    <\/script>
+                </body>
+                </html>
+            `;
 
-        // Write the content
-        try {
-            printWindow.document.open();
-            printWindow.document.write(fullHtml);
-            printWindow.document.close();
-            console.log('=== Content written to print window successfully ===');
-        } catch(e) {
-            console.error('ERROR writing to print window:', e);
-            alert('Failed to prepare print: ' + e.message);
+            // Write the content
+            try {
+                printWindow.document.open();
+                printWindow.document.write(fullHtml);
+                printWindow.document.close();
+                console.log('=== Content written to print window successfully ===');
+            } catch(e) {
+                console.error('ERROR writing to print window:', e);
+                alert('Failed to prepare print: ' + e.message);
+            }
+            
+            // Focus the print window
+            printWindow.focus();
         }
-        
-        // Focus the print window
-        printWindow.focus();
-    }
 
-    // Make printInvoice available globally
-    window.printInvoice = printInvoice;
-    console.log('printInvoice function registered globally');
-</script>
+        // Make printInvoice available globally
+        window.printInvoice = printInvoice;
+        console.log('printInvoice function registered globally');
+    </script>
 </div>
