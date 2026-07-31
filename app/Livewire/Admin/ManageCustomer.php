@@ -144,7 +144,7 @@ class ManageCustomer extends Component
 
         // Sales
         $sales = Sale::where('customer_id', $customer->id)
-            ->with(['items', 'payments'])
+            ->with(['items', 'payments', 'returns'])
             ->orderBy('created_at', 'desc')
             ->get();
 
@@ -194,7 +194,10 @@ class ManageCustomer extends Component
 
         // Dues (sales with pending payment)
         $this->viewCustomerDues = $sales->filter(function ($sale) {
-            return ($sale->due_amount ?? 0) > 0;
+            $isReturned = $sale->delivery_status === 'cancelled'
+                || str_contains(strtolower((string) ($sale->notes ?? '')), 'invoice fully returned by delivery man')
+                || str_contains(strtolower((string) ($sale->notes ?? '')), 'returned by delivery man');
+            return !$isReturned && ($sale->due_amount ?? 0) > 0;
         })->map(function ($sale) {
             // Calculate paid amount using total minus due
             $paidAmount = ($sale->total_amount ?? 0) - ($sale->due_amount ?? 0);
@@ -250,15 +253,17 @@ class ManageCustomer extends Component
                 || str_contains(strtolower((string) ($sale->notes ?? '')), 'invoice fully returned by delivery man')
                 || str_contains(strtolower((string) ($sale->notes ?? '')), 'returned by delivery man');
 
-            if ($isReturned) {
-                // If it's fully returned, we could either not add it, or add it as a sale, and then a return credit.
-                // It's cleaner to add the sale as debit, and then an offsetting credit for the return.
+            $returnsSum = $sale->returns ? floatval($sale->returns->sum('total_amount')) : 0;
+            $originalSaleTotal = floatval($sale->total_amount ?? 0) + $returnsSum;
+
+            if ($isReturned && $returnsSum == 0) {
+                // If it's fully returned without ReturnsProduct entries, add the sale debit and an offsetting credit.
                 $ledgerEntries->push([
                     'date' => $sale->created_at ? $sale->created_at->format('M d, Y h:i A') : '-',
                     'timestamp' => $sale->created_at ? $sale->created_at->timestamp : 0,
                     'description' => 'Sale Invoice',
                     'reference' => $sale->invoice_number ?? $sale->sale_id,
-                    'debit' => $sale->total_amount ?? 0,
+                    'debit' => $originalSaleTotal,
                     'credit' => 0,
                     'type' => 'sale',
                 ]);
@@ -268,7 +273,7 @@ class ManageCustomer extends Component
                     'description' => 'Sale Invoice Returned',
                     'reference' => $sale->invoice_number ?? $sale->sale_id,
                     'debit' => 0,
-                    'credit' => $sale->total_amount ?? 0,
+                    'credit' => $originalSaleTotal,
                     'type' => 'sale_return',
                 ]);
             } else {
@@ -277,7 +282,7 @@ class ManageCustomer extends Component
                     'timestamp' => $sale->created_at ? $sale->created_at->timestamp : 0,
                     'description' => 'Sale Invoice',
                     'reference' => $sale->invoice_number ?? $sale->sale_id,
-                    'debit' => $sale->total_amount ?? 0,
+                    'debit' => $originalSaleTotal,
                     'credit' => 0,
                     'type' => 'sale',
                 ]);
@@ -348,8 +353,20 @@ class ManageCustomer extends Component
 
         $openingBalance = floatval($customer->opening_balance ?? 0);
         $openingBalancePaid = floatval($customer->opening_balance_paid ?? 0);
-        $dynamicDue = floatval($customer->due_amount ?? 0);
+        $openingBalanceDue = max(0, $openingBalance - $openingBalancePaid);
+
+        $returnedChequesAmount = floatval($returnedCheques->sum('cheque_amount'));
         $dynamicOverpaid = floatval($customer->overpaid_amount ?? 0);
+
+        // Sales due is the portion of total due coming from active sales transactions
+        $salesDue = max(0, $ledgerBalance - $openingBalanceDue - $returnedChequesAmount + $dynamicOverpaid);
+
+        // Keep customer table synced with true calculated due amounts
+        if (abs(($customer->due_amount ?? 0) - $salesDue) > 0.001 || abs(($customer->total_due ?? 0) - $ledgerBalance) > 0.001) {
+            $customer->due_amount = $salesDue;
+            $customer->total_due = $ledgerBalance;
+            $customer->save();
+        }
 
         // Basic info
         $this->viewCustomerDetail = [
@@ -362,7 +379,7 @@ class ManageCustomer extends Component
             'address' => $customer->address,
             'opening_balance' => $openingBalance,
             'opening_balance_paid' => $openingBalancePaid,
-            'due_amount' => $dynamicDue,
+            'due_amount' => $salesDue,
             'overpaid_amount' => $dynamicOverpaid,
             'total_due' => $ledgerBalance,
             'created_at' => $customer->created_at,

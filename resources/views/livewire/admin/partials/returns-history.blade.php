@@ -3,9 +3,13 @@
     $historyHasVariants = $historyHasVariants ?? false;
     $historyVariantName = $historyVariantName ?? '';
     $historyVariantFilter = $historyVariantFilter ?? '';
+    $historyCustomerTypeFilter = $historyCustomerTypeFilter ?? '';
     $filteredReturns = collect($returnsHistory ?? []);
     if ($historyVariantFilter !== '') {
         $filteredReturns = $filteredReturns->where('variant_value', $historyVariantFilter);
+    }
+    if ($historyCustomerTypeFilter !== '') {
+        $filteredReturns = $filteredReturns->filter(fn($i) => strtolower($i['customer_type'] ?? '') === strtolower($historyCustomerTypeFilter));
     }
 @endphp
 

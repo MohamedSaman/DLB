@@ -3,9 +3,13 @@
     $historyHasVariants = $historyHasVariants ?? false;
     $historyVariantName = $historyVariantName ?? '';
     $historyVariantFilter = $historyVariantFilter ?? '';
+    $historyCustomerTypeFilter = $historyCustomerTypeFilter ?? '';
     $filteredPurchases = collect($purchasesHistory ?? []);
     if ($historyVariantFilter !== '') {
         $filteredPurchases = $filteredPurchases->where('variant_value', $historyVariantFilter);
+    }
+    if ($historyCustomerTypeFilter !== '') {
+        $filteredPurchases = collect([]);
     }
 @endphp
 

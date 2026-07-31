@@ -2345,38 +2345,71 @@
                     <div class="modal-body p-0">
                         @if($historyProductId)
 
-                        <!-- Variant Filter Dropdown - Always show when variants exist -->
-                        @if($historyHasVariants && count($historyVariantValues ?? []) > 0)
+                        <!-- Filters Bar (Customer Type & Variant) -->
                         <div class="bg-primary bg-opacity-10 border-bottom px-3 py-2">
-                            <div class="d-flex flex-wrap align-items-center justify-content-between">
-                                <div class="d-flex align-items-center gap-2">
-                                    <i class="bi bi-funnel-fill text-primary"></i>
-                                    <label class="fw-bold text-dark mb-0">Filter by {{ $historyVariantName ?: 'Variant' }}:</label>
-                                    <select class="form-select form-select-sm border-primary" style="min-width: 180px; max-width: 250px;"
-                                        wire:model.live="historyVariantFilter">
-                                        <option value="">-- All Variants ({{ count($historyVariantValues) }}) --</option>
-                                        @foreach($historyVariantValues as $val)
-                                            <option value="{{ $val }}">{{ $val }}</option>
-                                        @endforeach
-                                    </select>
+                            <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
+                                <div class="d-flex flex-wrap align-items-center gap-3">
+                                    <!-- Customer Type Filter -->
+                                    <div class="d-flex align-items-center gap-2">
+                                        <i class="bi bi-funnel-fill text-primary"></i>
+                                        <label class="fw-bold text-dark mb-0">Customer Type:</label>
+                                        <select class="form-select form-select-sm border-primary" style="min-width: 140px;"
+                                            wire:model.live="historyCustomerTypeFilter">
+                                            <option value="">All</option>
+                                            <option value="retail">Retail</option>
+                                            <option value="wholesale">Wholesale</option>
+                                            <option value="distributor">Distributor</option>
+                                        </select>
+                                    </div>
+
+                                    <!-- Variant Filter Dropdown -->
+                                    @if($historyHasVariants && count($historyVariantValues ?? []) > 0)
+                                    <div class="d-flex align-items-center gap-2">
+                                        <label class="fw-bold text-dark mb-0">{{ $historyVariantName ?: 'Variant' }}:</label>
+                                        <select class="form-select form-select-sm border-primary" style="min-width: 160px; max-width: 250px;"
+                                            wire:model.live="historyVariantFilter">
+                                            <option value="">-- All Variants ({{ count($historyVariantValues) }}) --</option>
+                                            @foreach($historyVariantValues as $val)
+                                                <option value="{{ $val }}">{{ $val }}</option>
+                                            @endforeach
+                                        </select>
+                                    </div>
+                                    @endif
                                 </div>
-                                @if($historyVariantFilter !== '')
-                                <button type="button" class="btn btn-sm btn-outline-secondary" wire:click="$set('historyVariantFilter', '')">
-                                    <i class="bi bi-x-circle me-1"></i> Clear Filter
+
+                                @if(($historyVariantFilter ?? '') !== '' || ($historyCustomerTypeFilter ?? '') !== '')
+                                <button type="button" class="btn btn-sm btn-outline-secondary" wire:click="$set('historyVariantFilter', ''); $set('historyCustomerTypeFilter', '');">
+                                    <i class="bi bi-x-circle me-1"></i> Clear Filters
                                 </button>
                                 @endif
                             </div>
                         </div>
-                        @endif
 
                         <!-- Tabs -->
                         <div class="border-bottom bg-light">
                             @php
                                 $vf = $historyVariantFilter ?? '';
-                                $salesCount = $vf !== '' ? collect($salesHistory ?? [])->where('variant_value', $vf)->count() : count($salesHistory ?? []);
-                                $purchasesCount = $vf !== '' ? collect($purchasesHistory ?? [])->where('variant_value', $vf)->count() : count($purchasesHistory ?? []);
-                                $returnsCount = $vf !== '' ? collect($returnsHistory ?? [])->where('variant_value', $vf)->count() : count($returnsHistory ?? []);
-                                $quotationsCount = $vf !== '' ? collect($quotationsHistory ?? [])->where('variant_value', $vf)->count() : count($quotationsHistory ?? []);
+                                $cf = $historyCustomerTypeFilter ?? '';
+
+                                $sColl = collect($salesHistory ?? []);
+                                if ($vf !== '') { $sColl = $sColl->where('variant_value', $vf); }
+                                if ($cf !== '') { $sColl = $sColl->filter(fn($i) => strtolower($i['customer_type'] ?? '') === strtolower($cf)); }
+                                $salesCount = $sColl->count();
+
+                                $pColl = collect($purchasesHistory ?? []);
+                                if ($vf !== '') { $pColl = $pColl->where('variant_value', $vf); }
+                                if ($cf !== '') { $pColl = collect([]); }
+                                $purchasesCount = $pColl->count();
+
+                                $rColl = collect($returnsHistory ?? []);
+                                if ($vf !== '') { $rColl = $rColl->where('variant_value', $vf); }
+                                if ($cf !== '') { $rColl = $rColl->filter(fn($i) => strtolower($i['customer_type'] ?? '') === strtolower($cf)); }
+                                $returnsCount = $rColl->count();
+
+                                $qColl = collect($quotationsHistory ?? []);
+                                if ($vf !== '') { $qColl = $qColl->where('variant_value', $vf); }
+                                if ($cf !== '') { $qColl = $qColl->filter(fn($i) => strtolower($i['customer_type'] ?? '') === strtolower($cf)); }
+                                $quotationsCount = $qColl->count();
                             @endphp
                             <div class="d-flex flex-wrap justify-content-between align-items-center px-3">
                                 <ul class="nav nav-tabs border-0" role="tablist">
@@ -2409,7 +2442,7 @@
                         </div>
 
                         <!-- Tab Content -->
-                        <div class="tab-content p-4" wire:key="tab-{{ $historyTab }}-{{ $historyVariantFilter }}" style="max-height: 500px; overflow-y: auto;">
+                        <div class="tab-content p-4" wire:key="tab-{{ $historyTab }}-{{ $historyVariantFilter }}-{{ $historyCustomerTypeFilter }}" style="max-height: 500px; overflow-y: auto;">
                             @if($historyTab === 'sales')
                             @include('livewire.admin.partials.sales-history')
                             @elseif($historyTab === 'purchases')

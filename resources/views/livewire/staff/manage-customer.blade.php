@@ -22,10 +22,16 @@
                     <i class="bi bi-journal-text text-primary me-2"></i> Customer List
                 </h5>
             </div>
-            <div class="d-flex align-items-center gap-2">
+            <div class="d-flex align-items-center gap-2 flex-wrap">
                 <input type="text" class="form-control form-control-sm" placeholder="Search customers..." 
-                       wire:model.live="search" style="width: 250px;">
-                <label class="text-sm text-muted fw-medium">Show</label>
+                       wire:model.live="search" style="width: 200px;">
+                <select wire:model.live="customerTypeFilter" class="form-select form-select-sm" style="width: 170px;">
+                    <option value="all">All Customer Types</option>
+                    <option value="retail">Retail</option>
+                    <option value="wholesale">Wholesale</option>
+                    <option value="distributor">Distributor</option>
+                </select>
+                <label class="text-sm text-muted fw-medium ms-1">Show</label>
                 <select wire:model.live="perPage" class="form-select form-select-sm" style="width: 80px;">
                     <option value="10">10</option>
                     <option value="25">25</option>

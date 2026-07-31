@@ -83,7 +83,7 @@ class Products extends Component
     public $historyProductId, $historyProductName, $historyTab = 'sales';
     public $salesHistory = [], $purchasesHistory = [], $returnsHistory = [], $quotationsHistory = [];
     public $historyHasVariants = false, $historyVariantName = '';
-    public $historyVariantValues = [], $historyVariantFilter = '';
+    public $historyVariantValues = [], $historyVariantFilter = '', $historyCustomerTypeFilter = '';
 
     // Default IDs for brand, category, and supplier
     public $defaultBrandId, $defaultCategoryId, $defaultSupplierId;
@@ -1716,6 +1716,7 @@ class Products extends Component
             $this->historyProductName = $product->name;
             $this->historyVariantName = $product->variant ? $product->variant->variant_name : 'Variant';
             $this->historyVariantFilter = '';
+            $this->historyCustomerTypeFilter = '';
 
             // Set default tab
             $this->historyTab = 'sales';
@@ -1824,11 +1825,18 @@ class Products extends Component
                 ->get();
 
             $this->salesHistory = $salesItems->map(function ($sale) {
+                $customerType = 'retail';
+                if ($sale->sale && $sale->sale->customer && $sale->sale->customer->type) {
+                    $customerType = strtolower($sale->sale->customer->type);
+                } elseif (!empty($sale->customer_type) && $sale->customer_type !== 'walk-in') {
+                    $customerType = strtolower($sale->customer_type);
+                }
+
                 return [
                     'id' => $sale->id,
                     'invoice_number' => $sale->invoice_number,
                     'sale_type' => $sale->sale_type ?? 'regular',
-                    'customer_type' => $sale->customer_type ?? 'walk-in',
+                    'customer_type' => $customerType,
                     'quantity' => $sale->quantity,
                     'unit_price' => $sale->unit_price,
                     'discount_per_unit' => $sale->discount_per_unit ?? 0,
@@ -1906,15 +1914,24 @@ class Products extends Component
                 ->join('sales', 'returns_products.sale_id', '=', 'sales.id')
                 ->select(
                     'returns_products.*',
-                    'sales.invoice_number'
+                    'sales.invoice_number',
+                    'sales.customer_type'
                 )
                 ->orderBy('returns_products.created_at', 'desc')
                 ->get();
 
             $this->returnsHistory = $returns->map(function ($return) {
+                $customerType = 'retail';
+                if ($return->sale && $return->sale->customer && $return->sale->customer->type) {
+                    $customerType = strtolower($return->sale->customer->type);
+                } elseif (!empty($return->customer_type) && $return->customer_type !== 'walk-in') {
+                    $customerType = strtolower($return->customer_type);
+                }
+
                 return [
                     'id' => $return->id,
                     'invoice_number' => $return->invoice_number,
+                    'customer_type' => $customerType,
                     'return_quantity' => $return->return_quantity,
                     'selling_price' => $return->selling_price ?? 0,
                     'total_amount' => $return->total_amount ?? 0,
@@ -1949,10 +1966,18 @@ class Products extends Component
                 if (!empty($items)) {
                     foreach ($items as $item) {
                         if (isset($item['product_id']) && $item['product_id'] == $this->historyProductId) {
+                            $customerType = 'retail';
+                            if ($quotation->customer && $quotation->customer->type) {
+                                $customerType = strtolower($quotation->customer->type);
+                            } elseif (!empty($quotation->customer_type)) {
+                                $customerType = strtolower($quotation->customer_type);
+                            }
+
                             $this->quotationsHistory[] = [
                                 'id' => $quotation->id,
                                 'quotation_number' => $quotation->quotation_number,
                                 'reference_number' => $quotation->reference_number ?? 'N/A',
+                                'customer_type' => $customerType,
                                 'customer_name' => $quotation->customer_name ?? ($quotation->customer->name ?? 'N/A'),
                                 'customer_phone' => $quotation->customer_phone ?? ($quotation->customer->phone ?? 'N/A'),
                                 'customer_email' => $quotation->customer_email ?? 'N/A',

@@ -15,36 +15,59 @@
                     <i class="bi bi-clock-history me-2"></i>
                     Product History - {{ $productName }}
                 </h5>
-                @if($hasVariants && count($variantValues) > 0)
-                <div class="d-flex align-items-center gap-2 mt-2 mt-md-0">
-                    <span class="text-white-50">{{ $variantName ?: 'Variant' }}:</span>
-                    <select class="form-select form-select-sm bg-dark text-white border-secondary" 
-                        style="min-width: 150px;"
-                        wire:model.live="variantFilter">
-                        <option value="">All Variants</option>
-                        @foreach($variantValues as $val)
-                            <option value="{{ $val }}">{{ $val }}</option>
-                        @endforeach
-                    </select>
-                    @if($variantFilter !== '')
-                    <button type="button" class="btn btn-sm btn-outline-light" wire:click="clearFilter">
-                        <i class="bi bi-x-circle"></i>
+                <div class="d-flex flex-wrap align-items-center gap-3 mt-2 mt-md-0">
+                    <!-- Customer Type Filter -->
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="text-white-50">Customer Type:</span>
+                        <select class="form-select form-select-sm bg-dark text-white border-secondary" 
+                            style="min-width: 150px;"
+                            wire:model.live="customerTypeFilter">
+                            <option value="">All</option>
+                            <option value="retail">Retail</option>
+                            <option value="wholesale">Wholesale</option>
+                            <option value="distributor">Distributor</option>
+                        </select>
+                    </div>
+
+                    <!-- Variant Filter -->
+                    @if($hasVariants && count($variantValues) > 0)
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="text-white-50">{{ $variantName ?: 'Variant' }}:</span>
+                        <select class="form-select form-select-sm bg-dark text-white border-secondary" 
+                            style="min-width: 150px;"
+                            wire:model.live="variantFilter">
+                            <option value="">All Variants</option>
+                            @foreach($variantValues as $val)
+                                <option value="{{ $val }}">{{ $val }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    @endif
+
+                    @if($variantFilter !== '' || $customerTypeFilter !== '')
+                    <button type="button" class="btn btn-sm btn-outline-light" wire:click="clearFilter" title="Clear Filters">
+                        <i class="bi bi-x-circle"></i> Clear Filters
                     </button>
                     @endif
                 </div>
-                @endif
             </div>
         </div>
 
-        <!-- Variant Filter Info -->
-        @if($variantFilter !== '')
+        <!-- Filter Info Alert -->
+        @if($variantFilter !== '' || $customerTypeFilter !== '')
         <div class="alert alert-info m-3 mb-0 py-2 d-flex align-items-center justify-content-between">
             <div>
                 <i class="bi bi-funnel-fill me-2"></i>
-                Showing history for <strong>{{ $variantName }}: {{ $variantFilter }}</strong>
+                Showing history filtered by:
+                @if($customerTypeFilter !== '')
+                    <span class="badge bg-primary text-capitalize ms-1">Customer Type: {{ $customerTypeFilter }}</span>
+                @endif
+                @if($variantFilter !== '')
+                    <span class="badge bg-dark text-capitalize ms-1">{{ $variantName }}: {{ $variantFilter }}</span>
+                @endif
             </div>
-            <button type="button" class="btn btn-sm btn-info" wire:click="clearFilter">
-                <i class="bi bi-x me-1"></i>Clear Filter
+            <button type="button" class="btn btn-sm btn-info text-white" wire:click="clearFilter">
+                <i class="bi bi-x me-1"></i>Clear Filters
             </button>
         </div>
         @endif
@@ -133,6 +156,14 @@
                                     </td>
                                     <td>
                                         <div class="fw-semibold">{{ $sale['customer_name'] ?? 'Walk-in' }}</div>
+                                        @php $cType = strtolower($sale['customer_type'] ?? 'retail'); @endphp
+                                        @if($cType === 'wholesale')
+                                            <span class="badge bg-info text-white" style="font-size: 0.7rem;">Wholesale</span>
+                                        @elseif($cType === 'distributor')
+                                            <span class="badge bg-warning text-dark" style="font-size: 0.7rem;">Distributor</span>
+                                        @else
+                                            <span class="badge bg-secondary" style="font-size: 0.7rem;">Retail</span>
+                                        @endif
                                     </td>
                                     <td>
                                         <small class="text-muted">{{ $sale['customer_phone'] ?? 'N/A' }}</small>
@@ -300,6 +331,16 @@
                                     <td>
                                         <div class="fw-semibold">{{ $return['customer_name'] ?? 'Walk-in' }}</div>
                                         <small class="text-muted">{{ $return['customer_phone'] ?? 'N/A' }}</small>
+                                        <div>
+                                            @php $cType = strtolower($return['customer_type'] ?? 'retail'); @endphp
+                                            @if($cType === 'wholesale')
+                                                <span class="badge bg-info text-white" style="font-size: 0.7rem;">Wholesale</span>
+                                            @elseif($cType === 'distributor')
+                                                <span class="badge bg-warning text-dark" style="font-size: 0.7rem;">Distributor</span>
+                                            @else
+                                                <span class="badge bg-secondary" style="font-size: 0.7rem;">Retail</span>
+                                            @endif
+                                        </div>
                                     </td>
                                     <td class="text-center"><span class="badge bg-danger">{{ $return['return_quantity'] ?? 0 }}</span></td>
                                     <td class="text-end"><strong class="text-danger">Rs. {{ number_format($return['total_amount'] ?? 0, 2) }}</strong></td>
@@ -371,6 +412,16 @@
                                     <td>
                                         <div class="fw-semibold">{{ $quotation['customer_name'] ?? 'N/A' }}</div>
                                         <small class="text-muted">{{ $quotation['customer_phone'] ?? 'N/A' }}</small>
+                                        <div>
+                                            @php $cType = strtolower($quotation['customer_type'] ?? 'retail'); @endphp
+                                            @if($cType === 'wholesale')
+                                                <span class="badge bg-info text-white" style="font-size: 0.7rem;">Wholesale</span>
+                                            @elseif($cType === 'distributor')
+                                                <span class="badge bg-warning text-dark" style="font-size: 0.7rem;">Distributor</span>
+                                            @else
+                                                <span class="badge bg-secondary" style="font-size: 0.7rem;">Retail</span>
+                                            @endif
+                                        </div>
                                     </td>
                                     <td class="text-center"><span class="badge bg-dark">{{ $quotation['quantity'] ?? 0 }}</span></td>
                                     <td class="text-end"><strong class="text-success">Rs. {{ number_format($quotation['total'] ?? 0, 2) }}</strong></td>

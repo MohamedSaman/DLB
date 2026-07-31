@@ -457,7 +457,7 @@ use App\Models\Sale;
                                             -
                                         @endif
                                     </td>
-                                    <td class="text-end">Rs.{{ number_format($item->total, 2) }}</td>
+                                    <td class="text-end" data-total="{{ $item->total }}">Rs.{{ number_format($item->total, 2) }}</td>
                                 </tr>
                                 @endforeach
                             </tbody>
@@ -1249,6 +1249,145 @@ use App\Models\Sale;
 
 @push('scripts')
 <script>
+    function paginatePrintTable(containerElement) {
+        const table = containerElement.querySelector('table.receipt-table, table.items-table, table');
+        if (!table) return;
+
+        const tbody = table.querySelector('tbody');
+        if (!tbody) return;
+
+        const rows = Array.from(tbody.querySelectorAll('tr'));
+        if (rows.length === 0) return;
+
+        const getChunkTotal = (rowArray) => {
+            let sum = 0;
+            rowArray.forEach(row => {
+                const cells = row.querySelectorAll('td');
+                if (cells.length > 0) {
+                    const lastCell = cells[cells.length - 1];
+                    let rawVal = lastCell.getAttribute('data-total');
+                    if (!rawVal) {
+                        rawVal = lastCell.textContent.replace(/,/g, '').replace(/[^0-9.-]+/g, '');
+                    }
+                    const val = parseFloat(rawVal);
+                    if (!isNaN(val)) sum += val;
+                }
+            });
+            return sum;
+        };
+
+        const formatRsVal = (num) => {
+            return 'Rs.' + num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        };
+
+        const PAGE_1_MAX_ITEMS = 30;
+        const REST_PAGE_MAX_ITEMS = 35;
+
+        if (rows.length <= PAGE_1_MAX_ITEMS) {
+            // Single page: calculate subtotal for all items
+            const pageSubtotal = getChunkTotal(rows);
+            const tfoot = table.querySelector('tfoot');
+            if (tfoot) {
+                const totalCell = tfoot.querySelector('td:last-child');
+                if (totalCell) {
+                    totalCell.innerHTML = `<strong>${formatRsVal(pageSubtotal)}</strong>`;
+                }
+            }
+            return;
+        }
+
+        // Multi-page invoice handling
+        const pageChunks = [];
+        pageChunks.push(rows.slice(0, PAGE_1_MAX_ITEMS));
+        let currentRowIdx = PAGE_1_MAX_ITEMS;
+
+        while (currentRowIdx < rows.length) {
+            pageChunks.push(rows.slice(currentRowIdx, currentRowIdx + REST_PAGE_MAX_ITEMS));
+            currentRowIdx += REST_PAGE_MAX_ITEMS;
+        }
+
+        const theadHtml = table.querySelector('thead') ? table.querySelector('thead').outerHTML : '';
+        const tableClass = table.className || 'receipt-table';
+
+        // Separate children into header elements (before table) and footer elements (after table)
+        const headerNodes = [];
+        const footerNodes = [];
+        let passedTable = false;
+
+        Array.from(containerElement.children).forEach(child => {
+            if (child === table || child.contains(table)) {
+                passedTable = true;
+            } else if (!passedTable) {
+                if (child.tagName !== 'STYLE' && child.tagName !== 'SCRIPT') {
+                    headerNodes.push(child);
+                }
+            } else {
+                if (child.tagName !== 'STYLE' && child.tagName !== 'SCRIPT') {
+                    footerNodes.push(child);
+                }
+            }
+        });
+
+        const page1HeaderHtml = headerNodes.map(node => node.outerHTML).join('');
+        headerNodes.forEach(node => node.remove());
+        const footerBlocks = footerNodes;
+
+        const paginatedWrapper = document.createElement('div');
+        paginatedWrapper.className = 'paginated-print-wrapper';
+
+        pageChunks.forEach((chunk, pageIdx) => {
+            const chunkSubtotal = getChunkTotal(chunk);
+            const pageDiv = document.createElement('div');
+            pageDiv.className = 'print-page';
+            if (pageIdx > 0) {
+                pageDiv.style.pageBreakBefore = 'always';
+                pageDiv.style.breakBefore = 'page';
+                pageDiv.style.marginTop = '15px';
+            }
+
+            let pageHeaderHtml = '';
+            if (pageIdx === 0) {
+                pageHeaderHtml = page1HeaderHtml;
+            } else {
+                pageHeaderHtml = `
+                    <div style="border-bottom: 2px solid #000; padding-bottom: 6px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
+                        <strong style="font-size: 14px;">HARDMEN (PVT) LTD — INVOICE</strong>
+                        <span style="font-size: 11px; font-weight: bold; color: #555;">Page ${pageIdx + 1} of ${pageChunks.length}</span>
+                    </div>
+                `;
+            }
+
+            const chunkTbodyHtml = '<tbody>' + chunk.map(r => r.outerHTML).join('') + '</tbody>';
+
+            pageDiv.innerHTML = `
+                ${pageHeaderHtml}
+                <table class="${tableClass}" style="width: 100%; border-collapse: collapse; margin-top: 10px;">
+                    ${theadHtml}
+                    ${chunkTbodyHtml}
+                    <tfoot>
+                        <tr style="border-top: 1px solid #000; border-bottom: 2px solid #000;">
+                            <td colspan="6" class="text-end" style="padding: 6px; font-weight: bold;">
+                                Sales Items Subtotal (Page ${pageIdx + 1}${pageChunks.length > 1 ? ' of ' + pageChunks.length : ''})
+                            </td>
+                            <td class="text-end" style="padding: 6px; font-weight: bold;">
+                                ${formatRsVal(chunkSubtotal)}
+                            </td>
+                        </tr>
+                    </tfoot>
+                </table>
+            `;
+
+            if (pageIdx === pageChunks.length - 1) {
+                footerBlocks.forEach(block => pageDiv.appendChild(block.cloneNode(true)));
+            }
+
+            paginatedWrapper.appendChild(pageDiv);
+        });
+
+        containerElement.innerHTML = '';
+        containerElement.appendChild(paginatedWrapper);
+    }
+
     // Improved Print function matching store-billing approach
     function printInvoice() {
         console.log('=== Print Invoice Function Called ===');
@@ -1267,6 +1406,9 @@ use App\Models\Sale;
         
         // Remove any buttons or interactive elements from print
         content.querySelectorAll('button, .no-print, .modal-footer').forEach(el => el.remove());
+
+        // Paginate table for multi-page print invoices & calculate accurate per-page subtotals
+        paginatePrintTable(content);
 
         // Get the HTML string
         let htmlContent = content.innerHTML;

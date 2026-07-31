@@ -48,8 +48,7 @@ class RecalculateCustomerDues extends Command
                     if ($isReturned) {
                         $netAmount = 0;
                     } else {
-                        $returnAmount = collect($sale->returns)->sum('total_amount');
-                        $netAmount = max(0, floatval($sale->total_amount) - floatval($returnAmount));
+                        $netAmount = max(0, floatval($sale->total_amount));
                     }
                     
                     $salesData[$sale->id] = [

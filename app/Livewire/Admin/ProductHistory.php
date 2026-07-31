@@ -24,11 +24,12 @@ class ProductHistory extends Component
     public $returnsHistory = [];
     public $quotationsHistory = [];
 
-    // Variant filtering
+    // Variant and Customer Type filtering
     public $hasVariants = false;
     public $variantName = '';
     public $variantValues = [];
     public $variantFilter = '';
+    public $customerTypeFilter = '';
 
     // Active tab
     public $activeTab = 'sales';
@@ -73,11 +74,18 @@ class ProductHistory extends Component
             ->get();
 
         $this->salesHistory = $salesItems->map(function ($sale) {
+            $customerType = 'retail';
+            if ($sale->sale && $sale->sale->customer && $sale->sale->customer->type) {
+                $customerType = strtolower($sale->sale->customer->type);
+            } elseif (!empty($sale->customer_type) && $sale->customer_type !== 'walk-in') {
+                $customerType = strtolower($sale->customer_type);
+            }
+
             return [
                 'id' => $sale->id,
                 'invoice_number' => $sale->invoice_number,
                 'sale_type' => $sale->sale_type ?? 'regular',
-                'customer_type' => $sale->customer_type ?? 'walk-in',
+                'customer_type' => $customerType,
                 'quantity' => $sale->quantity,
                 'unit_price' => $sale->unit_price,
                 'discount_per_unit' => $sale->discount_per_unit ?? 0,
@@ -141,15 +149,24 @@ class ProductHistory extends Component
             ->join('sales', 'returns_products.sale_id', '=', 'sales.id')
             ->select(
                 'returns_products.*',
-                'sales.invoice_number'
+                'sales.invoice_number',
+                'sales.customer_type'
             )
             ->orderBy('returns_products.created_at', 'desc')
             ->get();
 
         $this->returnsHistory = $returns->map(function ($return) {
+            $customerType = 'retail';
+            if ($return->sale && $return->sale->customer && $return->sale->customer->type) {
+                $customerType = strtolower($return->sale->customer->type);
+            } elseif (!empty($return->customer_type) && $return->customer_type !== 'walk-in') {
+                $customerType = strtolower($return->customer_type);
+            }
+
             return [
                 'id' => $return->id,
                 'invoice_number' => $return->invoice_number,
+                'customer_type' => $customerType,
                 'return_quantity' => $return->return_quantity,
                 'selling_price' => $return->selling_price ?? 0,
                 'total_amount' => $return->total_amount ?? 0,
@@ -177,10 +194,18 @@ class ProductHistory extends Component
             if (!empty($items)) {
                 foreach ($items as $item) {
                     if (isset($item['product_id']) && $item['product_id'] == $this->productId) {
+                        $customerType = 'retail';
+                        if ($quotation->customer && $quotation->customer->type) {
+                            $customerType = strtolower($quotation->customer->type);
+                        } elseif (!empty($quotation->customer_type)) {
+                            $customerType = strtolower($quotation->customer_type);
+                        }
+
                         $this->quotationsHistory[] = [
                             'id' => $quotation->id,
                             'quotation_number' => $quotation->quotation_number,
                             'reference_number' => $quotation->reference_number ?? 'N/A',
+                            'customer_type' => $customerType,
                             'customer_name' => $quotation->customer_name ?? ($quotation->customer->name ?? 'N/A'),
                             'customer_phone' => $quotation->customer_phone ?? ($quotation->customer->phone ?? 'N/A'),
                             'customer_email' => $quotation->customer_email ?? 'N/A',
@@ -240,6 +265,7 @@ class ProductHistory extends Component
     public function clearFilter()
     {
         $this->variantFilter = '';
+        $this->customerTypeFilter = '';
     }
 
     // Computed properties for filtered data
@@ -248,6 +274,11 @@ class ProductHistory extends Component
         $collection = collect($this->salesHistory);
         if ($this->variantFilter !== '') {
             $collection = $collection->where('variant_value', $this->variantFilter);
+        }
+        if ($this->customerTypeFilter !== '') {
+            $collection = $collection->filter(function ($item) {
+                return strtolower($item['customer_type'] ?? '') === strtolower($this->customerTypeFilter);
+            });
         }
         return $collection;
     }
@@ -258,6 +289,9 @@ class ProductHistory extends Component
         if ($this->variantFilter !== '') {
             $collection = $collection->where('variant_value', $this->variantFilter);
         }
+        if ($this->customerTypeFilter !== '') {
+            return collect([]);
+        }
         return $collection;
     }
 
@@ -267,6 +301,11 @@ class ProductHistory extends Component
         if ($this->variantFilter !== '') {
             $collection = $collection->where('variant_value', $this->variantFilter);
         }
+        if ($this->customerTypeFilter !== '') {
+            $collection = $collection->filter(function ($item) {
+                return strtolower($item['customer_type'] ?? '') === strtolower($this->customerTypeFilter);
+            });
+        }
         return $collection;
     }
 
@@ -275,6 +314,11 @@ class ProductHistory extends Component
         $collection = collect($this->quotationsHistory);
         if ($this->variantFilter !== '') {
             $collection = $collection->where('variant_value', $this->variantFilter);
+        }
+        if ($this->customerTypeFilter !== '') {
+            $collection = $collection->filter(function ($item) {
+                return strtolower($item['customer_type'] ?? '') === strtolower($this->customerTypeFilter);
+            });
         }
         return $collection;
     }
