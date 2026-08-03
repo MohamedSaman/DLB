@@ -1942,6 +1942,16 @@
                                 <div class="row">
                                     <div class="col-md-4">
                                         <div class="mb-1">
+                                            <label for="editAvailableStock" class="form-label fw-semibold">Available Stock:</label>
+                                            <input type="number" class="form-control" id="editAvailableStock"
+                                                wire:model="editAvailableStock">
+                                            @error('editAvailableStock')
+                                            <span class="text-danger small">* {{ $message }}</span>
+                                            @enderror
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="mb-1">
                                             <label for="editStatus" class="form-label fw-semibold">Status:</label>
                                             <select class="form-select" id="editStatus" wire:model="editStatus">
                                                 <option value="active">Active</option>
@@ -2010,7 +2020,7 @@
                                         <div class="input-group">
                                             <span class="input-group-text">Rs.</span>
                                             <input type="number" step="0.01" class="form-control"
-                                                wire:model.defer="variant_prices.{{ $singleKey }}.supplier_price"
+                                                wire:model="variant_prices.{{ $singleKey }}.supplier_price"
                                                 placeholder="0.00">
                                         </div>
                                         @error("variant_prices.{$singleKey}.supplier_price")
@@ -2023,7 +2033,7 @@
                                         <div class="input-group">
                                             <span class="input-group-text">Rs.</span>
                                             <input type="number" step="0.01" class="form-control"
-                                                wire:model.defer="variant_prices.{{ $singleKey }}.retail_price"
+                                                wire:model="variant_prices.{{ $singleKey }}.retail_price"
                                                 placeholder="0.00">
                                         </div>
                                         @error("variant_prices.{$singleKey}.retail_price")
@@ -2036,7 +2046,7 @@
                                         <div class="input-group">
                                             <span class="input-group-text">Rs.</span>
                                             <input type="number" step="0.01" class="form-control"
-                                                wire:model.defer="variant_prices.{{ $singleKey }}.wholesale_price"
+                                                wire:model="variant_prices.{{ $singleKey }}.wholesale_price"
                                                 placeholder="0.00">
                                         </div>
                                         @error("variant_prices.{$singleKey}.wholesale_price")
@@ -2049,7 +2059,7 @@
                                         <div class="input-group">
                                             <span class="input-group-text">Rs.</span>
                                             <input type="number" step="0.01" class="form-control"
-                                                wire:model.defer="variant_prices.{{ $singleKey }}.distributor_price"
+                                                wire:model="variant_prices.{{ $singleKey }}.distributor_price"
                                                 placeholder="0.00">
                                         </div>
                                         @error("variant_prices.{$singleKey}.distributor_price")
@@ -2062,7 +2072,7 @@
                                     <div class="col-md-6">
                                         <label class="form-label fw-semibold">Available Stock:</label>
                                         <input type="number" class="form-control" 
-                                            wire:model.defer="variant_prices.{{ $singleKey }}.stock" placeholder="0">
+                                            wire:model="variant_prices.{{ $singleKey }}.stock" placeholder="0">
                                         @error("variant_prices.{$singleKey}.stock")
                                         <span class="text-danger small">* {{ $message }}</span>
                                         @enderror
@@ -2070,7 +2080,7 @@
                                     <div class="col-md-6">
                                         <label class="form-label fw-semibold">Damage Stock:</label>
                                         <input type="number" class="form-control" 
-                                            wire:model.defer="variant_prices.{{ $singleKey }}.damage_stock" placeholder="0">
+                                            wire:model="variant_prices.{{ $singleKey }}.damage_stock" placeholder="0">
                                         @error("variant_prices.{$singleKey}.damage_stock")
                                         <span class="text-danger small">* {{ $message }}</span>
                                         @enderror
@@ -2111,7 +2121,7 @@
                                                             <div class="input-group input-group-sm">
                                                                 <span class="input-group-text">Rs.</span>
                                                                 <input type="number" step="0.01" class="form-control" 
-                                                                    wire:model.defer="variant_prices.{{ $value }}.supplier_price"
+                                                                    wire:model="variant_prices.{{ $value }}.supplier_price"
                                                                     placeholder="0.00" id="edit_supplier_{{ $value }}">
                                                             </div>
                                                             @error("variant_prices.{$value}.supplier_price")
@@ -2122,7 +2132,7 @@
                                                             <div class="input-group input-group-sm">
                                                                 <span class="input-group-text">Rs.</span>
                                                                 <input type="number" step="0.01" class="form-control" 
-                                                                    wire:model.defer="variant_prices.{{ $value }}.wholesale_price"
+                                                                    wire:model="variant_prices.{{ $value }}.wholesale_price"
                                                                     placeholder="0.00" id="edit_wholesale_{{ $value }}">
                                                             </div>
                                                             @error("variant_prices.{$value}.wholesale_price")
@@ -2133,7 +2143,7 @@
                                                             <div class="input-group input-group-sm">
                                                                 <span class="input-group-text">Rs.</span>
                                                                 <input type="number" step="0.01" class="form-control" 
-                                                                    wire:model.defer="variant_prices.{{ $value }}.distributor_price"
+                                                                    wire:model="variant_prices.{{ $value }}.distributor_price"
                                                                     placeholder="0.00" id="edit_distributor_{{ $loop->index }}">
                                                             </div>
                                                             @error("variant_prices.{$value}.distributor_price")
@@ -2144,7 +2154,7 @@
                                                             <div class="input-group input-group-sm">
                                                                 <span class="input-group-text">Rs.</span>
                                                                 <input type="number" step="0.01" class="form-control" 
-                                                                    wire:model.defer="variant_prices.{{ $value }}.retail_price"
+                                                                    wire:model="variant_prices.{{ $value }}.retail_price"
                                                                     placeholder="0.00" id="edit_retail_{{ $loop->index }}">
                                                             </div>
                                                             @error("variant_prices.{$value}.retail_price")
@@ -2153,7 +2163,7 @@
                                                         </td>
                                                         <td>
                                                             <input type="number" class="form-control form-control-sm" 
-                                                                wire:model.defer="variant_prices.{{ $value }}.stock"
+                                                                wire:model="variant_prices.{{ $value }}.stock"
                                                                 placeholder="0" id="edit_stock_{{ $loop->index }}">
                                                             @error("variant_prices.{$value}.stock")
                                                             <span class="text-danger small">* {{ $message }}</span>

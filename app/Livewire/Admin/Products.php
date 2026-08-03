@@ -66,7 +66,7 @@ class Products extends Component
     // Edit form fields
     public $editId, $editCode, $editName, $editModel, $editBrand, $editCategory, $editImage, $existingImage,
         $editDescription, $editBarcode, $editStatus, $editSupplierPrice, $editRetailPrice, $editWholesalePrice,
-        $editDiscountPrice, $editDamageStock;
+        $editDiscountPrice, $editDamageStock, $editAvailableStock;
 
     // Track original pricing mode when opening edit modal so we don't accidentally delete variant rows
     public $original_pricing_mode = 'single';
@@ -845,6 +845,7 @@ class Products extends Component
         $this->editWholesalePrice = $product->price->wholesale_price ?? 0;
         $this->editDiscountPrice = $product->price->discount_price ?? 0;
         $this->editDamageStock = $product->stock->damage_stock ?? 0;
+        $this->editAvailableStock = $product->stock->available_stock ?? 0;
 
         // If variant data exists, prepare variant edit state
         if (($product->variant_id ?? null) !== null || ($product->prices && $product->prices->isNotEmpty())) {
@@ -917,6 +918,7 @@ class Products extends Component
             'editWholesalePrice' => 'required|numeric|min:0',
             'editDiscountPrice' => 'nullable|numeric|min:0|lte:editRetailPrice',
             'editDamageStock' => 'required|integer|min:0',
+            'editAvailableStock' => 'nullable|integer|min:0',
         ];
     }
 
@@ -928,28 +930,45 @@ class Products extends Component
             $this->editImage = null;
         }
 
-        // Build validation rules and validate the form data
-        $rules = $this->updateRules();
-
         // Treat the form as variant-based if the UI has variant inputs present
         $hasVariantInput = !empty($this->variant_id) && !empty($this->variant_prices);
         $isVariantMode = $this->pricing_mode === 'variant' || $hasVariantInput;
+
+        $rules = [
+            'editName' => 'required|string|max:255',
+            'editCode' => 'required|string|max:100|unique:product_details,code,' . $this->editId,
+            'editModel' => 'nullable|string|max:255',
+            'editBrand' => 'required|exists:brand_lists,id',
+            'editCategory' => 'required|exists:category_lists,id',
+            'editImage' => 'nullable|string|max:100000',
+            'editDescription' => 'nullable|string|max:1000',
+            'editBarcode' => 'nullable|string|max:255|unique:product_details,barcode,' . $this->editId,
+            'editStatus' => 'required|in:active,inactive',
+        ];
+
+        if ($isVariantMode) {
+            $rules['variant_id'] = 'required|exists:product_variants,id';
+            foreach ($this->variant_prices as $k => $vals) {
+                $rules["variant_prices.{$k}.supplier_price"] = 'nullable|numeric|min:0';
+                $rules["variant_prices.{$k}.retail_price"] = 'nullable|numeric|min:0';
+                $rules["variant_prices.{$k}.wholesale_price"] = 'nullable|numeric|min:0';
+                $rules["variant_prices.{$k}.distributor_price"] = 'nullable|numeric|min:0';
+                $rules["variant_prices.{$k}.stock"] = 'nullable|integer|min:0';
+            }
+        } else {
+            $rules['editSupplierPrice'] = 'required|numeric|min:0';
+            $rules['editRetailPrice'] = 'required|numeric|min:0';
+            $rules['editWholesalePrice'] = 'required|numeric|min:0';
+            $rules['editDiscountPrice'] = 'nullable|numeric|min:0|lte:editRetailPrice';
+            $rules['editDamageStock'] = 'nullable|integer|min:0';
+            $rules['editAvailableStock'] = 'nullable|integer|min:0';
+        }
 
         Log::info('updateProduct: validation mode', [
             'pricing_mode' => $this->pricing_mode,
             'hasVariantInput' => $hasVariantInput,
             'variant_count' => count($this->variant_prices ?? []),
         ]);
-
-        if ($isVariantMode) {
-            foreach ($this->variant_prices as $k => $vals) {
-                $rules["variant_prices.{$k}.supplier_price"] = 'required|numeric|min:0';
-                $rules["variant_prices.{$k}.retail_price"] = "required|numeric|min:0";
-                $rules["variant_prices.{$k}.wholesale_price"] = "required|numeric|min:0";
-                $rules["variant_prices.{$k}.distributor_price"] = 'nullable|numeric|min:0';
-                $rules["variant_prices.{$k}.stock"] = 'required|integer|min:0';
-            }
-        }
 
         // Use friendly attribute labels for validation messages
         $validatedData = $this->validate($rules, [], $this->attributes());
@@ -973,7 +992,6 @@ class Products extends Component
             ]);
 
             // Determine effective pricing mode
-            $hasVariantInput = !empty($this->variant_id) && !empty($this->variant_prices);
             $effectiveMode = $hasVariantInput || $this->pricing_mode === 'variant' ? 'variant' : 'single';
 
             Log::info('updateProduct: effectiveMode', [
@@ -1015,18 +1033,10 @@ class Products extends Component
                     ]
                 );
 
-                // Sync all active batches with the new prices
-                ProductBatch::where('product_id', $product->id)
-                    ->whereNull('variant_id')
-                    ->where('status', 'active')
-                    ->update([
-                        'supplier_price' => $this->editSupplierPrice ?? 0,
-                        'wholesale_price' => $this->editWholesalePrice ?? 0,
-                        'retail_price' => $this->editRetailPrice ?? 0,
-                        'distributor_price' => 0,
-                    ]);
+                $availStock = isset($this->editAvailableStock) && $this->editAvailableStock !== '' ? (int)$this->editAvailableStock : 0;
+                $dmgStock = isset($this->editDamageStock) && $this->editDamageStock !== '' ? (int)$this->editDamageStock : 0;
 
-                // Update or create single stock (preserve existing available_stock)
+                // Update or create single stock
                 ProductStock::updateOrCreate(
                     [
                         'product_id' => $product->id,
@@ -1034,10 +1044,65 @@ class Products extends Component
                         'variant_value' => null,
                     ],
                     [
-                        'damage_stock' => $this->editDamageStock ?? 0,
-                        // Don't override available_stock or total_stock here
+                        'available_stock' => $availStock,
+                        'damage_stock' => $dmgStock,
+                        'total_stock' => $availStock + $dmgStock,
                     ]
                 );
+
+                $activeBatches = ProductBatch::where('product_id', $product->id)
+                    ->whereNull('variant_id')
+                    ->where('status', 'active')
+                    ->get();
+
+                if ($availStock === 0) {
+                    ProductBatch::where('product_id', $product->id)
+                        ->whereNull('variant_id')
+                        ->where('status', 'active')
+                        ->update([
+                            'remaining_quantity' => 0,
+                            'status' => 'depleted',
+                        ]);
+                } else {
+                    if ($activeBatches->isEmpty()) {
+                        // Create default batch if no batch exists
+                        ProductBatch::create([
+                            'product_id' => $product->id,
+                            'batch_number' => ProductBatch::generateBatchNumber($product->id),
+                            'purchase_order_id' => null,
+                            'variant_id' => null,
+                            'variant_value' => null,
+                            'supplier_price' => $this->editSupplierPrice ?? 0,
+                            'selling_price' => $this->editRetailPrice ?? 0,
+                            'wholesale_price' => $this->editWholesalePrice ?? 0,
+                            'retail_price' => $this->editRetailPrice ?? 0,
+                            'distributor_price' => 0,
+                            'quantity' => $availStock,
+                            'remaining_quantity' => $availStock,
+                            'received_date' => now(),
+                            'status' => 'active',
+                        ]);
+                    } else {
+                        // Update prices & remaining quantity on existing active batches
+                        ProductBatch::where('product_id', $product->id)
+                            ->whereNull('variant_id')
+                            ->where('status', 'active')
+                            ->update([
+                                'supplier_price' => $this->editSupplierPrice ?? 0,
+                                'wholesale_price' => $this->editWholesalePrice ?? 0,
+                                'retail_price' => $this->editRetailPrice ?? 0,
+                                'distributor_price' => 0,
+                            ]);
+
+                        $latestBatch = $activeBatches->last();
+                        $otherBatchesSum = $activeBatches->where('id', '!=', $latestBatch->id)->sum('remaining_quantity');
+                        $newRemaining = max(0, $availStock - $otherBatchesSum);
+                        $latestBatch->update([
+                            'remaining_quantity' => $newRemaining,
+                            'status' => $newRemaining > 0 ? 'active' : 'depleted',
+                        ]);
+                    }
+                }
 
                 Log::info('updateProduct: Updated to single pricing mode', [
                     'product_id' => $product->id,
@@ -1090,17 +1155,8 @@ class Products extends Component
                         ]
                     );
 
-                    // Sync all active batches for this variant with the new prices
-                    ProductBatch::where('product_id', $product->id)
-                        ->where('variant_id', $this->variant_id)
-                        ->where('variant_value', $variantValue)
-                        ->where('status', 'active')
-                        ->update([
-                            'supplier_price' => $vals['supplier_price'] ?? 0,
-                            'wholesale_price' => $vals['wholesale_price'] ?? 0,
-                            'retail_price' => $vals['retail_price'] ?? 0,
-                            'distributor_price' => $vals['distributor_price'] ?? 0,
-                        ]);
+                    $stockQty = isset($vals['stock']) && $vals['stock'] !== '' ? (int)$vals['stock'] : 0;
+                    $damageQty = isset($vals['damage_stock']) && $vals['damage_stock'] !== '' ? (int)$vals['damage_stock'] : 0;
 
                     // Update or create variant stock
                     ProductStock::updateOrCreate(
@@ -1110,12 +1166,69 @@ class Products extends Component
                             'variant_value' => $variantValue,
                         ],
                         [
-                            'available_stock' => $vals['stock'] ?? 0,
-                            'damage_stock' => 0,
-                            'total_stock' => $vals['stock'] ?? 0,
+                            'available_stock' => $stockQty,
+                            'damage_stock' => $damageQty,
+                            'total_stock' => $stockQty + $damageQty,
                             'sold_count' => 0,
                         ]
                     );
+
+                    $activeBatches = ProductBatch::where('product_id', $product->id)
+                        ->where('variant_id', $this->variant_id)
+                        ->where('variant_value', $variantValue)
+                        ->where('status', 'active')
+                        ->get();
+
+                    if ($stockQty === 0) {
+                        ProductBatch::where('product_id', $product->id)
+                            ->where('variant_id', $this->variant_id)
+                            ->where('variant_value', $variantValue)
+                            ->where('status', 'active')
+                            ->update([
+                                'remaining_quantity' => 0,
+                                'status' => 'depleted',
+                            ]);
+                    } else {
+                        if ($activeBatches->isEmpty()) {
+                            // Create default batch for variant if no batch exists
+                            ProductBatch::create([
+                                'product_id' => $product->id,
+                                'batch_number' => ProductBatch::generateBatchNumber($product->id),
+                                'purchase_order_id' => null,
+                                'variant_id' => $this->variant_id,
+                                'variant_value' => $variantValue,
+                                'supplier_price' => $vals['supplier_price'] ?? 0,
+                                'selling_price' => $vals['retail_price'] ?? 0,
+                                'wholesale_price' => $vals['wholesale_price'] ?? 0,
+                                'retail_price' => $vals['retail_price'] ?? 0,
+                                'distributor_price' => $vals['distributor_price'] ?? 0,
+                                'quantity' => $stockQty,
+                                'remaining_quantity' => $stockQty,
+                                'received_date' => now(),
+                                'status' => 'active',
+                            ]);
+                        } else {
+                            // Update prices on existing active batches
+                            ProductBatch::where('product_id', $product->id)
+                                ->where('variant_id', $this->variant_id)
+                                ->where('variant_value', $variantValue)
+                                ->where('status', 'active')
+                                ->update([
+                                    'supplier_price' => $vals['supplier_price'] ?? 0,
+                                    'wholesale_price' => $vals['wholesale_price'] ?? 0,
+                                    'retail_price' => $vals['retail_price'] ?? 0,
+                                    'distributor_price' => $vals['distributor_price'] ?? 0,
+                                ]);
+
+                            $latestBatch = $activeBatches->last();
+                            $otherBatchesSum = $activeBatches->where('id', '!=', $latestBatch->id)->sum('remaining_quantity');
+                            $newRemaining = max(0, $stockQty - $otherBatchesSum);
+                            $latestBatch->update([
+                                'remaining_quantity' => $newRemaining,
+                                'status' => $newRemaining > 0 ? 'active' : 'depleted',
+                            ]);
+                        }
+                    }
                 }
 
                 // Clean up obsolete variant prices/stocks (removed from UI)

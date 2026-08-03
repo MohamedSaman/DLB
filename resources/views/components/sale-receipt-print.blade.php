@@ -32,60 +32,114 @@
     </div>
 
     <!-- Items Table -->
-    <table class="invoice-table">
-        <thead>
-            <tr>
-                <th width="40">#</th>
-                <th>ITEM CODE</th>
-                <th>DESCRIPTION</th>
-                <th width="80">QTY</th>
-                <th width="120">UNIT PRICE</th>
-                <th width="120">UNIT DISCOUNT</th>
-                <th width="120">SUBTOTAL</th>
-            </tr>
-        </thead>
-        <tbody>
-            @foreach($sale->items as $index => $item)
-            <tr>
-                <td class="text-center">{{ $index + 1 }}</td>
-                <td>{{ $item->product_code }}</td>
-                <td>{{ $item->product_name }}</td>
-                <td class="text-center">{{ $item->quantity }}</td>
-                <td class="text-end">Rs.{{ number_format($item->unit_price, 2) }}</td>
-                <td class="text-end">Rs.{{ number_format($item->unit_discount, 2) }}</td>
-                <td class="text-end">Rs.{{ number_format($item->total, 2) }}</td>
-            </tr>
-            @endforeach
-        </tbody>
-        <tfoot>
-            <tr class="totals-row">
-                <td colspan="6" class="text-end"><strong>Subtotal</strong></td>
-                <td class="text-end"><strong>Rs.{{ number_format($sale->subtotal, 2) }}</strong></td>
-            </tr>
-            @if($sale->discount_amount > 0)
-            <tr class="totals-row">
-                <td colspan="6" class="text-end"><strong>Discount</strong></td>
-                <td class="text-end"><strong>-Rs.{{ number_format($sale->discount_amount, 2) }}</strong></td>
-            </tr>
-            @endif
-            <tr class="totals-row grand-total">
-                <td colspan="6" class="text-end"><strong>Grand Total</strong></td>
-                <td class="text-end"><strong>Rs.{{ number_format($sale->total_amount, 2) }}</strong></td>
-            </tr>
-            @if($sale->payments->count() > 0)
-            <tr class="totals-row">
-                <td colspan="6" class="text-end"><strong>Paid Amount</strong></td>
-                <td class="text-end"><strong>Rs.{{ number_format($sale->payments->sum('amount'), 2) }}</strong></td>
-            </tr>
-            @endif
-            @if($sale->due_amount > 0)
-            <tr class="totals-row">
-                <td colspan="6" class="text-end"><strong>Due Amount</strong></td>
-                <td class="text-end"><strong>Rs.{{ number_format($sale->due_amount, 2) }}</strong></td>
-            </tr>
-            @endif
-        </tfoot>
-    </table>
+    @php
+        $allItems = collect($sale->items);
+        $totalItemsCount = $allItems->count();
+
+        $itemChunks = collect();
+        $itemOffsets = [];
+        if ($totalItemsCount <= 33) {
+            $itemChunks->push($allItems);
+            $itemOffsets[] = 0;
+        } else {
+            $itemChunks->push($allItems->slice(0, 33));
+            $itemOffsets[] = 0;
+            $remaining = $allItems->slice(33);
+            $currentOffset = 33;
+            foreach ($remaining->chunk(38) as $subChunk) {
+                $itemChunks->push($subChunk);
+                $itemOffsets[] = $currentOffset;
+                $currentOffset += $subChunk->count();
+            }
+        }
+        $totalPages = $itemChunks->count();
+    @endphp
+
+    @foreach($itemChunks as $pageIndex => $chunk)
+        @php
+            $pageSubtotal = 0;
+            foreach ($chunk as $cItem) {
+                $pageSubtotal += (float) ($cItem->total ?? ($cItem->unit_price * $cItem->quantity));
+            }
+            $chunkOffset = $itemOffsets[$pageIndex] ?? 0;
+        @endphp
+
+        @if($pageIndex > 0)
+            <div style="page-break-before: always; margin-top: 10px;"></div>
+            <div class="global-header" style="border-bottom: 2px solid #000; padding-bottom: 4px; margin-bottom: 8px;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span style="font-weight: bold; font-size: 13px;">HARDMEN (PVT) LTD — INVOICE</span>
+                    <span style="font-size: 11px; color: #555;">Invoice #: {{ $sale->invoice_number }} | Page {{ $pageIndex + 1 }} of {{ $totalPages }}</span>
+                </div>
+            </div>
+        @endif
+
+        <table class="invoice-table">
+            <thead>
+                <tr>
+                    <th width="40">#</th>
+                    <th>ITEM CODE</th>
+                    <th>DESCRIPTION</th>
+                    <th width="80">QTY</th>
+                    <th width="120">UNIT PRICE</th>
+                    <th width="120">UNIT DISCOUNT</th>
+                    <th width="120">SUBTOTAL</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach($chunk as $itemIndex => $item)
+                @php $globalIndex = $chunkOffset + $loop->index + 1; @endphp
+                <tr>
+                    <td class="text-center">{{ $globalIndex }}</td>
+                    <td>{{ $item->product_code }}</td>
+                    <td>{{ $item->product_name }}</td>
+                    <td class="text-center">{{ $item->quantity }}</td>
+                    <td class="text-end">Rs.{{ number_format($item->unit_price, 2) }}</td>
+                    <td class="text-end">Rs.{{ number_format($item->unit_discount, 2) }}</td>
+                    <td class="text-end">Rs.{{ number_format($item->total, 2) }}</td>
+                </tr>
+                @endforeach
+            </tbody>
+            <tfoot>
+                <tr class="totals-row">
+                    <td colspan="6" class="text-end">
+                        <strong>
+                            @if($totalPages > 1)
+                                Sales Items Subtotal (Page {{ $pageIndex + 1 }} of {{ $totalPages }})
+                            @else
+                                Subtotal
+                            @endif
+                        </strong>
+                    </td>
+                    <td class="text-end"><strong>Rs.{{ number_format($pageSubtotal, 2) }}</strong></td>
+                </tr>
+                @if($loop->last)
+                    @if($sale->discount_amount > 0)
+                    <tr class="totals-row">
+                        <td colspan="6" class="text-end"><strong>Discount</strong></td>
+                        <td class="text-end"><strong>-Rs.{{ number_format($sale->discount_amount, 2) }}</strong></td>
+                    </tr>
+                    @endif
+                    <tr class="totals-row grand-total">
+                        <td colspan="6" class="text-end"><strong>Grand Total</strong></td>
+                        <td class="text-end"><strong>Rs.{{ number_format($sale->total_amount, 2) }}</strong></td>
+                    </tr>
+                    @if($sale->payments->count() > 0)
+                    <tr class="totals-row">
+                        <td colspan="6" class="text-end"><strong>Paid Amount</strong></td>
+                        <td class="text-end"><strong>Rs.{{ number_format($sale->payments->sum('amount'), 2) }}</strong></td>
+                    </tr>
+                    @endif
+                    @if($sale->due_amount > 0)
+                    <tr class="totals-row">
+                        <td colspan="6" class="text-end"><strong>Due Amount</strong></td>
+                        <td class="text-end"><strong>Rs.{{ number_format($sale->due_amount, 2) }}</strong></td>
+                    </tr>
+                    @endif
+                @endif
+            </tfoot>
+        </table>
+    @endforeach
 
     {{-- Returned Items Table --}}
     @if(isset($sale->returns) && count($sale->returns) > 0)

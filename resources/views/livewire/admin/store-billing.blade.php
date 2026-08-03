@@ -985,12 +985,10 @@
                     </div>
 
                     <!-- Items -->
-                    
                     <table class="receipt-table">
                         <thead>
                             <tr>
                                 <th>#</th>
-                                
                                 <th>Code</th>
                                 <th>Item</th>
                                 <th style="text-align:center;">Price</th>
@@ -1427,22 +1425,19 @@
                     <style>
                         @page { 
                             size: letter portrait; 
-                            margin: 6mm; 
+                            margin: 5mm 8mm; 
                         }
 
-                        html, body { height: 100%; }
-
-                        * {
-                            margin: 0;
-                            padding: 0;
-                            box-sizing: border-box;
+                        html, body { 
+                            height: auto !important; 
+                            min-height: 0 !important;
                         }
 
                         body { 
                             font-family: sans-serif; 
                             color: #000; 
                             background: #fff; 
-                            padding: 10mm;
+                            padding: 5mm;
                             font-size: 12px;
                             line-height: 1.4;
                         }
@@ -1450,23 +1445,22 @@
                         .receipt-container { 
                             max-width: 800px; 
                             margin: 0 auto;
-                            padding: 20px;
+                            padding: 10px;
                             background: white;
-                            display: flex;
-                            flex-direction: column;
-                            min-height: 100vh;
-                            page-break-inside: avoid;
+                            display: block;
+                            page-break-inside: auto;
                         }
 
                         .receipt-footer { 
-                            margin-top: auto !important; 
+                            margin-top: 15px !important; 
                             page-break-inside: avoid;
                         }
                         
                         .receipt-header { 
                             border-bottom: 3px solid #000; 
-                            padding-bottom: 12px; 
-                            margin-bottom: 12px; 
+                            padding-bottom: 8px; 
+                            margin-bottom: 8px; 
+                            page-break-inside: avoid;
                         }
                         
                         .receipt-row { 
@@ -1490,21 +1484,26 @@
                         table.receipt-table { 
                             width: 100%; 
                             border-collapse: collapse; 
-                            margin-top: 12px; 
+                            margin-top: 8px; 
+                            page-break-inside: auto;
                         }
                         
                         table.receipt-table th {
                             border-bottom: 1px solid #000; 
-                            padding: 8px; 
+                            padding: 6px 8px; 
                             text-align: left;
                             font-weight: bold;
                             background: none;
                         }
                         
                         table.receipt-table td { 
-                            padding: 2px; 
+                            padding: 3px 2px; 
                             text-align: left;
                             border: none;
+                        }
+
+                        table.receipt-table tr {
+                            page-break-inside: avoid !important;
                         }
                         
                         .text-end { 
@@ -1516,7 +1515,7 @@
                         }
                         
                         p {
-                            margin: 4px 0;
+                            margin: 2px 0;
                         }
                         
                         strong {
@@ -1526,20 +1525,30 @@
                         hr {
                             border: none;
                             border-top: 1px solid #000;
-                            margin: 8px 0;
+                            margin: 6px 0;
                         }
                         
                         @media print {
-                            body {
-                                padding: 0;
+                            html, body {
+                                padding: 0 !important;
+                                margin: 0 !important;
+                                height: auto !important;
+                                min-height: 0 !important;
+                                background: #fff !important;
                             }
                             
                             .receipt-container {
                                 box-shadow: none !important;
+                                padding: 0 !important;
+                                margin: 0 !important;
+                                min-height: 0 !important;
+                                height: auto !important;
+                                display: block !important;
+                                page-break-inside: auto !important;
                             }
-                            
-                            .receipt-container {
-                                page-break-inside: avoid;
+
+                            tr {
+                                page-break-inside: avoid !important;
                             }
                         }
                     </style>

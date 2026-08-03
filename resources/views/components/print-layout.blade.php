@@ -266,35 +266,29 @@
         }
 
         @media print {
-            body {
+            html, body {
                 background: white !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                height: auto !important;
+                min-height: 0 !important;
             }
 
             .print-container {
                 box-shadow: none !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                min-height: 0 !important;
+                display: block !important;
+                page-break-inside: auto !important;
             }
 
             @page {
-                margin: 10mm 10mm 10mm 10mm;
+                margin: 5mm 8mm;
             }
 
-            /* Use running elements for header/footer on every page */
-            .global-header {
-                position: running(header);
-            }
-
-            .global-footer {
-                position: running(footer);
-            }
-
-            @page {
-                @top-center {
-                    content: element(header);
-                }
-
-                @bottom-center {
-                    content: element(footer);
-                }
+            tr {
+                page-break-inside: avoid !important;
             }
         }
     </style>

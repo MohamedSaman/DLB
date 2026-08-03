@@ -405,11 +405,28 @@ use App\Models\Sale;
 
                         <!-- Items -->
                         @php
-                            $saleItemsSubtotal = 0;
-                            foreach ($selectedSale->items as $saleItem) {
-                                $saleItemsSubtotal += (float) ($saleItem->total ?? 0);
-                            }
+                            $allItems = collect($selectedSale->items);
+                            $totalItemsCount = $allItems->count();
 
+                            $itemChunks = collect();
+                            $itemOffsets = [];
+                            if ($totalItemsCount <= 33) {
+                                $itemChunks->push($allItems);
+                                $itemOffsets[] = 0;
+                            } else {
+                                $itemChunks->push($allItems->slice(0, 33));
+                                $itemOffsets[] = 0;
+                                $remaining = $allItems->slice(33);
+                                $currentOffset = 33;
+                                foreach ($remaining->chunk(38) as $subChunk) {
+                                    $itemChunks->push($subChunk);
+                                    $itemOffsets[] = $currentOffset;
+                                    $currentOffset += $subChunk->count();
+                                }
+                            }
+                            $totalPages = $itemChunks->count();
+
+                            $saleItemsSubtotal = $allItems->sum(fn($i) => (float)($i->total ?? 0));
                             $returnItemsTotal = 0;
                             if (isset($selectedSale->returns) && count($selectedSale->returns) > 0) {
                                 foreach ($selectedSale->returns as $returnItem) {
@@ -468,8 +485,6 @@ use App\Models\Sale;
                                 </tr>
                             </tfoot>
                         </table>
-
-                        
 
                         @if(isset($selectedSale->returns) && count($selectedSale->returns) > 0)
                         <!-- Returned Items Section -->
@@ -1436,10 +1451,13 @@ use App\Models\Sale;
                 <style>
                     @page { 
                         size: letter portrait; 
-                        margin: 6mm; 
+                        margin: 5mm 8mm; 
                     }
 
-                    html, body { height: 100%; }
+                    html, body { 
+                        height: auto !important; 
+                        min-height: 0 !important;
+                    }
 
                     * {
                         margin: 0;
@@ -1451,7 +1469,7 @@ use App\Models\Sale;
                         font-family: sans-serif; 
                         color: #000; 
                         background: #fff; 
-                        padding: 10mm;
+                        padding: 5mm;
                         font-size: 12px;
                         line-height: 1.4;
                     }
@@ -1459,23 +1477,22 @@ use App\Models\Sale;
                     .receipt-container { 
                         max-width: 800px; 
                         margin: 0 auto;
-                        padding: 20px;
+                        padding: 10px;
                         background: white;
-                        display: flex;
-                        flex-direction: column;
-                        min-height: 100vh;
-                        page-break-inside: avoid;
+                        display: block;
+                        page-break-inside: auto;
                     }
 
                     .receipt-footer { 
-                        margin-top: auto !important; 
+                        margin-top: 15px !important; 
                         page-break-inside: avoid;
                     }
                     
                     .receipt-header { 
                         border-bottom: 3px solid #000; 
-                        padding-bottom: 12px; 
-                        margin-bottom: 12px; 
+                        padding-bottom: 8px; 
+                        margin-bottom: 8px; 
+                        page-break-inside: avoid;
                     }
                     
                     .receipt-row { 
@@ -1499,21 +1516,26 @@ use App\Models\Sale;
                     table.receipt-table { 
                         width: 100%; 
                         border-collapse: collapse; 
-                        margin-top: 12px; 
+                        margin-top: 8px; 
+                        page-break-inside: auto;
                     }
                     
                     table.receipt-table th {
                         border-bottom: 1px solid #000; 
-                        padding: 8px; 
+                        padding: 6px 8px; 
                         text-align: left;
                         font-weight: bold;
                         background: none;
                     }
                     
                     table.receipt-table td { 
-                        padding: 2px; 
+                        padding: 3px 2px; 
                         text-align: left;
                         border: none;
+                    }
+
+                    table.receipt-table tr {
+                        page-break-inside: avoid !important;
                     }
                     
                     .text-end { 
@@ -1525,7 +1547,7 @@ use App\Models\Sale;
                     }
                     
                     p {
-                        margin: 4px 0;
+                        margin: 2px 0;
                     }
                     
                     strong {
@@ -1535,20 +1557,30 @@ use App\Models\Sale;
                     hr {
                         border: none;
                         border-top: 1px solid #000;
-                        margin: 8px 0;
+                        margin: 6px 0;
                     }
                     
                     @media print {
-                        body {
-                            padding: 0;
+                        html, body {
+                            padding: 0 !important;
+                            margin: 0 !important;
+                            height: auto !important;
+                            min-height: 0 !important;
+                            background: #fff !important;
                         }
                         
                         .receipt-container {
                             box-shadow: none !important;
+                            padding: 0 !important;
+                            margin: 0 !important;
+                            min-height: 0 !important;
+                            height: auto !important;
+                            display: block !important;
+                            page-break-inside: auto !important;
                         }
-                        
-                        .receipt-container {
-                            page-break-inside: avoid;
+
+                        tr {
+                            page-break-inside: avoid !important;
                         }
                     }
                 </style>

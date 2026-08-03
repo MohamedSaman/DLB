@@ -9,7 +9,7 @@
             size: A4 portrait;
         }
         body {
-            font-family: 'Segoe UI', Arial, sans-serif;
+            font-family: 'DejaVu Sans', Arial, sans-serif;
             font-size: 13px;
             margin: 0;
             padding: 0;
