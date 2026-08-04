@@ -284,7 +284,7 @@
             }
 
             @page {
-                margin: 5mm 8mm;
+                margin: 0mm;
             }
 
             tr {
