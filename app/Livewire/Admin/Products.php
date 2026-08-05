@@ -847,7 +847,6 @@ class Products extends Component
         $this->editDamageStock = $product->stock->damage_stock ?? 0;
         $this->editAvailableStock = $product->stock->available_stock ?? 0;
 
-        // Check if product actually uses variants
         $hasVariantPrices = $product->prices && $product->prices->where('pricing_mode', 'variant')->isNotEmpty();
 
         // If variant data exists, prepare variant edit state
@@ -861,6 +860,7 @@ class Products extends Component
                 $values = $product->variant->variant_values;
             } elseif ($hasVariantPrices) {
                 $values = $product->prices->where('pricing_mode', 'variant')->pluck('variant_value')->filter()->unique()->toArray();
+
             }
 
             $sorted = $this->sortVariantValues($values);
