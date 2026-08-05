@@ -6,7 +6,7 @@
     <style>
         @page {
             margin: 10mm;
-            size: A4 portrait;
+            size: letter portrait;
         }
         body {
             font-family: 'DejaVu Sans', Arial, sans-serif;

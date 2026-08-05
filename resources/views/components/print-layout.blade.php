@@ -8,7 +8,7 @@
     <style>
         /* Global Print Layout Styles */
         @page {
-            size: A4 portrait;
+            size: letter portrait;
             margin: 0;
         }
 
@@ -284,6 +284,7 @@
             }
 
             @page {
+                size: letter portrait;
                 margin: 5mm 8mm;
             }
 

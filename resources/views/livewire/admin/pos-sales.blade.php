@@ -410,15 +410,15 @@ use App\Models\Sale;
 
                             $itemChunks = collect();
                             $itemOffsets = [];
-                            if ($totalItemsCount <= 33) {
+                            if ($totalItemsCount <= 28) {
                                 $itemChunks->push($allItems);
                                 $itemOffsets[] = 0;
                             } else {
-                                $itemChunks->push($allItems->slice(0, 33));
+                                $itemChunks->push($allItems->slice(0, 28));
                                 $itemOffsets[] = 0;
-                                $remaining = $allItems->slice(33);
-                                $currentOffset = 33;
-                                foreach ($remaining->chunk(38) as $subChunk) {
+                                $remaining = $allItems->slice(28);
+                                $currentOffset = 28;
+                                foreach ($remaining->chunk(33) as $subChunk) {
                                     $itemChunks->push($subChunk);
                                     $itemOffsets[] = $currentOffset;
                                     $currentOffset += $subChunk->count();
