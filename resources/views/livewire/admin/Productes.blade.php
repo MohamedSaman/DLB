@@ -1880,6 +1880,32 @@
                                 </h5>
                             </div>
                             <div class="card-body p-4">
+                                <div class="row mb-4">
+                                    <div class="col-12">
+                                        <label class="form-label fw-semibold">Pricing Mode:</label>
+                                        <div class="btn-group w-100" role="group">
+                                            <input type="radio" class="btn-check" id="edit_pricing_mode_single" 
+                                                wire:model.live="pricing_mode" value="single">
+                                            <label class="btn btn-outline-primary" for="edit_pricing_mode_single">
+                                                <i class="bi bi-tag me-2"></i>Single Price
+                                            </label>
+                                            
+                                            <input type="radio" class="btn-check" id="edit_pricing_mode_variant" 
+                                                wire:model.live="pricing_mode" value="variant">
+                                            <label class="btn btn-outline-primary" for="edit_pricing_mode_variant">
+                                                <i class="bi bi-tags me-2"></i>Variant-Based Pricing
+                                            </label>
+                                        </div>
+                                        <small class="text-muted d-block mt-2">
+                                            @if($pricing_mode === 'single')
+                                                Single price applies to all units of this product.
+                                            @else
+                                                Configure different prices and stock levels for each variant.
+                                            @endif
+                                        </small>
+                                    </div>
+                                </div>
+
                                 @if($pricing_mode === 'single')
                                 <div class="row">
                                     <div class="col-md-4">
