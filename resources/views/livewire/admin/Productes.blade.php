@@ -18,12 +18,12 @@
         }
 
         .content-tab.active {
-            color: #f58320;
-            border-bottom-color: #f58320;
+            color: #000000;
+            border-bottom-color: #000000;
         }
 
         .content-tab:hover:not(.active) {
-            color: #f58320;
+            color: #000000;
             border-bottom-color: #dee2e6;
         }
 
@@ -154,7 +154,7 @@
         .form-control:focus,
         .form-select:focus {
             box-shadow: 0 0 0 3px rgba(245, 131, 32, 0.15);
-            border-color: #f58320;
+            border-color: #000000;
         }
 
         /* Modern button styling */
@@ -166,8 +166,8 @@
         }
 
         .btn-primary {
-            background-color: #f58320;
-            border-color: #f58320;
+            background-color: #000000;
+            border-color: #000000;
         }
 
         .btn-primary:hover {
@@ -211,13 +211,13 @@
         }
 
         .nav-tabs-custom .nav-link.active {
-            color: #f58320;
-            border-bottom-color: #f58320;
+            color: #000000;
+            border-bottom-color: #000000;
             background-color: transparent;
         }
 
         .nav-tabs-custom .nav-link:hover {
-            color: #f58320;
+            color: #000000;
             border-bottom-color: #dee2e6;
         }
 

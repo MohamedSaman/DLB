@@ -2,6 +2,19 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ========================================
+   STANDARD BLACK & WHITE THEME OVERRIDES
+   ======================================== */
+.text-orange { color: #000000 !important; }
+.text-orange-500, .text-orange-600 { color: #111827 !important; }
+.bg-orange, .bg-orange-500, .bg-orange-600, .bg-\[\#e67e22\], .bg-\[\#f58320\] { background-color: #000000 !important; color: #ffffff !important; }
+.bg-orange-50, .bg-orange-50\/50 { background-color: #f3f4f6 !important; }
+.border-orange, .border-[#e67e22], .border-orange-100, .border-orange-200 { border-color: #000000 !important; }
+.btn-orange { background-color: #000000 !important; color: #ffffff !important; border-color: #000000 !important; }
+.btn-orange:hover { background-color: #1f2937 !important; color: #ffffff !important; }
+.btn-outline-orange { color: #000000 !important; border-color: #000000 !important; background: transparent !important; }
+.btn-outline-orange:hover { background-color: #000000 !important; color: #ffffff !important; }
+
 [x-cloak] {
     display: none;
 }

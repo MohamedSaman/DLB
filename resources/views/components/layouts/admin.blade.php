@@ -65,7 +65,7 @@
         }
 
         .fw-800 { font-weight: 800 !important; }
-        .text-orange { color: #f58320 !important; }
+        .text-orange { color: #000000 !important; }
 
         /* Ensure dropdowns in table are not clipped */
         .table-responsive {
@@ -492,14 +492,14 @@
             width: 36px;
             height: 36px;
             border-radius: 50%;
-            background: #f58320;
+            background: #000000;
             color: #ffffff;
             display: flex;
             align-items: center;
             justify-content: center;
             font-weight: 600;
             letter-spacing: -0.03em;
-            border: 2px solid #f58320;
+            border: 2px solid #000000;
         }
 
         .admin-name {
@@ -615,13 +615,13 @@
         }
 
         .content-tab.active {
-            color: #f58320;
-            border-bottom-color: #f58320;
+            color: #000000;
+            border-bottom-color: #000000;
             font-weight: 600;
         }
 
         .content-tab:hover:not(.active) {
-            color: #f58320;
+            color: #000000;
             border-bottom-color: var(--border);
         }
 
@@ -853,12 +853,12 @@
 
         .btn-outline-primary {
             background: transparent;
-            color: #f58320;
-            border: 1px solid #f58320;
+            color: #000000;
+            border: 1px solid #000000;
         }
 
         .btn-outline-primary:hover {
-            background: #f58320;
+            background: #000000;
             color: #ffffff;
         }
 
@@ -875,7 +875,7 @@
         }
 
         .modal-header {
-            background: linear-gradient(135deg, #f58320 0%, #d16d0e 100%);
+            background: #000000;
             color: #ffffff;
         }
 
@@ -939,7 +939,7 @@
             <div class="sidebar-header d-flex justify-content-center">
                 <div class="sidebar-title">
 
-                    <img src="{{ asset('images/HARDMEN.png') }}" alt="Logo" width="250">
+                    <img src="{{ asset('images/dlb-logo.png') }}" alt="DLB ENTERPRISES Logo" style="max-width: 180px; height: auto; background: #ffffff; padding: 6px 12px; border-radius: 8px; border: 1px solid #000000;">
 
                 </div>
             </div>

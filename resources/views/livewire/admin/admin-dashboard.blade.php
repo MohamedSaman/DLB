@@ -142,7 +142,7 @@
         }
         .tsm-tab:hover { background: rgba(255,255,255,0.7); color: #1e293b; }
         .tsm-tab-active {
-            background: linear-gradient(135deg, #f58320, #e85d04) !important;
+            background: linear-gradient(135deg, #000000, #e85d04) !important;
             color: #fff !important; box-shadow: 0 2px 8px rgba(245,131,32,0.35);
         }
         .tsm-tab-divider { width: 1px; height: 24px; background: #cbd5e1; margin: 0 2px; }
@@ -152,8 +152,8 @@
             background: #fff; font-size: 0.8rem; font-weight: 600; color: #475569;
             cursor: pointer; outline: none; transition: border-color .2s;
         }
-        .tsm-month-select:hover, .tsm-month-select:focus { border-color: #f58320; color: #1e293b; }
-        .tsm-month-select-active { border-color: #f58320 !important; background: #fff7ed !important; color: #c2410c !important; }
+        .tsm-month-select:hover, .tsm-month-select:focus { border-color: #000000; color: #1e293b; }
+        .tsm-month-select-active { border-color: #000000 !important; background: #fff7ed !important; color: #c2410c !important; }
         .tsm-grand-banner {
             background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);
             border-radius: 14px; padding: 16px 22px;
@@ -264,7 +264,7 @@
                             </span>
                             <button wire:click="openTodaySummaryModal"
                                 class="btn btn-sm px-2 py-1"
-                                style="background: linear-gradient(135deg,#f58320,#e85d04); color:#fff; border:none; border-radius:8px; font-size:11px; font-weight:600; line-height:1.2; white-space:nowrap;">
+                                style="background: linear-gradient(135deg,#000000,#e85d04); color:#fff; border:none; border-radius:8px; font-size:11px; font-weight:600; line-height:1.2; white-space:nowrap;">
                                 <i class="bi bi-calendar-check me-1"></i>Summary
                             </button>
                         </div>
@@ -622,9 +622,9 @@
                     datasets: [{
                         label: 'Daily Sales (Rs.)',
                         backgroundColor: 'rgba(245, 131, 32, 0.1)',
-                        borderColor: '#f58320',
+                        borderColor: '#000000',
                         borderWidth: 3,
-                        pointBackgroundColor: '#f58320',
+                        pointBackgroundColor: '#000000',
                         pointBorderColor: '#fff',
                         pointBorderWidth: 2,
                         pointRadius: 5,

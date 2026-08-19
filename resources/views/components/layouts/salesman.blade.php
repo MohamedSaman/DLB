@@ -420,7 +420,7 @@
         <div class="sidebar">
             <div class="sidebar-header d-flex justify-content-center">
                 <div class="sidebar-title">
-                    <img src="{{ asset('images/HARDMEN.png') }}" alt="Logo" width="250">
+                    <img src="{{ asset('images/dlb-logo.png') }}" alt="DLB ENTERPRISES Logo" style="max-width: 180px; height: auto; background: #ffffff; padding: 6px 12px; border-radius: 8px; border: 1px solid #000000;">
                 </div>
             </div>
             <hr style="color:#fff;">
