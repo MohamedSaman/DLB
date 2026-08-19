@@ -25,6 +25,12 @@ class Settings extends Component
     public $editingId = null;
     public $deleteId = null;
 
+    // Pricing Model & Company Settings
+    public $sellingPriceMarkup = 80;
+    public $discountPriceMargin = 50;
+    public $lowerProfitMargin = 40;
+    public $companyCode = 'DLB';
+
     // Expense Management
     public $expenses = [];
     public $expenseCategories = [];
@@ -79,7 +85,37 @@ class Settings extends Component
         $this->loadExpenses();
         $this->loadExpenseCategories();
         $this->loadStaffTypePermissions();
+        $this->loadPricingSettings();
         $this->expenseDate = now()->format('Y-m-d');
+    }
+
+    public function loadPricingSettings()
+    {
+        $this->sellingPriceMarkup = (float) Setting::getVal('default_selling_markup_pct', 80);
+        $this->discountPriceMargin = (float) Setting::getVal('default_discount_pct', 50);
+        $this->lowerProfitMargin = (float) Setting::getVal('min_profit_margin_pct', 40);
+        $this->companyCode = Setting::getVal('company_code', 'DLB');
+    }
+
+    public function savePricingSettings()
+    {
+        try {
+            $this->validate([
+                'sellingPriceMarkup' => 'required|numeric|min:0',
+                'discountPriceMargin' => 'required|numeric|min:0',
+                'lowerProfitMargin' => 'required|numeric|min:0',
+                'companyCode' => 'required|string|max:10',
+            ]);
+
+            Setting::setVal('default_selling_markup_pct', $this->sellingPriceMarkup, 'Default Selling Price Markup % over Cost');
+            Setting::setVal('default_discount_pct', $this->discountPriceMargin, 'Standard Discount / Profit Margin % over Cost');
+            Setting::setVal('min_profit_margin_pct', $this->lowerProfitMargin, 'Minimum Profit Margin Floor % over Cost');
+            Setting::setVal('company_code', strtoupper($this->companyCode), 'Company Prefix Code');
+
+            $this->js("Swal.fire('Success!', 'Pricing model settings saved successfully.', 'success')");
+        } catch (\Exception $e) {
+            $this->js("Swal.fire('Error!', 'Unable to save pricing settings. Please check your inputs.', 'error')");
+        }
     }
 
     public function loadExpenseCategories()

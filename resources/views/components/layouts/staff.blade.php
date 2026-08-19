@@ -23,21 +23,21 @@
         /* Theme tokens: Orange & White theme - MATCHING ADMIN */
         :root {
             /* Clean Page Background */
-            --page-bg: #f3f4f6;
+            --page-bg: #f9fafb;
             --surface: #ffffff;
 
-            /* Professional Brand Palette - Vibrant Orange & Neutral Accents */
-            --primary: #f58320;
-            --primary-600: #e07010;
-            --primary-700: #c66008;
-            --primary-50: #fff7ed;
-            --primary-100: #ffedd5;
+            /* Standard Black & White Palette */
+            --primary: #000000;
+            --primary-600: #111827;
+            --primary-700: #1f2937;
+            --primary-50: #f9fafb;
+            --primary-100: #f3f4f6;
 
             /* Functional Colors */
             --success: #10b981;
             --warning: #f59e0b;
             --danger: #ef4444;
-            --info: #3b82f6;
+            --info: #111827;
 
             /* Refined Neutral Palette */
             --text-main: #111827;

@@ -12,6 +12,60 @@
     {{-- Accordion --}}
     <div class="accordion" id="settingsAccordion">
 
+        {{-- Product Pricing Model & Code Settings Accordion --}}
+        <div class="accordion-item border-0 mb-4 shadow-sm rounded-4">
+            <h2 class="accordion-header" id="headingPricingModel">
+                <button class="accordion-button fw-semibold bg-white text-dark rounded-4"
+                    type="button" data-bs-toggle="collapse"
+                    data-bs-target="#collapsePricingModel" aria-expanded="true"
+                    aria-controls="collapsePricingModel">
+                    <i class="bi bi-tags-fill fs-5 me-3 text-dark"></i>
+                    Pricing Model & Code Settings
+                </button>
+            </h2>
+            <div id="collapsePricingModel" class="accordion-collapse collapse show"
+                aria-labelledby="headingPricingModel" data-bs-parent="#settingsAccordion">
+                <div class="accordion-body">
+                    <div class="row g-3">
+                        <div class="col-md-3">
+                            <label class="form-label fw-bold text-dark">Company Prefix Code</label>
+                            <input type="text" wire:model="companyCode" class="form-control text-uppercase" placeholder="e.g. DLB">
+                            <small class="text-muted">Used for auto SKU generation (DLBSAMCAR-0001)</small>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label fw-bold text-dark">Selling Price Markup %</label>
+                            <div class="input-group">
+                                <input type="number" step="0.1" wire:model="sellingPriceMarkup" class="form-control" placeholder="80">
+                                <span class="input-group-text">%</span>
+                            </div>
+                            <small class="text-muted">Markup over Cost (Cost 100 &rarr; Price 180)</small>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label fw-bold text-dark">Normal Discount Profit %</label>
+                            <div class="input-group">
+                                <input type="number" step="0.1" wire:model="discountPriceMargin" class="form-control" placeholder="50">
+                                <span class="input-group-text">%</span>
+                            </div>
+                            <small class="text-muted">Discount Selling Price (Cost 100 &rarr; Price 150)</small>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label fw-bold text-dark">Lower Profit Margin Floor %</label>
+                            <div class="input-group">
+                                <input type="number" step="0.1" wire:model="lowerProfitMargin" class="form-control border-dark" placeholder="40">
+                                <span class="input-group-text bg-dark text-white">%</span>
+                            </div>
+                            <small class="text-muted text-danger fw-bold">Billing floor price limit (Cost 100 &rarr; Min 140)</small>
+                        </div>
+                    </div>
+                    <div class="mt-3 text-end">
+                        <button class="btn btn-dark px-4" wire:click="savePricingSettings">
+                            <i class="bi bi-save me-1"></i> Save Pricing Settings
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         {{-- Staff Type Permissions Accordion --}}
         <div class="accordion-item border-0 mb-4 shadow-sm rounded-4">
             <h2 class="accordion-header" id="headingStaffPermissions">

@@ -24,4 +24,22 @@ class Setting extends Model
     protected $casts = [
         'date' => 'datetime',
     ];
+
+    public static function getVal($key, $default = null)
+    {
+        $setting = static::where('key', $key)->first();
+        return $setting !== null ? $setting->value : $default;
+    }
+
+    public static function setVal($key, $value, $description = null)
+    {
+        return static::updateOrCreate(
+            ['key' => $key],
+            [
+                'value' => (string)$value,
+                'description' => $description,
+                'date' => now()
+            ]
+        );
+    }
 }

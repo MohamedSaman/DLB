@@ -126,6 +126,35 @@ class Products extends Component
         $this->initializeVariant($value);
     }
 
+    public function updatedSupplier($value)
+    {
+        $this->generateAutoProductCode();
+    }
+
+    public function updatedCategory($value)
+    {
+        $this->generateAutoProductCode();
+    }
+
+    public function generateAutoProductCode()
+    {
+        $companyCode = \App\Models\Setting::getVal('company_code', 'DLB');
+        $this->code = \App\Services\ProductCodeService::generateCode($this->supplier, $this->category, $companyCode);
+    }
+
+    public function updatedSupplierPrice($value)
+    {
+        if (is_numeric($value) && $value > 0) {
+            $cost = (float) $value;
+            $markupPct = (float) \App\Models\Setting::getVal('default_selling_markup_pct', 80);
+            $discountPct = (float) \App\Models\Setting::getVal('default_discount_pct', 50);
+
+            $this->retail_price = round($cost * (1 + $markupPct / 100), 2);
+            $this->wholesale_price = round($cost * (1 + $markupPct / 100), 2);
+            $this->discount_price = round($cost * (1 + $discountPct / 100), 2);
+        }
+    }
+
     /**
      * Initialize variant state (used by lifecycle and wrapper).
      */
@@ -576,7 +605,8 @@ class Products extends Component
             DB::beginTransaction();
 
             // Generate product code if not provided
-            $productCode = $this->code ?: 'PROD-' . strtoupper(Str::random(8));
+            $companyCode = \App\Models\Setting::getVal('company_code', 'DLB');
+            $productCode = $this->code ?: \App\Services\ProductCodeService::generateCode($this->supplier, $this->category, $companyCode);
 
             // Step 1: Create ProductDetail
             $product = ProductDetail::create([

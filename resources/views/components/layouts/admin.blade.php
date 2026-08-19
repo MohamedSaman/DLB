@@ -21,24 +21,24 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
     <style>
-        /* Theme tokens: Orange & White theme */
+        /* Theme tokens: Standard Black & White theme */
         :root {
             /* Clean Page Background */
-            --page-bg: #f3f4f6;
+            --page-bg: #f9fafb;
             --surface: #ffffff;
 
-            /* Professional Brand Palette - Vibrant Orange & Neutral Accents */
-            --primary: #f58320;
-            --primary-600: #e07010;
-            --primary-700: #c66008;
-            --primary-50: #fff7ed;
-            --primary-100: #ffedd5;
+            /* Standard Black & White Palette */
+            --primary: #000000;
+            --primary-600: #111827;
+            --primary-700: #1f2937;
+            --primary-50: #f9fafb;
+            --primary-100: #f3f4f6;
 
             /* Functional Colors */
             --success: #10b981;
             --warning: #f59e0b;
             --danger: #ef4444;
-            --info: #3b82f6;
+            --info: #111827;
 
             /* Refined Neutral Palette */
             --text-main: #111827;
@@ -1302,7 +1302,7 @@
 
             <!-- Centered Company Name (hidden on small screens) -->
             <div class="flex-grow-1 d-none d-md-flex justify-content-center">
-                <h5 class="m-0 fw-bold" style="letter-spacing: -0.02em; color:#f58320;">HARDMEN (PVT) LTD</h5>
+                <h5 class="m-0 fw-bold text-dark" style="letter-spacing: -0.02em;">DLB ENTERPRISES</h5>
             </div>
             @php
             use App\Models\CashInHand as CashModel;
@@ -1311,8 +1311,8 @@
 
             <!-- Real-time Clock and POS Button -->
             <div class="d-none d-lg-flex align-items-center gap-4 me-3">
-                <div id="digitalClock" class="fw-800 font-monospace text-orange px-3 py-2 rounded-3 bg-white border shadow-sm" 
-                    style="font-size: 1.5rem; letter-spacing: 0.1em; border-color: rgba(245, 131, 32, 0.2); min-width: 150px; text-align: center;">
+                <div id="digitalClock" class="fw-800 font-monospace text-dark px-3 py-2 rounded-3 bg-white border border-dark shadow-sm" 
+                    style="font-size: 1.5rem; letter-spacing: 0.1em; min-width: 150px; text-align: center;">
                     00:00:00
                 </div>
                 

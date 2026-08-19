@@ -305,8 +305,8 @@
                 </div>
                 {{-- Center: Company Name --}}
                 <div class="text-center" style="flex: 1;">
-                    <h2 class="mb-0 fw-bold" style="font-size: 2rem; letter-spacing: 1.5px;">HARDMEN (PVT) LTD</h2>
-                    <p class="mb-0 text-muted small">TOOLS WITH POWER</p>
+                    <h2 class="mb-0 fw-bold" style="font-size: 2rem; letter-spacing: 1.5px;">DLB ENTERPRISES</h2>
+                    <p class="mb-0 text-muted small">IMPORT ALL KIND OF MOTOR SPARE PARTS LOCAL BUYING AND SELLING</p>
                 </div>
                 {{-- Right:  & Invoice --}}
                 <div class="text-end" style="flex: 0 0 120px;">
@@ -341,8 +341,8 @@
                 </div>
             </div>
             <div class="border-top pt-3">
-                <p class="text-center"><strong>ADDRESS :</strong> 421/2, Doolmala, thihariya, Kalagedihena.</p>
-                <p class="text-center"><strong>TEL :</strong> (076) 9085252, <strong>EMAIL :</strong> Hardmenlanka@gmail.com</p>
+                <p class="text-center"><strong>ADDRESS :</strong> 497, MINHATH MAWATHA, KANDY ROAD, THIHARIYA, KALAGEDIHENA</p>
+                <p class="text-center"><strong>TEL :</strong> +94 77 936 7674</p>
                 <p class="text-center mt-2" style="font-size: 9px;"><strong></strong></p>
             </div>
         </div>

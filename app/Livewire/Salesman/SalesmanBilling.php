@@ -883,6 +883,21 @@ class SalesmanBilling extends Component
 
         // Ensure price is not negative
         $price = max(0, $price);
+        $productId = $this->cart[$index]['product_id'] ?? null;
+        $cost = $productId ? (float)(\App\Models\ProductPrice::where('product_id', $productId)->value('supplier_price') ?? 0) : 0;
+        $currentDiscount = $this->cart[$index]['discount'] ?? 0;
+        $effectivePrice = $price - $currentDiscount;
+
+        if ($cost > 0) {
+            $minProfitPct = (float) \App\Models\Setting::getVal('min_profit_margin_pct', 40);
+            $minPriceFloor = round($cost * (1 + $minProfitPct / 100), 2);
+
+            if ($effectivePrice < $minPriceFloor) {
+                $this->js("Swal.fire('Profit Margin Alert', 'Unit price cannot be reduced below the minimum profit floor (Rs. " . number_format($minPriceFloor, 2) . " / " . $minProfitPct . "% profit margin).', 'error')");
+                return;
+            }
+        }
+
         $this->cart[$index]['price'] = $price;
 
         // Recalculate total with the new price
@@ -905,6 +920,21 @@ class SalesmanBilling extends Component
         }
 
         $discount = max(0, min($discount, $this->cart[$index]['price']));
+        $unitPrice = $this->cart[$index]['price'];
+        $productId = $this->cart[$index]['product_id'] ?? null;
+        $cost = $productId ? (float)(\App\Models\ProductPrice::where('product_id', $productId)->value('supplier_price') ?? 0) : 0;
+        $effectivePrice = $unitPrice - $discount;
+
+        if ($cost > 0) {
+            $minProfitPct = (float) \App\Models\Setting::getVal('min_profit_margin_pct', 40);
+            $minPriceFloor = round($cost * (1 + $minProfitPct / 100), 2);
+
+            if ($effectivePrice < $minPriceFloor) {
+                $this->js("Swal.fire('Profit Margin Alert', 'Discount cannot reduce price below the minimum profit floor (Rs. " . number_format($minPriceFloor, 2) . " / " . $minProfitPct . "% profit margin).', 'error')");
+                return;
+            }
+        }
+
         $this->cart[$index]['discount'] = $discount;
         $this->cart[$index]['total'] = ($this->cart[$index]['price'] - $discount) * $this->cart[$index]['quantity'];
     }
