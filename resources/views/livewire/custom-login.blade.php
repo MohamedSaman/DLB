@@ -1,6 +1,8 @@
     <div class="login-container">
         <style>
-            .login-form-overlay { background: rgba(0,0,0,0.45); padding:28px; border-radius:14px; backdrop-filter: blur(5px); }
+            .login-form-overlay { background: rgba(0,0,0,0.65); padding:28px; border-radius:14px; backdrop-filter: blur(8px); border: 1px solid rgba(255,255,255,0.1); }
+            .login-btn { background-color: #000000 !important; border-color: #000000 !important; color: #ffffff !important; font-weight: 700; width: 100%; padding: 12px; border-radius: 8px; text-transform: uppercase; letter-spacing: 1px; }
+            .login-btn:hover { background-color: #1f2937 !important; border-color: #1f2937 !important; }
             .separator-line { height:1px; background:rgba(255,255,255,0.08); margin:10px 0; border-radius:2px; }
             .connect-section { text-align:center; padding:15px 0 6px; }
             .connect-title { color:#fff; font-weight:600; margin-bottom:12px; }
@@ -20,9 +22,13 @@
 
         <!-- Centered login form overlay -->
         <div class="login-form-overlay">
+            <!-- DLB Logo -->
+            <div class="text-center mb-3">
+                <img src="{{ asset('images/dlb-logo.png') }}" alt="DLB ENTERPRISES Logo" style="max-width: 160px; height: auto; background: #ffffff; padding: 8px 16px; border-radius: 10px; border: 1px solid #000000; box-shadow: 0 4px 12px rgba(0,0,0,0.3);">
+            </div>
             <!-- User icon -->
             <div class="user-icon-container">
-                <i class="bi bi-person-circle"></i>
+                <i class="bi bi-shield-lock-fill" style="color: #ffffff;"></i>
             </div>
 
             <form wire:submit.prevent="login">
