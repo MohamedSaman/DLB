@@ -26,7 +26,7 @@
         $representative = $returns->first();
     @endphp
     <div class="header">
-        <div class="company-name">HARDMEN (PVT) LTD</div>
+        <div class="company-name">DLB ENTERPRISES</div>
         <div class="receipt-title">PRODUCT RETURN RECEIPT</div>
     </div>
 
@@ -118,8 +118,8 @@
     </div>
 
     <div class="footer">
-        <p>ADDRESS: 421/2, Doolmala, thihariya, Kalagedihena.</p>
-        <p>TEL: (077) 9752950 | EMAIL: Hardmenlanka@gmail.com</p>
+        <p>ADDRESS: Sample address</p>
+        <p>TEL: (077) 1234567 | EMAIL: Sample email</p>
         <p>Generated on: {{ now()->format('M d, Y h:i A') }}</p>
     </div>
 </body>

@@ -245,7 +245,7 @@
             @if(file_exists(public_path('images/HARDMEN.png')))
             <img src="{{ public_path('images/HARDMEN.png') }}" alt="Company Logo" class="logo">
             @endif
-            <div class="company-name">HARDMEN (PVT) LTD</div>
+            <div class="company-name">DLB ENTERPRISES</div>
             <div class="company-tagline">TOOLS WITH POWER</div>
             <div class="quotation-title">QUOTATION</div>
         </div>
@@ -352,8 +352,8 @@
 
         {{-- Company Footer --}}
         <div class="company-footer">
-            <p><strong>ADDRESS :</strong> 421/2, Doolmala, thihariya, Kalagedihena.</p>
-            <p><strong>TEL :</strong> (077) 9752950, <strong>EMAIL :</strong> Hardmenlanka@gmail.com</p>
+            <p><strong>ADDRESS :</strong> Sample address</p>
+            <p><strong>TEL :</strong> (077) 1234567, <strong>EMAIL :</strong> Sample email</p>
             <p class="small-text">This quotation is valid until {{ \Carbon\Carbon::parse($quotation->valid_until)->format('d/m/Y') }}.</p>
         </div>
     </div>

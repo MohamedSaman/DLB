@@ -395,7 +395,7 @@ class SalesSystem extends Component
             $discount = $this->cart[$index]['price'];
         }
 
-        $unitPrice = $this->cart[$index]['price'];
+        $unitPrice = (float) $this->cart[$index]['price'];
         $productId = $this->cart[$index]['product_id'] ?? null;
         $cost = $productId ? (float)(\App\Models\ProductPrice::where('product_id', $productId)->value('supplier_price') ?? 0) : 0;
         $effectivePrice = $unitPrice - $discount;
@@ -403,15 +403,24 @@ class SalesSystem extends Component
         if ($cost > 0) {
             $minProfitPct = (float) \App\Models\Setting::getVal('min_profit_margin_pct', 40);
             $minPriceFloor = round($cost * (1 + $minProfitPct / 100), 2);
+            $maxAllowedDiscount = max(0, round($unitPrice - $minPriceFloor, 2));
 
             if ($effectivePrice < $minPriceFloor) {
-                $this->js("Swal.fire('Profit Margin Alert', 'Discount cannot reduce price below the minimum profit floor (Rs. " . number_format($minPriceFloor, 2) . " / " . $minProfitPct . "% profit margin).', 'error')");
-                return;
+                $discount = $maxAllowedDiscount;
+                $this->js("Swal.fire({
+                    icon: 'warning',
+                    title: 'Maximum Discount Applied',
+                    text: 'Discount adjusted to maximum allowable discount of Rs. " . number_format($maxAllowedDiscount, 2) . " (Min floor price Rs. " . number_format($minPriceFloor, 2) . " / " . $minProfitPct . "% profit margin).',
+                    timer: 3000,
+                    showConfirmButton: false,
+                    toast: true,
+                    position: 'top-end'
+                })");
             }
         }
 
-        $this->cart[$index]['discount'] = $discount;
-        $this->cart[$index]['total'] = ($this->cart[$index]['price'] - $discount) * $this->cart[$index]['quantity'];
+        $this->cart[$index]['discount'] = round($discount, 2);
+        $this->cart[$index]['total'] = ($this->cart[$index]['price'] - $this->cart[$index]['discount']) * $this->cart[$index]['quantity'];
     }
 
     // Remove from Cart

@@ -152,8 +152,8 @@
     {{-- Header --}}
     <div class="header">
         <img src="{{ public_path('images/HARDMEN') }}" alt="HARDMEN Logo">
-        <p>421/2, Doolmala, thihariya, Kalagedihena.</p>
-        <p><strong>TEL:</strong> (077) 9752950 | <strong>EMAIL:</strong> Hardmenlanka@gmail.com</p>
+        <p>Sample address</p>
+        <p><strong>TEL:</strong> (077) 1234567 | <strong>EMAIL:</strong> Sample email</p>
         <h1>CLOSE REGISTER SUMMARY</h1>
     </div>
 
@@ -262,7 +262,7 @@
     {{-- Footer --}}
     <div class="footer">
         <p>Date: {{ now()->format('d/m/Y H:i:s') }}</p>
-        <p><strong>HARDMEN (PVT) LTD (PVT) LTD</strong> - Point of Sale System</p>
+        <p><strong>DLB ENTERPRISES</strong> - Point of Sale System</p>
     </div>
 </body>
 

@@ -68,7 +68,7 @@
             <div style="page-break-before: always; margin-top: 10px;"></div>
             <div class="global-header" style="border-bottom: 2px solid #000; padding-bottom: 4px; margin-bottom: 8px;">
                 <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <span style="font-weight: bold; font-size: 13px;">HARDMEN (PVT) LTD — INVOICE</span>
+                    <span style="font-weight: bold; font-size: 13px;">DLB ENTERPRISES — INVOICE</span>
                     <span style="font-size: 11px; color: #555;">Invoice #: {{ $sale->invoice_number }} | Page {{ $pageIndex + 1 }} of {{ $totalPages }}</span>
                 </div>
             </div>

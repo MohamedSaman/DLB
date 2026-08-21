@@ -1185,7 +1185,10 @@
                                     <div class="col-md-4">
                                         <div class="mb-1">
                                             <label for="code" class="form-label fw-semibold">Code:</label>
-                                            <input type="text" class="form-control" id="code" wire:model="code">
+                                            <input type="text" class="form-control bg-light" id="code" wire:model="code" readonly style="cursor: not-allowed;">
+                                            <small class="text-muted d-block mt-1">
+                                                <i class="bi bi-magic me-1"></i> Auto-generated product code
+                                            </small>
                                             @error('code')
                                             <span class="text-danger small">* {{ $message }}</span>
                                             @enderror
@@ -1357,7 +1360,7 @@
                                             <div class="input-group">
                                                 <span class="input-group-text">Rs.</span>
                                                 <input type="number" step="0.01" class="form-control"
-                                                    id="supplier_price" wire:model="supplier_price">
+                                                    id="supplier_price" wire:model.live.debounce.300ms="supplier_price">
                                             </div>
                                             @error('supplier_price')
                                             <span class="text-danger small">* {{ $message }}</span>
@@ -1410,7 +1413,23 @@
                                         </div>
                                     </div>
                                 </div>
-                                <div class="row">
+                                <div class="row mt-2">
+                                    <div class="col-md-4">
+                                        <div class="mb-1">
+                                            <label for="discount_price" class="form-label fw-semibold">
+                                                <i class="bi bi-tag-fill text-primary"></i> Discount Amount:
+                                            </label>
+                                            <div class="input-group">
+                                                <span class="input-group-text">Rs.</span>
+                                                <input type="number" step="0.01" class="form-control" id="discount_price"
+                                                    wire:model="discount_price">
+                                            </div>
+                                            <small class="text-muted">Auto-filled discount amount for billing (e.g. Rs. 30)</small>
+                                            @error('discount_price')
+                                            <span class="text-danger small">* {{ $message }}</span>
+                                            @enderror
+                                        </div>
+                                    </div>
                                     <div class="col-md-4">
                                         <div class="mb-1">
                                             <label for="available_stock" class="form-label fw-semibold">Available
@@ -1434,6 +1453,34 @@
                                         </div>
                                     </div>
                                 </div>
+
+                                @if(is_numeric($supplier_price) && $supplier_price > 0)
+                                @php
+                                    $createMarkup = (float) \App\Models\Setting::getVal('default_selling_markup_pct', 80);
+                                    $createDiscountMargin = (float) \App\Models\Setting::getVal('default_discount_pct', 50);
+                                    $createFloorMargin = (float) \App\Models\Setting::getVal('min_profit_margin_pct', 40);
+                                    $createSellingPrice = round($supplier_price * (1 + $createMarkup / 100), 2);
+                                    $createTargetPrice = round($supplier_price * (1 + $createDiscountMargin / 100), 2);
+                                    $createDiscountAmt = max(0, round($createSellingPrice - $createTargetPrice, 2));
+                                    $createFloorPrice = round($supplier_price * (1 + $createFloorMargin / 100), 2);
+                                @endphp
+                                <div class="alert alert-light border shadow-sm mt-3 mb-0 p-3 rounded-3">
+                                    <div class="d-flex flex-wrap gap-4 align-items-center small">
+                                        <div>
+                                            <span class="badge bg-success me-1"><i class="bi bi-graph-up-arrow"></i> {{ $createMarkup }}% Markup</span>
+                                            <span class="text-muted">Selling Price = Rs. {{ number_format($createSellingPrice, 2) }}</span>
+                                        </div>
+                                        <div>
+                                            <span class="badge bg-primary me-1"><i class="bi bi-tag"></i> {{ $createDiscountMargin }}% Target Margin</span>
+                                            <span class="text-muted">Discount Saved = <strong>Rs. {{ number_format($createDiscountAmt, 2) }}</strong> (Net Rs. {{ number_format($createTargetPrice, 2) }})</span>
+                                        </div>
+                                        <div>
+                                            <span class="badge bg-dark me-1"><i class="bi bi-shield-lock"></i> Min Floor Price: Rs. {{ number_format($createFloorPrice, 2) }}</span>
+                                            <span class="text-danger fw-semibold">({{ $createFloorMargin }}% Min Profit Floor limit)</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                @endif
                                 @else
                                 <!-- Variant-Based Pricing Mode -->
                                 <div class="alert alert-info border-info">
@@ -1502,7 +1549,7 @@
                                                             <div class="input-group input-group-sm">
                                                                 <span class="input-group-text">Rs.</span>
                                                                 <input type="number" step="0.01" class="form-control" 
-                                                                    wire:model.defer="variant_prices.{{ $value }}.supplier_price"
+                                                                    wire:model.live.debounce.300ms="variant_prices.{{ $value }}.supplier_price"
                                                                     placeholder="0.00" id="supplier_{{ $value }}">
                                                             </div>
                                                             @error("variant_prices.{$value}.supplier_price")
@@ -1908,24 +1955,26 @@
 
                                 @if($pricing_mode === 'single')
                                 <div class="row">
-                                    <div class="col-md-4">
+                                    <div class="col-md-3">
                                         <div class="mb-1">
-                                            <label for="editSupplierPrice" class="form-label fw-semibold">Supplier
-                                                Price:</label>
+                                            <label for="editSupplierPrice" class="form-label fw-semibold">
+                                                <i class="bi bi-cash-stack text-secondary"></i> Cost Price:
+                                            </label>
                                             <div class="input-group">
                                                 <span class="input-group-text">Rs.</span>
                                                 <input type="number" step="0.01" class="form-control"
-                                                    id="editSupplierPrice" wire:model="editSupplierPrice">
+                                                    id="editSupplierPrice" wire:model.live.debounce.300ms="editSupplierPrice">
                                             </div>
                                             @error('editSupplierPrice')
                                             <span class="text-danger small">* {{ $message }}</span>
                                             @enderror
                                         </div>
                                     </div>
-                                    <div class="col-md-4">
+                                    <div class="col-md-3">
                                         <div class="mb-1">
-                                            <label for="editRetailPrice" class="form-label fw-semibold">Retail
-                                                Price:</label>
+                                            <label for="editRetailPrice" class="form-label fw-semibold">
+                                                <i class="bi bi-shop text-success"></i> Retail Price:
+                                            </label>
                                             <div class="input-group">
                                                 <span class="input-group-text">Rs.</span>
                                                 <input type="number" step="0.01" class="form-control"
@@ -1936,10 +1985,11 @@
                                             @enderror
                                         </div>
                                     </div>
-                                    <div class="col-md-4">
+                                    <div class="col-md-3">
                                         <div class="mb-1">
-                                            <label for="editWholesalePrice" class="form-label fw-semibold">Wholesale
-                                                Price:</label>
+                                            <label for="editWholesalePrice" class="form-label fw-semibold">
+                                                <i class="bi bi-boxes text-info"></i> Wholesale Price:
+                                            </label>
                                             <div class="input-group">
                                                 <span class="input-group-text">Rs.</span>
                                                 <input type="number" step="0.01" class="form-control"
@@ -1950,22 +2000,39 @@
                                             @enderror
                                         </div>
                                     </div>
-                                    <div class="col-md-4">
+                                    <div class="col-md-3">
                                         <div class="mb-1">
-                                            <label for="editDiscountPrice" class="form-label fw-semibold">Discount
-                                                Price:</label>
+                                            <label for="editDistributorPrice" class="form-label fw-semibold">
+                                                <i class="bi bi-truck text-warning"></i> Distributor Price:
+                                            </label>
                                             <div class="input-group">
                                                 <span class="input-group-text">Rs.</span>
                                                 <input type="number" step="0.01" class="form-control"
-                                                    id="editDiscountPrice" wire:model="editDiscountPrice">
+                                                    id="editDistributorPrice" wire:model="editDistributorPrice">
                                             </div>
-                                            @error('editDiscountPrice')
+                                            @error('editDistributorPrice')
                                             <span class="text-danger small">* {{ $message }}</span>
                                             @enderror
                                         </div>
                                     </div>
                                 </div>
-                                <div class="row">
+                                <div class="row mt-2">
+                                    <div class="col-md-4">
+                                        <div class="mb-1">
+                                            <label for="editDiscountPrice" class="form-label fw-semibold">
+                                                <i class="bi bi-tag-fill text-primary"></i> Discount Amount:
+                                            </label>
+                                            <div class="input-group">
+                                                <span class="input-group-text">Rs.</span>
+                                                <input type="number" step="0.01" class="form-control"
+                                                    id="editDiscountPrice" wire:model="editDiscountPrice">
+                                            </div>
+                                            <small class="text-muted">Auto-filled discount amount for billing (e.g. Rs. 30)</small>
+                                            @error('editDiscountPrice')
+                                            <span class="text-danger small">* {{ $message }}</span>
+                                            @enderror
+                                        </div>
+                                    </div>
                                     <div class="col-md-4">
                                         <div class="mb-1">
                                             <label for="editAvailableStock" class="form-label fw-semibold">Available Stock:</label>
@@ -1989,6 +2056,34 @@
                                         </div>
                                     </div>
                                 </div>
+
+                                @if(is_numeric($editSupplierPrice) && $editSupplierPrice > 0)
+                                @php
+                                    $editMarkup = (float) \App\Models\Setting::getVal('default_selling_markup_pct', 80);
+                                    $editDiscountMargin = (float) \App\Models\Setting::getVal('default_discount_pct', 50);
+                                    $editFloorMargin = (float) \App\Models\Setting::getVal('min_profit_margin_pct', 40);
+                                    $editSellingPrice = round($editSupplierPrice * (1 + $editMarkup / 100), 2);
+                                    $editTargetPrice = round($editSupplierPrice * (1 + $editDiscountMargin / 100), 2);
+                                    $editDiscountAmt = max(0, round($editSellingPrice - $editTargetPrice, 2));
+                                    $editFloorPrice = round($editSupplierPrice * (1 + $editFloorMargin / 100), 2);
+                                @endphp
+                                <div class="alert alert-light border shadow-sm mt-3 mb-0 p-3 rounded-3">
+                                    <div class="d-flex flex-wrap gap-4 align-items-center small">
+                                        <div>
+                                            <span class="badge bg-success me-1"><i class="bi bi-graph-up-arrow"></i> {{ $editMarkup }}% Markup</span>
+                                            <span class="text-muted">Selling Price = Rs. {{ number_format($editSellingPrice, 2) }}</span>
+                                        </div>
+                                        <div>
+                                            <span class="badge bg-primary me-1"><i class="bi bi-tag"></i> {{ $editDiscountMargin }}% Target Margin</span>
+                                            <span class="text-muted">Discount Saved = <strong>Rs. {{ number_format($editDiscountAmt, 2) }}</strong> (Net Rs. {{ number_format($editTargetPrice, 2) }})</span>
+                                        </div>
+                                        <div>
+                                            <span class="badge bg-dark me-1"><i class="bi bi-shield-lock"></i> Min Floor Price: Rs. {{ number_format($editFloorPrice, 2) }}</span>
+                                            <span class="text-danger fw-semibold">({{ $editFloorMargin }}% Min Profit Floor limit)</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                @endif
                                 @else
 
                                 <div class="alert alert-info border-info">
@@ -2147,7 +2242,7 @@
                                                             <div class="input-group input-group-sm">
                                                                 <span class="input-group-text">Rs.</span>
                                                                 <input type="number" step="0.01" class="form-control" 
-                                                                    wire:model="variant_prices.{{ $value }}.supplier_price"
+                                                                    wire:model.live.debounce.300ms="variant_prices.{{ $value }}.supplier_price"
                                                                     placeholder="0.00" id="edit_supplier_{{ $value }}">
                                                             </div>
                                                             @error("variant_prices.{$value}.supplier_price")

@@ -219,8 +219,9 @@
 
                                         <input type="number" min="1" step="1" max="{{ $item['stock'] ?? 0 }}" value="{{ $item['quantity'] }}" 
                                             id="cart-qty-{{ $index }}"
+                                            wire:input.debounce.300ms="updateQuantity({{ $index }}, $event.target.value)"
                                             wire:change="updateQuantity({{ $index }}, $event.target.value)" 
-                                            wire:key="qty-{{ $cartKey }}" 
+                                            wire:key="qty-{{ $cartKey }}-{{ $item['quantity'] }}" 
                                             @keydown.enter.prevent="
                                                 $wire.updateQuantity({{ $index }}, $event.target.value);
                                                 $nextTick(() => {
@@ -248,8 +249,9 @@
                                         <span class="text-[11px] font-bold text-slate-500">Rs.</span>
                                         <input type="number" step="0.01" min="0" value="{{ $item['price'] }}" 
                                             id="cart-price-{{ $index }}"
+                                            wire:input.debounce.300ms="updatePrice({{ $index }}, $event.target.value)"
                                             wire:change="updatePrice({{ $index }}, $event.target.value)" 
-                                            wire:key="price-{{ $cartKey }}"
+                                            wire:key="price-{{ $cartKey }}-{{ $item['price'] }}"
                                             x-on:keydown.enter.prevent="$wire.updatePrice({{ $index }}, $event.target.value)"
                                             class="w-28 text-right text-[11px] font-bold bg-slate-50 border border-slate-200 rounded px-2 py-1" />
                                     </div>
@@ -269,8 +271,9 @@
                                     <input type="text" 
                                         placeholder="0 or 0%" 
                                         value="{{ $displayDiscount }}"
+                                        wire:input.debounce.300ms="updateDiscount({{ $index }}, $event.target.value)"
                                         wire:change="updateDiscount({{ $index }}, $event.target.value)" 
-                                        wire:key="disc-{{ $cartKey }}"
+                                        wire:key="disc-{{ $cartKey }}-{{ $displayDiscount }}"
                                         class="w-full px-2 py-1 text-[10px] font-bold text-center bg-slate-50 border border-slate-200 rounded hover:border-[#000000]/30 focus:border-[#000000] focus:outline-none transition-all {{ $discountPerUnit > 0 ? 'text-green-600 bg-green-50/50' : 'text-slate-400' }}" />
                                     @if($discountPerUnit > 0)
                                         <div class="text-[9px] text-green-600 mt-0.5 font-mono">
@@ -957,10 +960,10 @@
                         <div class="receipt-row">
                             
                             <div class="receipt-center">
-                                <h2 class="mb-0">HARDMEN (PVT) LTD</h2>
+                                <h2 class="mb-0">DLB ENTERPRISES</h2>
                                 <p class="mb-0 text-muted" style="color:#666; font-size:12px;">TOOLS WITH POWER</p>
-                                <p style="margin:0; text-align:center;"><strong> 421/2, Doolmala, thihariya, Kalagedihena.</strong></p>
-                                <p style="margin:0; text-align:center;"><strong>TEL :</strong> (077) 9752950, <strong>EMAIL :</strong> Hardmenlanka@gmail.com</p>
+                                <p style="margin:0; text-align:center;"><strong> Sample address</strong></p>
+                                <p style="margin:0; text-align:center;"><strong>TEL :</strong> (077) 1234567, <strong>EMAIL :</strong> Sample email</p>
                                 <p style="margin:0; text-align:center; font-size:11px; margin-top:8px;"><strong></strong></p>
                             </div>
                         </div>
@@ -1315,7 +1318,7 @@
                 } else {
                     pageHeaderHtml = `
                         <div style="border-bottom: 2px solid #000; padding-bottom: 6px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
-                            <strong style="font-size: 14px;">HARDMEN (PVT) LTD — INVOICE</strong>
+                            <strong style="font-size: 14px;">DLB ENTERPRISES — INVOICE</strong>
                             <span style="font-size: 11px; font-weight: bold; color: #555;">Page ${pageIdx + 1} of ${pageChunks.length}</span>
                         </div>
                     `;
@@ -1421,7 +1424,7 @@
                 <html>
                 <head>
                     <meta charset="utf-8">
-                    <title>Invoice - HARDMEN (PVT) LTD</title>
+                    <title>Invoice - DLB ENTERPRISES</title>
                     <style>
                         @page { 
                             size: letter portrait; 

@@ -497,8 +497,8 @@
                 </tr>
             </table>
             <div class="info-section">
-                <p><strong>ADDRESS:</strong> 421/2, Doolmala, thihariya, Kalagedihena.</p>
-                <p><strong>TEL:</strong> (077) 9752950 | <strong>EMAIL:</strong> Hardmenlanka@gmail.com</p>
+                <p><strong>ADDRESS:</strong> Sample address</p>
+                <p><strong>TEL:</strong> (077) 1234567 | <strong>EMAIL:</strong> Sample email</p>
             </div>
         </div>
     </div>

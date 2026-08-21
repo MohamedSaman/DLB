@@ -66,7 +66,7 @@ class Products extends Component
     // Edit form fields
     public $editId, $editCode, $editName, $editModel, $editBrand, $editCategory, $editImage, $existingImage,
         $editDescription, $editBarcode, $editStatus, $editSupplierPrice, $editRetailPrice, $editWholesalePrice,
-        $editDiscountPrice, $editDamageStock, $editAvailableStock;
+        $editDistributorPrice, $editDiscountPrice, $editDamageStock, $editAvailableStock;
 
     // Track original pricing mode when opening edit modal so we don't accidentally delete variant rows
     public $original_pricing_mode = 'single';
@@ -151,7 +151,28 @@ class Products extends Component
 
             $this->retail_price = round($cost * (1 + $markupPct / 100), 2);
             $this->wholesale_price = round($cost * (1 + $markupPct / 100), 2);
-            $this->discount_price = round($cost * (1 + $discountPct / 100), 2);
+            $this->distributor_price = round($cost * (1 + $markupPct / 100), 2);
+
+            // Discount amount = Selling Price - Target Selling Price (e.g. 180 - 150 = 30)
+            $targetPrice = round($cost * (1 + $discountPct / 100), 2);
+            $this->discount_price = max(0, round($this->retail_price - $targetPrice, 2));
+        }
+    }
+
+    public function updatedEditSupplierPrice($value)
+    {
+        if (is_numeric($value) && $value > 0) {
+            $cost = (float) $value;
+            $markupPct = (float) \App\Models\Setting::getVal('default_selling_markup_pct', 80);
+            $discountPct = (float) \App\Models\Setting::getVal('default_discount_pct', 50);
+
+            $this->editRetailPrice = round($cost * (1 + $markupPct / 100), 2);
+            $this->editWholesalePrice = round($cost * (1 + $markupPct / 100), 2);
+            $this->editDistributorPrice = round($cost * (1 + $markupPct / 100), 2);
+
+            // Discount amount = Selling Price - Target Selling Price (e.g. 180 - 150 = 30)
+            $targetPrice = round($cost * (1 + $discountPct / 100), 2);
+            $this->editDiscountPrice = max(0, round($this->editRetailPrice - $targetPrice, 2));
         }
     }
 
@@ -276,6 +297,9 @@ class Products extends Component
         $this->wholesale_price = 0;
         $this->distributor_price = 0;
         $this->discount_price = 0;
+
+        // Auto-generate initial product code
+        $this->generateAutoProductCode();
     }
 
     /**
@@ -873,6 +897,7 @@ class Products extends Component
         $this->editSupplierPrice = $product->price->supplier_price ?? 0;
         $this->editRetailPrice = $product->price->retail_price ?? 0;
         $this->editWholesalePrice = $product->price->wholesale_price ?? 0;
+        $this->editDistributorPrice = $product->price->distributor_price ?? 0;
         $this->editDiscountPrice = $product->price->discount_price ?? 0;
         $this->editDamageStock = $product->stock->damage_stock ?? 0;
         $this->editAvailableStock = $product->stock->available_stock ?? 0;
@@ -949,6 +974,7 @@ class Products extends Component
             'editSupplierPrice' => 'required|numeric|min:0',
             'editRetailPrice' => 'required|numeric|min:0',
             'editWholesalePrice' => 'required|numeric|min:0',
+            'editDistributorPrice' => 'nullable|numeric|min:0',
             'editDiscountPrice' => 'nullable|numeric|min:0|lte:editRetailPrice',
             'editDamageStock' => 'required|integer|min:0',
             'editAvailableStock' => 'nullable|integer|min:0',
@@ -992,6 +1018,7 @@ class Products extends Component
             $rules['editSupplierPrice'] = 'required|numeric|min:0';
             $rules['editRetailPrice'] = 'required|numeric|min:0';
             $rules['editWholesalePrice'] = 'required|numeric|min:0';
+            $rules['editDistributorPrice'] = 'nullable|numeric|min:0';
             $rules['editDiscountPrice'] = 'nullable|numeric|min:0|lte:editRetailPrice';
             $rules['editDamageStock'] = 'nullable|integer|min:0';
             $rules['editAvailableStock'] = 'nullable|integer|min:0';
@@ -1061,7 +1088,7 @@ class Products extends Component
                         'selling_price' => $this->editRetailPrice ?? 0,
                         'retail_price' => $this->editRetailPrice ?? 0,
                         'wholesale_price' => $this->editWholesalePrice ?? 0,
-                        'distributor_price' => 0,
+                        'distributor_price' => $this->editDistributorPrice ?? 0,
                         'discount_price' => $this->editDiscountPrice ?? 0,
                     ]
                 );
@@ -1109,7 +1136,7 @@ class Products extends Component
                             'selling_price' => $this->editRetailPrice ?? 0,
                             'wholesale_price' => $this->editWholesalePrice ?? 0,
                             'retail_price' => $this->editRetailPrice ?? 0,
-                            'distributor_price' => 0,
+                            'distributor_price' => $this->editDistributorPrice ?? 0,
                             'quantity' => $availStock,
                             'remaining_quantity' => $availStock,
                             'received_date' => now(),
@@ -1124,7 +1151,7 @@ class Products extends Component
                                 'supplier_price' => $this->editSupplierPrice ?? 0,
                                 'wholesale_price' => $this->editWholesalePrice ?? 0,
                                 'retail_price' => $this->editRetailPrice ?? 0,
-                                'distributor_price' => 0,
+                                'distributor_price' => $this->editDistributorPrice ?? 0,
                             ]);
 
                         $latestBatch = $activeBatches->last();
@@ -2149,9 +2176,25 @@ class Products extends Component
         }
     }
 
-    // 🔹 Real-time validation for specific fields
-    public function updated($propertyName)
+    // 🔹 Real-time validation and updates for specific fields
+    public function updated($propertyName, $value = null)
     {
+        // Auto-calculate prices for variant rows when cost is updated
+        if (str_starts_with($propertyName, 'variant_prices.') && str_ends_with($propertyName, '.supplier_price')) {
+            $parts = explode('.', $propertyName);
+            if (count($parts) === 3) {
+                $key = $parts[1];
+                $costVal = $value ?? ($this->variant_prices[$key]['supplier_price'] ?? null);
+                if (is_numeric($costVal) && $costVal > 0) {
+                    $cost = (float) $costVal;
+                    $markupPct = (float) \App\Models\Setting::getVal('default_selling_markup_pct', 80);
+                    $this->variant_prices[$key]['retail_price'] = round($cost * (1 + $markupPct / 100), 2);
+                    $this->variant_prices[$key]['wholesale_price'] = round($cost * (1 + $markupPct / 100), 2);
+                    $this->variant_prices[$key]['distributor_price'] = round($cost * (1 + $markupPct / 100), 2);
+                }
+            }
+        }
+
         // Clear view/edit state when page changes to fix modal showing wrong product
         if ($propertyName === 'page' || $propertyName === 'search') {
             $this->viewProduct = null;

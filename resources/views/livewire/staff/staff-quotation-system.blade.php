@@ -301,7 +301,7 @@
 
                                     {{-- Center: Company Name --}}
                                     <div class="text-center" style="flex: 1;">
-                                        <h2 class="mb-0 fw-bold" style="font-size: 2.5rem; letter-spacing: 2px;">HARDMEN (PVT) LTD</h2>
+                                        <h2 class="mb-0 fw-bold" style="font-size: 2.5rem; letter-spacing: 2px;">DLB ENTERPRISES</h2>
                                         <p class="mb-0 text-muted small">TOOLS WITH POWER</p>
                                     </div>
 
@@ -417,8 +417,8 @@
                                     </div>
                                 </div>
                                 <div class="border-top pt-3">
-                                    <p class="text-center"><strong>ADDRESS :</strong> 421/2, Doolmala, thihariya, Kalagedihena.</p>
-                                    <p class="text-center"><strong>TEL :</strong> (077) 9752950, <strong>EMAIL :</strong> Hardmenlanka@gmail.com</p>
+                                    <p class="text-center"><strong>ADDRESS :</strong> Sample address</p>
+                                    <p class="text-center"><strong>TEL :</strong> (077) 1234567, <strong>EMAIL :</strong> Sample email</p>
                                     <p class="text-center mt-2" style="font-size: 11px;"><strong>This quotation is valid until {{ $createdQuotation->valid_until->format('d/m/Y') }}.</strong></p>
                                 </div>
                             </div>

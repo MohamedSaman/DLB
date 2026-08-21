@@ -147,7 +147,7 @@
                     <div class="w-100">
                         <img src="{{ asset('images/HARDMEN.png') }}" alt="Logo"
                              class="img-fluid mb-2" style="max-height:60px;">
-                        <h4 class="mb-0 fw-bold">HARDMEN (PVT) LTD</h4>
+                        <h4 class="mb-0 fw-bold">DLB ENTERPRISES</h4>
                         
                     </div>
                     <button type="button" class="btn-close btn-close-white closebtn"
@@ -247,8 +247,8 @@
                     <div class="mt-4 text-center small">
                         
                         <p class="mb-0">
-                            <strong>ADDRESS :</strong> 421/2, Doolmala, thihariya, Kalagedihena.<br>
-                            <strong>TEL :</strong> (077) 9752950, <strong>EMAIL :</strong> Hardmenlanka@gmail.com
+                            <strong>ADDRESS :</strong> Sample address<br>
+                            <strong>TEL :</strong> (077) 1234567, <strong>EMAIL :</strong> Sample email
                         </p>
                         <p class="mt-1 text-muted">
                             

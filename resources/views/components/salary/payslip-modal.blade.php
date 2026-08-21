@@ -24,9 +24,9 @@
                 @endphp
                 <div class="payslip-container">
                     <div class="text-center mb-4">
-                        <h3 class="mb-0">HARDMEN (PVT) LTD (PVT) LTD</h3>
+                        <h3 class="mb-0">DLB ENTERPRISES (PVT) LTD</h3>
                         <p class="mb-0 text-muted small">103 H,Yatiyanthota Road,Seethawaka,avissawella.</p>
-                        <p class="mb-0 text-muted small">Phone: ( 076) 9085252| Email: Hardmenlanka@gmail.com </p>
+                        <p class="mb-0 text-muted small">Phone: ( 076) 9085252| Email: Sample email </p>
                         <h4 class="mt-3 border-bottom border-2 pb-2">SALARY PAYSLIP</h4>
                     </div>
                     <div class="card border-0 shadow-sm mb-4">

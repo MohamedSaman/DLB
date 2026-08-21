@@ -1904,10 +1904,19 @@ class StoreBilling extends Component
         if ($cost > 0) {
             $minProfitPct = (float) \App\Models\Setting::getVal('min_profit_margin_pct', 40);
             $minPriceFloor = round($cost * (1 + $minProfitPct / 100), 2);
+            $minAllowedPrice = $minPriceFloor + $currentDiscount;
 
             if ($effectivePrice < $minPriceFloor) {
-                $this->js("Swal.fire('Profit Margin Alert', 'Unit price cannot be reduced below the minimum profit floor (Rs. " . number_format($minPriceFloor, 2) . " / " . $minProfitPct . "% profit margin).', 'error')");
-                return;
+                $price = $minAllowedPrice;
+                $this->js("Swal.fire({
+                    icon: 'warning',
+                    title: 'Price Floor Limit',
+                    text: 'Unit price cannot be reduced below the minimum profit floor (Rs. " . number_format($minPriceFloor, 2) . " / " . $minProfitPct . "% profit margin).',
+                    timer: 3000,
+                    showConfirmButton: false,
+                    toast: true,
+                    position: 'top-end'
+                })");
             }
         }
 
@@ -1930,10 +1939,11 @@ class StoreBilling extends Component
     {
         if (!isset($this->cart[$index])) return;
 
-        $discountValue = trim($discount);
+        $discountValue = trim((string)$discount);
+        $isPercentage = str_contains($discountValue, '%');
 
         // Check if percentage (contains %)
-        if (str_contains($discountValue, '%')) {
+        if ($isPercentage) {
             // Percentage discount
             $percentage = (float) str_replace('%', '', $discountValue);
             $percentage = max(0, min(100, $percentage));
@@ -1941,24 +1951,37 @@ class StoreBilling extends Component
         } else {
             // Fixed discount
             $discountAmount = max(0, (float)$discountValue);
-            $discountAmount = min($discountAmount, $this->cart[$index]['price']);
+            $discountAmount = min($discountAmount, (float)$this->cart[$index]['price']);
         }
 
-        $unitPrice = $this->cart[$index]['price'];
+        $unitPrice = (float) $this->cart[$index]['price'];
         $cost = $this->getCartItemCost($this->cart[$index]);
         $effectivePrice = $unitPrice - $discountAmount;
 
         if ($cost > 0) {
             $minProfitPct = (float) \App\Models\Setting::getVal('min_profit_margin_pct', 40);
             $minPriceFloor = round($cost * (1 + $minProfitPct / 100), 2);
+            $maxAllowedDiscount = max(0, round($unitPrice - $minPriceFloor, 2));
 
             if ($effectivePrice < $minPriceFloor) {
-                $this->js("Swal.fire('Profit Margin Alert', 'Discount cannot reduce price below the minimum profit floor (Rs. " . number_format($minPriceFloor, 2) . " / " . $minProfitPct . "% profit margin).', 'error')");
-                return;
+                // Auto-cap to maximum allowed discount
+                $discountAmount = $maxAllowedDiscount;
+                $isPercentage = false;
+                $percentage = 0;
+
+                $this->js("Swal.fire({
+                    icon: 'warning',
+                    title: 'Maximum Discount Applied',
+                    text: 'Discount adjusted to maximum allowable discount of Rs. " . number_format($maxAllowedDiscount, 2) . " (Min floor price Rs. " . number_format($minPriceFloor, 2) . " / " . $minProfitPct . "% profit margin).',
+                    timer: 3000,
+                    showConfirmButton: false,
+                    toast: true,
+                    position: 'top-end'
+                })");
             }
         }
 
-        if (str_contains($discountValue, '%')) {
+        if ($isPercentage) {
             $this->cart[$index]['discount_type'] = 'percentage';
             $this->cart[$index]['discount_percentage'] = $percentage;
         } else {

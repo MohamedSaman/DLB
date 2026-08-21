@@ -258,10 +258,10 @@
                             <div class="receipt-header">
                                 <div class="receipt-row">
                                     <div class="receipt-center">
-                                        <h2 class="mb-0">HARDMEN (PVT) LTD</h2>
+                                        <h2 class="mb-0">DLB ENTERPRISES</h2>
                                         <p class="mb-0 text-muted" style="color:#666; font-size:12px;">TOOLS WITH POWER</p>
-                                        <p style="margin:0; text-align:center;"><strong>421/2, Doolmala, thihariya, Kalagedihena.</strong></p>
-                                        <p style="margin:0; text-align:center;"><strong>TEL :</strong> (077) 9752950, <strong>EMAIL :</strong> Hardmenlanka@gmail.com</p>
+                                        <p style="margin:0; text-align:center;"><strong>Sample address</strong></p>
+                                        <p style="margin:0; text-align:center;"><strong>TEL :</strong> (077) 1234567, <strong>EMAIL :</strong> Sample email</p>
                                     </div>
                                 </div>
                             </div>
@@ -492,7 +492,7 @@
                                 <div>
                                     <p style="margin:0; font-size:12px;">Returns accepted within 30 days of purchase with the original invoice. Terms and conditions apply.</p>
                                     <p style="margin:0; font-size:12px;">Thank you for your business!</p>
-                                    <p style="margin:0; font-size:12px;">www.hardmen.lk | info@hardmen.lk</p>
+                                    <p style="margin:0; font-size:12px;"></p>
                                 </div>
                             </div>
                         </div>
@@ -940,7 +940,7 @@
             } else {
                 pageHeaderHtml = `
                     <div style="border-bottom: 2px solid #000; padding-bottom: 6px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
-                        <strong style="font-size: 14px;">HARDMEN (PVT) LTD — INVOICE</strong>
+                        <strong style="font-size: 14px;">DLB ENTERPRISES — INVOICE</strong>
                         <span style="font-size: 11px; font-weight: bold; color: #555;">Page ${pageIdx + 1} of ${pageChunks.length}</span>
                     </div>
                 `;
@@ -1045,7 +1045,7 @@
             <html>
             <head>
                 <meta charset="utf-8">
-                <title>Invoice - HARDMEN (PVT) LTD</title>
+                <title>Invoice - DLB ENTERPRISES</title>
                 <style>
                     @page { 
                         size: letter portrait; 

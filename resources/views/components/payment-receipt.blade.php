@@ -101,7 +101,7 @@
         {{-- Header --}}
         <div class="header">
             <div class="company-info">
-                <h2> HARDMEN (PVT) LTD</h2>
+                <h2> DLB ENTERPRISES</h2>
             </div>
             <div class="receipt-title">PAYMENT RECEIPT</div>
         </div>
